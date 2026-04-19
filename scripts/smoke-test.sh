@@ -53,7 +53,7 @@ fi
 
 # ─── Test 3: agent_exists не крашится ───
 set +e
-agent_exists "nonexistent-agent-xyz" 2>&1 >/dev/null
+agent_exists "nonexistent-agent-xyz" >/dev/null 2>&1
 rc=$?
 set -e
 # rc может быть 0 (если grep нашёл совпадение в debug output) или 1 (не нашёл) — оба валидны

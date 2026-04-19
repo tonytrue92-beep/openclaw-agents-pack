@@ -168,7 +168,10 @@ if [[ "$COLLECT_DEBUG_ONLY" == true ]]; then
 fi
 
 # ─── Баннер ──────────────────────────────────────────────────────
-clear
+# `clear` падает с «TERM environment variable not set» в headless-окружении
+# (CI Docker, некоторые SSH-шеллы). Игнорируем, баннер напечатается поверх
+# предыдущего вывода — не критично.
+clear 2>/dev/null || true
 echo ""
 echo -e "${BOLD}${MAGENTA}"
 cat << 'LOGO'
