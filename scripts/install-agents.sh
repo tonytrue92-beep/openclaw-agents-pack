@@ -2,6 +2,55 @@
 set -euo pipefail
 
 # ═══════════════════════════════════════════════════════════════════════
+#  Bash 4+ required — но сами по себе современные фичи (indirect expansion,
+#  printf -v) работают в 3.2. А вот `set -euo pipefail` работает везде.
+#
+#  НО: macOS по умолчанию даёт /bin/bash 3.2 (GPLv3 lock). Если shebang
+#  `#!/usr/bin/env bash` резолвится в старый — перезапускаемся через более
+#  новый bash из Homebrew, иначе даём понятное сообщение.
+#
+#  Причина: bug-репорт 2026-04-19, клиент упал на строке с `declare -A` —
+#  ассоциативных массивов нет в bash 3.2. Мы уже переписали без них, но
+#  профилактически проверяем версию — мало ли какую bash-фичу понадобится
+#  добавить в будущем.
+if (( BASH_VERSINFO[0] < 4 )); then
+  # Шаг 1: может уже лежит новый bash в brew-путях — переиспользуем.
+  for _newer_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    if [[ -x "$_newer_bash" && "$_newer_bash" != "$BASH" ]]; then
+      exec "$_newer_bash" "$0" "$@"
+    fi
+  done
+  # Шаг 2: если есть Homebrew — ставим bash автоматически.
+  # Клиент уже согласился на `bash <(curl ...)` — доверие есть, не спрашиваем.
+  if command -v brew &>/dev/null; then
+    echo "⚙ Текущий bash устарел ($BASH_VERSION); ставлю свежий через Homebrew..." >&2
+    if brew install bash >&2; then
+      for _newer_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+        if [[ -x "$_newer_bash" && "$_newer_bash" != "$BASH" ]]; then
+          echo "✓ Готово. Перезапускаю установщик через $_newer_bash..." >&2
+          exec "$_newer_bash" "$0" "$@"
+        fi
+      done
+    fi
+  fi
+  # Шаг 3: ни brew-bash, ни brew — даём инструкцию.
+  cat >&2 <<BASHERR
+✗ Этому установщику нужен bash 4+ (у вас $BASH_VERSION).
+
+macOS по умолчанию поставляется с bash 3.2, Apple не обновляет его
+из-за GPLv3. Поставьте свежий bash:
+
+  1. Убедитесь, что Homebrew установлен (если нет — https://brew.sh)
+  2. brew install bash
+  3. Запустите установщик снова
+
+Или поставьте OpenClaw через первый установщик — он сам ставит Homebrew:
+  bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)
+BASHERR
+  exit 1
+fi
+
+# ═══════════════════════════════════════════════════════════════════════
 #  OpenClaw Agents Pack — установщик трёх предустановленных агентов
 #
 #  Ставится поверх уже работающего OpenClaw (который поставлен первым
@@ -325,8 +374,16 @@ explain "Нужны три разных бота — по одному на ка
   "" \
   "Подробный гайд: ${CYAN}https://github.com/tonytrue92-beep/openclaw-agents-pack/blob/main/docs/telegram-setup.md${NC}"
 
-declare -A BOT_TOKENS=()
-declare -A BOT_USERNAMES=()
+# NB: не используем `declare -A` (ассоциативные массивы) — они появились
+# в bash 4.0, а macOS поставляет с /bin/bash 3.2 (Apple не обновляет
+# из-за GPLv3). Клиент мог запустить через старый системный bash →
+# установщик упадёт с "declare: -A: invalid option" (bug-репорт 2026-04-19).
+#
+# Вместо ассоциативных массивов используем динамически-именованные
+# переменные: BOT_TOKEN_tech / BOT_TOKEN_marketer / BOT_TOKEN_producer.
+# Запись: printf -v "BOT_TOKEN_$agent" '%s' "$token"
+# Чтение: var="BOT_TOKEN_$agent"; value="${!var}"
+# Работает в bash 3.2+.
 
 for agent in "${AGENTS_TO_INSTALL[@]}"; do
   emoji=""; label=""
@@ -372,8 +429,9 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     exit 1
   fi
 
-  BOT_TOKENS["$agent"]="$token"
-  BOT_USERNAMES["$agent"]="$username"
+  # Динамическое имя переменной (см. комментарий выше про bash 3.2 + declare -A)
+  printf -v "BOT_TOKEN_$agent" '%s' "$token"
+  printf -v "BOT_USERNAME_$agent" '%s' "$username"
   echo -e "   ${GREEN}✓${NC} ${label}: @${username}"
 done
 
@@ -443,7 +501,9 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
   prepare_workspace_from_templates "$agent" "$workspace_dir"
 
   # 4.2 Добавляем Telegram-канал с правильным accountId
-  add_telegram_channel "$target_id" "${BOT_TOKENS[$agent]}"
+  # indirect expansion чтения токена (см. bash 3.2 комментарий выше)
+  _tok_var="BOT_TOKEN_$agent"
+  add_telegram_channel "$target_id" "${!_tok_var}"
 
   # 4.3 Настраиваем DM allowlist если есть OWNER_TG_ID
   if [[ -n "$OWNER_TG_ID" ]]; then
@@ -457,7 +517,7 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
   copy_auth_profile_from_main "$target_id"
 
   # 4.6 Забываем токен
-  unset "BOT_TOKENS[$agent]"
+  unset "BOT_TOKEN_$agent" _tok_var
 
   record_telemetry "R4_installed" "${target_id}"
 done
@@ -505,7 +565,8 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     marketer) emoji="📈"; label="Маркетолог" ;;
     producer) emoji="🎬"; label="Продюсер" ;;
   esac
-  username="${BOT_USERNAMES[$agent]:-неизвестно}"
+  _usr_var="BOT_USERNAME_$agent"
+  username="${!_usr_var:-неизвестно}"
   echo -e "   ${emoji} ${label}: ${GREEN}@${username}${NC} ${DIM}(agent id: ${target_id})${NC}"
 done
 echo ""

@@ -42,13 +42,15 @@ else
 fi
 echo ""
 
-# ─── Check 3: BOT_TOKENS cleared after channel setup ───
-echo "─── Check 3: BOT_TOKENS array is unset / cleared ───"
-# Мы используем `unset "BOT_TOKENS[$agent]"` в цикле R4.
-if grep -qE 'unset\s+"?BOT_TOKENS\[' "$INSTALLER"; then
-  pass "BOT_TOKENS array element unset after use"
+# ─── Check 3: токен бота очищается после использования ───
+echo "─── Check 3: BOT_TOKEN_* unset после add_telegram_channel ───"
+# Мы используем динамически-именованные переменные BOT_TOKEN_<agent>
+# (не ассоциативный массив — bash 3.2 на macOS не умеет), и делаем
+# `unset "BOT_TOKEN_$agent"` сразу после add_telegram_channel.
+if grep -qE 'unset\s+"?BOT_TOKEN_\$agent"?' "$INSTALLER"; then
+  pass "BOT_TOKEN_<agent> unset after use"
 else
-  fail "BOT_TOKENS array is not unset — memory leak risk"
+  fail "BOT_TOKEN_<agent> is not unset — memory leak risk"
 fi
 echo ""
 
