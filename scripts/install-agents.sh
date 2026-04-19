@@ -494,36 +494,91 @@ fi
 record_telemetry "R2_tokens_collected" "ok"
 
 # ═══════════════════════════════════════════════════════════════
-#  R3. Проверка коллизий
+#  R3. Проверка существующих агентов (повторный запуск установщика)
 # ═══════════════════════════════════════════════════════════════
+#
+# Если клиент запускает установщик повторно (после частичной установки,
+# после кривых токенов, после переустановки первого установщика) — не
+# просим его удалять руками через `openclaw agents delete` и `rm -rf`.
+# Это слишком техсложно для нашей ЦА. Вместо этого: находим что уже
+# установлено, ОДИН РАЗ спрашиваем «перезаписать или пропустить», и
+# дальше чистим и ставим заново без возни.
 step_header "R3" "ПРОВЕРКА СУЩЕСТВУЮЩИХ АГЕНТОВ"
 
+# Собираем список уже существующих
+EXISTING_AGENTS=()
 for agent in "${AGENTS_TO_INSTALL[@]}"; do
   target_id="${agent}${SUFFIX:+-$SUFFIX}"
   if agent_exists "$target_id"; then
-    warn "Агент '${target_id}' уже существует."
-    if [[ -n "$CONFIG_FILE" ]]; then
-      echo -e "   ${DIM}--config режим: пропускаю (используйте --suffix для пересоздания).${NC}"
-      record_telemetry "R3_collision" "skip_${agent}"
-      continue
-    fi
-    echo -e "   ${BOLD}${WHITE}Что делать?${NC}"
-    echo -e "   ${CYAN}1)${NC} Пропустить (оставить как есть)"
-    echo -e "   ${CYAN}2)${NC} Пересоздать (удалить старого и поставить заново)"
-    echo -e "   ${CYAN}3)${NC} Прервать установку"
-    echo -e "   ${BOLD}Выбор [1/2/3, Enter = 1]:${NC}"
-    read -r COLLIDE_CHOICE
-    case "${COLLIDE_CHOICE:-1}" in
-      2)
-        echo -e "   ${DIM}Удаляю старого ${target_id}...${NC}"
-        openclaw agents delete "$target_id" --yes &>/dev/null || true
-        ;;
-      3) exit 0 ;;
-      *) AGENTS_TO_INSTALL=("${AGENTS_TO_INSTALL[@]/$agent}") ;;
-    esac
+    EXISTING_AGENTS+=("$target_id")
   fi
 done
-record_telemetry "R3_collision_checked" "ok"
+
+if [[ ${#EXISTING_AGENTS[@]} -eq 0 ]]; then
+  echo -e "   ${GREEN}✓${NC} Свежая установка — конфликтов нет"
+else
+  echo ""
+  warn "Обнаружены уже установленные агенты:"
+  for aid in "${EXISTING_AGENTS[@]}"; do
+    echo -e "   ${YELLOW}○${NC} ${aid}"
+  done
+  echo ""
+
+  # В --config / --install режиме без лишних вопросов перезаписываем
+  # (клиент явно сказал «ставь», не надо прерываться на меню).
+  if [[ -n "$CONFIG_FILE" ]]; then
+    OVERWRITE_CHOICE="1"
+    echo -e "   ${DIM}--config режим: перезаписываю начисто без вопросов.${NC}"
+  else
+    echo -e "   ${BOLD}${WHITE}Что делать?${NC}"
+    echo -e "   ${CYAN}1)${NC} ${BOLD}Перезаписать начисто${NC} ${DIM}(рекомендуется — удалит старых и поставит заново)${NC}"
+    echo -e "   ${CYAN}2)${NC} Пропустить уже установленных ${DIM}(поставить только те, которых нет)${NC}"
+    echo -e "   ${CYAN}3)${NC} Прервать установку"
+    echo ""
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
+    read -r OVERWRITE_CHOICE
+    OVERWRITE_CHOICE="${OVERWRITE_CHOICE:-1}"
+  fi
+
+  case "$OVERWRITE_CHOICE" in
+    1)
+      echo ""
+      echo -e "   ${DIM}Чищу всё старое перед переустановкой...${NC}"
+      for aid in "${EXISTING_AGENTS[@]}"; do
+        cleanup_agent_completely "$aid"
+      done
+      record_telemetry "R3_overwrite" "ok"
+      ;;
+    2)
+      # Убираем уже существующих из списка установки
+      NEW_LIST=()
+      for agent in "${AGENTS_TO_INSTALL[@]}"; do
+        target_id="${agent}${SUFFIX:+-$SUFFIX}"
+        skip=false
+        for existing in "${EXISTING_AGENTS[@]}"; do
+          [[ "$existing" == "$target_id" ]] && { skip=true; break; }
+        done
+        [[ "$skip" == false ]] && NEW_LIST+=("$agent")
+      done
+      AGENTS_TO_INSTALL=("${NEW_LIST[@]}")
+      if [[ ${#AGENTS_TO_INSTALL[@]} -eq 0 ]]; then
+        echo -e "   ${DIM}Все агенты уже установлены — ставить нечего.${NC}"
+        echo -e "   ${DIM}Для диагностики состояния: ${GREEN}--diagnose-only${NC}"
+        exit 0
+      fi
+      echo -e "   ${DIM}Пропущены: ${EXISTING_AGENTS[*]}. Ставлю только остальных.${NC}"
+      record_telemetry "R3_skip_existing" "ok"
+      ;;
+    3)
+      echo -e "   ${DIM}Прервано.${NC}"
+      exit 0
+      ;;
+    *)
+      warn "Не распознал выбор ($OVERWRITE_CHOICE). Прерываю на всякий случай."
+      exit 1
+      ;;
+  esac
+fi
 
 # ═══════════════════════════════════════════════════════════════
 #  R4. Установка агентов (основной цикл)

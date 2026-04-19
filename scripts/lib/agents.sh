@@ -150,6 +150,40 @@ prepare_workspace_from_templates() {
   done
 }
 
+# ─── Полная очистка всего связанного с агентом ──────────────────
+#
+# Идемпотентный clean-reinstall. Вызывается когда повторно запускают
+# установщик и клиент соглашается «перезаписать начисто». Убирает
+# ВСЁ, что установщик когда-либо создавал для этого агента:
+#
+#   1. Сам агент (openclaw agents delete)
+#   2. Telegram channel account с тем же id (openclaw channels remove)
+#   3. Workspace-папка (~/.openclaw/workspace-<id>)
+#   4. Agent state dir (~/.openclaw/agents/<id>) — включая auth-profile
+#
+# Все команды идут с `|| true` — если агента/канала/папки уже нет,
+# это не ошибка.
+#
+# Args:
+#   $1 = agent_id
+cleanup_agent_completely() {
+  local agent_id="$1"
+
+  # 1. Agent из OpenClaw registry
+  openclaw agents delete "$agent_id" --yes &>/dev/null || true
+
+  # 2. Telegram channel account с тем же id (accountId у нас всегда == agent_id)
+  openclaw channels remove --channel telegram --account "$agent_id" --yes &>/dev/null || true
+
+  # 3. Workspace dir
+  rm -rf "$HOME/.openclaw/workspace-${agent_id}" 2>/dev/null || true
+
+  # 4. Agent state dir (с auth-profile)
+  rm -rf "$HOME/.openclaw/agents/${agent_id}" 2>/dev/null || true
+
+  echo -e "   ${GREEN}✓${NC} ${agent_id}: всё старое удалено"
+}
+
 # ─── Запрос Telegram user ID и настройка DM allowlist для аккаунта ──
 #
 # Без allowlist бот не будет отвечать в личке (по умолчанию
