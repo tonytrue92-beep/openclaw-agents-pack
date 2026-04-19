@@ -393,46 +393,89 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     producer) emoji="🎬"; label="Продюсер" ;;
   esac
 
-  # Если из --config — не спрашиваем
+  # Если токен передан через --config — берём оттуда как «preset»,
+  # который попробуем один раз; если он невалидный, в следующей итерации
+  # переходим к интерактивному вводу.
   env_var="BOT_TOKEN_$(echo "$agent" | tr '[:lower:]' '[:upper:]')"
-  token="${!env_var:-}"
+  preset_token="${!env_var:-}"
 
-  if [[ -n "$token" ]]; then
-    echo -e "   ${DIM}Токен для ${label} взят из config: ${env_var}${NC}"
-  else
-    while true; do
+  # Единый цикл ввод+валидация+проверка дубликатов.
+  # Повтор делается через `continue`, а не `exit` (bug-репорт 2026-04-19 —
+  # прошлая версия просто выходила после неудачной проверки).
+  while true; do
+    if [[ -n "$preset_token" ]]; then
+      token="$preset_token"
+      preset_token=""  # single-shot: в следующей итерации вернёмся к read
+      echo -e "   ${DIM}Токен для ${label} взят из --config: ${env_var}${NC}"
+    else
       echo ""
       echo -e "   ${BOLD}${WHITE}${emoji} Токен бота для ${label}:${NC}"
-      echo -e "   ${DIM}(символы не отображаются при вводе)${NC}"
+      echo -e "   ${DIM}(символы не отображаются при вводе — это нормально)${NC}"
       read -rs token
       echo ""
-      [[ -z "$token" ]] && { warn "Токен пустой."; continue; }
-      break
+    fi
+
+    if [[ -z "$token" ]]; then
+      warn "Токен пустой."
+      [[ -n "$CONFIG_FILE" ]] && exit 1
+      continue
+    fi
+
+    # 1. Валидация через Telegram getMe
+    echo -e "   ${DIM}Проверяю токен через Telegram API...${NC}"
+    username=$(validate_telegram_token "$token" || echo "")
+    if [[ -z "$username" ]]; then
+      warn "Токен не прошёл проверку getMe. Возможные причины:"
+      echo -e "   ${DIM}   • вы случайно скопировали не весь токен (обрезан)${NC}"
+      echo -e "   ${DIM}   • токен недействителен — проверьте в @BotFather → /mybots${NC}"
+      echo -e "   ${DIM}   • нет интернета / корпоративный firewall${NC}"
+      [[ -n "$CONFIG_FILE" ]] && exit 1
+      echo ""
+      echo -e "   ${BOLD}${WHITE}Попробовать ввести другой токен? [Y/n]:${NC}"
+      read -r retry
+      if [[ "$retry" == "n" || "$retry" == "N" ]]; then
+        echo -e "   ${DIM}Прервано. Создайте рабочего бота через @BotFather и запустите установщик снова.${NC}"
+        exit 1
+      fi
+      continue  # ← правильный retry через continue, не exit
+    fi
+
+    # 2. Проверка что этот бот ещё не использован для другого агента.
+    # Защита от типичной ошибки: клиент создал одного бота и вставил
+    # его токен всем трём — тогда один и тот же бот оказывается
+    # привязан ко всем агентам, роутинг ломается.
+    already_used_for=""
+    for prev_agent in "${AGENTS_TO_INSTALL[@]}"; do
+      [[ "$prev_agent" == "$agent" ]] && break  # дошли до текущего — дальше не проверяем
+      prev_var="BOT_USERNAME_$prev_agent"
+      if [[ "${!prev_var:-}" == "$username" ]]; then
+        already_used_for="$prev_agent"
+        break
+      fi
     done
-  fi
-
-  # Валидируем через getMe
-  echo -e "   ${DIM}Проверяю токен через Telegram API...${NC}"
-  username=$(validate_telegram_token "$token" || echo "")
-  if [[ -z "$username" ]]; then
-    warn "Токен не прошёл проверку getMe. Проверьте его через @BotFather."
-    if [[ -n "$CONFIG_FILE" ]]; then
-      exit 1  # в non-interactive — сразу падаем
+    if [[ -n "$already_used_for" ]]; then
+      warn "Бот @${username} уже указан для агента '${already_used_for}'."
+      echo -e "   ${DIM}Нужны ТРИ РАЗНЫХ бота — по одному на каждого агента.${NC}"
+      echo -e "   ${DIM}Откройте @BotFather в Telegram → /newbot → создайте ещё одного.${NC}"
+      echo -e "   ${DIM}Если вы думали что ввели правильный — возможно, скопировали токен не того бота.${NC}"
+      [[ -n "$CONFIG_FILE" ]] && exit 1
+      echo ""
+      echo -e "   ${BOLD}${WHITE}Попробовать другой токен? [Y/n]:${NC}"
+      read -r retry
+      if [[ "$retry" == "n" || "$retry" == "N" ]]; then
+        echo -e "   ${DIM}Прервано. Создайте отдельного бота для ${label} и запустите снова.${NC}"
+        exit 1
+      fi
+      continue
     fi
-    echo -e "   ${BOLD}${WHITE}Попробовать другой? [Y/n]:${NC}"
-    read -r retry
-    if [[ "$retry" != "n" && "$retry" != "N" ]]; then
-      # повтор: откат счётчика цикла невозможен, поэтому делаем повтор через exec
-      echo -e "   ${DIM}Перезапускаю сбор токенов — используйте тот же процесс${NC}"
-      exit 1
-    fi
-    exit 1
-  fi
 
-  # Динамическое имя переменной (см. комментарий выше про bash 3.2 + declare -A)
-  printf -v "BOT_TOKEN_$agent" '%s' "$token"
-  printf -v "BOT_USERNAME_$agent" '%s' "$username"
-  echo -e "   ${GREEN}✓${NC} ${label}: @${username}"
+    # Всё ок — сохраняем и выходим из цикла к следующему агенту
+    printf -v "BOT_TOKEN_$agent" '%s' "$token"
+    printf -v "BOT_USERNAME_$agent" '%s' "$username"
+    echo -e "   ${GREEN}✓${NC} ${label}: @${username}"
+    unset token  # не оставляем в переменной после save
+    break
+  done
 done
 
 echo ""
