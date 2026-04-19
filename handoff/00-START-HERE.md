@@ -52,6 +52,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-age
 6. **VPS-режим `--vps`** с тем же поведением что в первом: skip macOS-проверок, SSH-tunnel инструкция.
 7. **Commit-pin для templates** — при скачивании шаблоны привязаны к `INSTALLER_COMMIT`, чтобы не рассинхронизировать контент и скрипт.
 
+Подробно специфичные решения — в `01-decisions-log.md` (этот handoff).
+Общие bash-правила (version-gate, retry-паттерн) — в `openclaw-installer-handoff/06-decisions-log.md` решения #19, #20.
+
 ---
 
 ## Как продолжить работу в новой сессии
