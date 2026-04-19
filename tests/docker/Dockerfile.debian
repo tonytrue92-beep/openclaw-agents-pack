@@ -1,0 +1,25 @@
+# Docker smoke-тест openclaw-agents-pack на чистом Debian/Ubuntu-like.
+# Проверяем что скрипт не падает на пустой системе (без openclaw).
+#
+# Scope: синтаксис + non-interactive флаги + smoke-test helper-функций +
+# security-audit (в т.ч. проверка templates на личные данные).
+# Out-of-scope: фактическая установка агентов — для этого нужен живой
+# OpenClaw и mock Telegram API (отдельная задача).
+
+FROM node:22-bookworm
+
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
+      curl git zip ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/openclaw-agents-pack
+COPY scripts /opt/openclaw-agents-pack/scripts
+COPY templates /opt/openclaw-agents-pack/templates
+COPY tests /opt/openclaw-agents-pack/tests
+
+RUN chmod +x /opt/openclaw-agents-pack/scripts/*.sh \
+  && chmod +x /opt/openclaw-agents-pack/scripts/lib/*.sh \
+  && chmod +x /opt/openclaw-agents-pack/tests/docker/*.sh
+
+ENTRYPOINT ["bash", "-c"]
+CMD ["bash /opt/openclaw-agents-pack/tests/docker/run-checks.sh"]

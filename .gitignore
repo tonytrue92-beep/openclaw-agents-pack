@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+
+# Editor
+.vscode/
+.idea/
+
+# Local test artifacts
+/tmp/
+*.log
+openclaw-debug-*.zip
+openclaw-debug-*.tar.gz
+
+# Smoke-test output
+tests/docker/output/
+
+# Env files with secrets (клиенты могут создавать для non-interactive)
+*.env
+!*.env.example

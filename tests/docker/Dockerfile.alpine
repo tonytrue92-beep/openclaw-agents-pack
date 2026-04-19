@@ -1,0 +1,18 @@
+# Docker smoke-тест на Alpine. Проверяем что скрипт работает
+# в BSD-подобном окружении (sed, grep, date отличаются от GNU).
+
+FROM node:22-alpine
+
+RUN apk add --no-cache bash curl git zip coreutils findutils python3
+
+WORKDIR /opt/openclaw-agents-pack
+COPY scripts /opt/openclaw-agents-pack/scripts
+COPY templates /opt/openclaw-agents-pack/templates
+COPY tests /opt/openclaw-agents-pack/tests
+
+RUN chmod +x /opt/openclaw-agents-pack/scripts/*.sh \
+  && chmod +x /opt/openclaw-agents-pack/scripts/lib/*.sh \
+  && chmod +x /opt/openclaw-agents-pack/tests/docker/*.sh
+
+ENTRYPOINT ["bash", "-c"]
+CMD ["bash /opt/openclaw-agents-pack/tests/docker/run-checks.sh"]

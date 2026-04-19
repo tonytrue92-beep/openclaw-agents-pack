@@ -1,0 +1,31 @@
+# SHA-256 checksums for OpenClaw Agents Pack
+# Generated: 2026-04-19 10:35:31 UTC
+# Commit: unknown
+#
+# Verify a downloaded script matches the committed version:
+#   curl -fsSL <raw-url> | shasum -a 256
+#   (or on Linux: sha256sum <file>)
+#
+
+72a06322022e501159c816163c34a736086a73dc2a771b494fc28dc9521d4f79  scripts/diagnose-agents.sh
+86797e34748912d57b3c896f129916d684b60c48a08463aa5c68861f1775e04c  scripts/install-agents.sh
+d849d2cd222406e11fe16711e1b860f20ea3fa7e6e00f7f0c53aa5a7916b1ffa  scripts/security-audit.sh
+8645d60201cd4b45bb8f718ef038cece00b32780812eb1330e410ef3d79a24f4  scripts/smoke-test.sh
+e5d674feca33e389ce3970f9aec8839439ba9fbf2fab989cdab1c32b6b842f11  scripts/update-checksums.sh
+6a0ce954a642caa2e3fbc81ed0872deb40b28040cff2fc7bab56f51c66d527c2  scripts/lib/agents.sh
+a959670e0d0055b982a154dbdf1e6c720d41a07df65076e25c612aa3c3318e0d  scripts/lib/debug-bundle.sh
+67ae5e834855ded0e92ca7cce7f6208ba52dbfbe27b13b8e2ae0f79bbd01e01a  scripts/lib/preflight.sh
+254823d67596058a74884c7a932ed61d83216828993368e1909ae7f29a99e63b  scripts/lib/telemetry.sh
+7d14dc9f88e0af7ae47c7b91279c5e3eae4266d79145d5fb725a0900d5639a36  scripts/lib/ui.sh
+aa32efb6c93d28f8467eede0c1d18db71f4d371d4a42d61091be840a937af7e6  templates/marketer/AGENTS.md
+b308c35c4a624022136cbe2726e74847e9e9ebfbc3033e811fab7f747d02f077  templates/marketer/IDENTITY.md
+15901195d84730768d63f917f6db802c52e3921ff6f34e2e1695f9c839f92572  templates/marketer/MEMORY.md
+e2e6523eea163175396242a750117f9d39445356c25b4a81e10d9e957f6a0e25  templates/marketer/USER.md
+f5df7e112ab838b0c536d3cd25748bed05ddfd3b40b50943e6205cd24fb16cea  templates/producer/AGENTS.md
+54e12960e7c25b9f096d85465bbd1af63e5a95914b5d698901b79e456a6c1792  templates/producer/IDENTITY.md
+1e5d782608025ba9934aaf697f9308e5837ecb9370e872f95330c1ba2eda2bcb  templates/producer/MEMORY.md
+77b3d609fbd8df1fdc3ed1c40a6649002e2c6f6b1ce4fd6d0e8135d605496b9a  templates/producer/USER.md
+85beb502c489b221fe11439c37a6da69dd5ee9fa2d6da96df072cbcbccdbf12f  templates/tech/AGENTS.md
+3608094505cf5ca0868c74f0511eabc5159f5de2d06cdb16454abd4b8a265b99  templates/tech/IDENTITY.md
+84357c8382edea4f373418de5642316eb1095d3dbfd9b5e903ce992c88c67a6e  templates/tech/MEMORY.md
+b57e8d97e03593bdbb5d55a310564aed32ccd62910295a72e0600d73ccf5b3a3  templates/tech/USER.md
