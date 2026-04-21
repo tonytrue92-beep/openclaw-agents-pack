@@ -340,7 +340,7 @@ if [[ "$VIP_MODE" == true ]]; then
     explain "Для VIP-режима нужен токен из @AITeamVIPBot." \
       "" \
       "Он проверяется локально, без сетевых запросов." \
-      "Формат: VIP-XXXXXXXXXXXXXXXX-XXXXXXXX"
+      "Просто вставьте токен целиком, как прислал бот."
     echo -e "   ${BOLD}${WHITE}Введите VIP-токен:${NC}"
     read -r VIP_TOKEN
   fi
