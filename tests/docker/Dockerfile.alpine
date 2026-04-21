@@ -3,7 +3,9 @@
 
 FROM node:22-alpine
 
-RUN apk add --no-cache bash curl git zip coreutils findutils python3
+# openssl нужен для проверки Ed25519-подписи VIP-токена в vip.sh.
+# node:22-alpine по умолчанию без openssl CLI, добавляем явно.
+RUN apk add --no-cache bash curl git zip coreutils findutils python3 openssl
 
 WORKDIR /opt/openclaw-agents-pack
 COPY scripts /opt/openclaw-agents-pack/scripts
