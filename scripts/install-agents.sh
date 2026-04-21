@@ -51,14 +51,13 @@ BASHERR
 fi
 
 # ═══════════════════════════════════════════════════════════════════════
-#  OpenClaw Agents Pack — установщик трёх предустановленных агентов
+#  OpenClaw Agents Pack — установщик стандартного и VIP-набора агентов
 #
 #  Ставится поверх уже работающего OpenClaw (который поставлен первым
 #  установщиком из openclaw-factory). Создаёт:
 #
-#    🔧 Технарь    → свой Telegram-бот, accountId=tech
-#    📈 Маркетолог  → свой Telegram-бот, accountId=marketer
-#    🎬 Продюсер   → свой Telegram-бот, accountId=producer
+#    Standard: 🔧 Технарь, 📈 Маркетолог, 🎬 Продюсер
+#    VIP:      + 🎨 Дизайнер, 🧭 Координатор
 #
 #  Каждому агенту — свой workspace в ~/.openclaw/workspace-<agent>/
 #  с IDENTITY.md / AGENTS.md / MEMORY.md / USER.md из templates/ репо.
@@ -91,20 +90,24 @@ for arg in "$@"; do
       cat <<HELP
 OpenClaw Agents Pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})
 
-Установщик трёх предустановленных агентов (Технарь / Маркетолог / Продюсер)
+Установщик Standard (3 агента) и VIP (5 агентов)
 поверх уже работающего OpenClaw.
 
 Usage: bash install-agents.sh [OPTIONS]
 
 Options:
-  --install              Пропустить меню, поставить всех трёх агентов
+  --install              Пропустить меню, поставить Standard-набор (3 агента)
+  --vip-token <token>    Включить VIP-режим (5 агентов) и валидировать токен локально
   --vps, --headless      VPS-режим (skip GUI, SSH-tunnel-инструкция для dashboard)
-  --only <agent>         Поставить только одного: tech | marketer | producer
+  --only <agent>         Поставить только одного: tech | marketer | producer | designer | coordinator
   --suffix <str>         Суффикс к id при коллизии (tech-2, marketer-2, …)
   --config <file>        env-файл для неинтерактивной установки:
                            BOT_TOKEN_TECH=...
                            BOT_TOKEN_MARKETER=...
                            BOT_TOKEN_PRODUCER=...
+                           BOT_TOKEN_DESIGNER=...      # для VIP
+                           BOT_TOKEN_COORDINATOR=...   # для VIP
+                           VIP_TOKEN=...               # для VIP
                            AGENT_MODEL=openai-codex/gpt-5.4
                            OWNER_TG_ID=12345678
   --diagnose-only        Проверить что агенты живы (ничего не меняет)
@@ -142,6 +145,8 @@ SKIP_MENU=false
 VPS_MODE=false
 COLLECT_DEBUG_ONLY=false
 DIAGNOSE_ONLY=false
+VIP_MODE=false
+VIP_TOKEN=""
 ONLY_AGENT=""
 SUFFIX=""
 CONFIG_FILE=""
@@ -152,9 +157,16 @@ while [[ $# -gt 0 ]]; do
     --vps|--headless) VPS_MODE=true; SKIP_MENU=true; shift ;;
     --collect-debug) COLLECT_DEBUG_ONLY=true; shift ;;
     --diagnose-only) DIAGNOSE_ONLY=true; shift ;;
+    --vip-token)
+      VIP_TOKEN="${2:-}"
+      [[ -z "$VIP_TOKEN" ]] && { echo "ERROR: --vip-token требует значение"; exit 1; }
+      VIP_MODE=true
+      SKIP_MENU=true
+      shift 2
+      ;;
     --only)
       ONLY_AGENT="${2:-}"
-      [[ -z "$ONLY_AGENT" ]] && { echo "ERROR: --only требует значение (tech|marketer|producer)"; exit 1; }
+      [[ -z "$ONLY_AGENT" ]] && { echo "ERROR: --only требует значение (tech|marketer|producer|designer|coordinator)"; exit 1; }
       shift 2
       ;;
     --suffix)
@@ -187,6 +199,8 @@ if [[ -d "${SCRIPT_DIR}/lib" ]]; then
   source "${SCRIPT_DIR}/lib/debug-bundle.sh"
   # shellcheck disable=SC1091
   source "${SCRIPT_DIR}/lib/agents.sh"
+  # shellcheck disable=SC1091
+  source "${SCRIPT_DIR}/lib/vip.sh"
 else
   # Скачиваем lib/ во временную папку
   _LIB_TMP=$(mktemp -d -t openclaw-agents-lib.XXXXXX)
@@ -195,7 +209,7 @@ else
     _LIB_COMMIT="main"
   fi
   _LIB_BASE="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/${_LIB_COMMIT}/scripts/lib"
-  for _mod in ui preflight telemetry debug-bundle agents; do
+  for _mod in ui preflight telemetry debug-bundle agents vip; do
     if ! curl -fsSL --max-time 10 "${_LIB_BASE}/${_mod}.sh" -o "${_LIB_TMP}/${_mod}.sh"; then
       echo "ERROR: не смог скачать scripts/lib/${_mod}.sh с GitHub"
       echo "Проверьте сеть и что commit ${_LIB_COMMIT} существует."
@@ -232,7 +246,8 @@ cat << 'LOGO'
         |_|                                              |___/   T R U E   P A C K
 LOGO
 echo -e "${NC}"
-echo -e "${BOLD}   Три агента поверх OpenClaw: Технарь 🔧  Маркетолог 📈  Продюсер 🎬${NC}"
+echo -e "${BOLD}   Standard: Технарь 🔧  Маркетолог 📈  Продюсер 🎬${NC}"
+echo -e "${BOLD}   VIP: + Дизайнер 🎨  Координатор 🧭${NC}"
 echo -e "${DIM}   Installer v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
 if [[ "$VPS_MODE" == true ]]; then
   echo -e "${BOLD}${MAGENTA}   🌐 VPS-режим: Linux-сервер, headless${NC}"
@@ -268,6 +283,7 @@ fi
 if [[ -n "$CONFIG_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$CONFIG_FILE"
+  [[ -n "${VIP_TOKEN:-}" ]] && VIP_MODE=true
   SKIP_MENU=true
   ru "Конфиг загружен из: ${CONFIG_FILE}"
 fi
@@ -286,37 +302,66 @@ if [[ "$SKIP_MENU" != true ]]; then
   echo -e "   ${BOLD}${GREEN}  1)${NC}  ${BOLD}Установить всех трёх агентов${NC} (рекомендуется)"
   echo -e "       ${DIM}Технарь 🔧 + Маркетолог 📈 + Продюсер 🎬, каждый в своём Telegram-боте.${NC}"
   echo ""
-  echo -e "   ${BOLD}${YELLOW}  2)${NC}  ${BOLD}Установить только одного${NC}"
-  echo -e "       ${DIM}Выберите: tech, marketer или producer.${NC}"
+  echo -e "   ${BOLD}${YELLOW}  2)${NC}  ${BOLD}VIP — 5 агентов${NC}"
+  echo -e "       ${DIM}Стандартная тройка + Дизайнер 🎨 + Координатор 🧭. Понадобится VIP-токен.${NC}"
   echo ""
-  echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}Диагностика${NC} — проверить уже установленных"
+  echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}Установить только одного${NC}"
+  echo -e "       ${DIM}Выберите: tech, marketer, producer, designer или coordinator.${NC}"
+  echo ""
+  echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Диагностика${NC} — проверить уже установленных"
   echo -e "       ${DIM}Ничего не меняет, только показывает состояние.${NC}"
   echo ""
-  echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Debug-bundle${NC} для саппорта"
+  echo -e "   ${BOLD}${WHITE}  5)${NC}  ${BOLD}Debug-bundle${NC} для саппорта"
   echo ""
   divider
-  echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4]:${NC}"
+  echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4/5]:${NC}"
   echo ""
   read -r MENU_CHOICE
   case "$MENU_CHOICE" in
-    2)
-      echo -e "   ${BOLD}${WHITE}Какого агента поставить? [tech/marketer/producer]:${NC}"
+    2) VIP_MODE=true ;;
+    3)
+      echo -e "   ${BOLD}${WHITE}Какого агента поставить? [tech/marketer/producer/designer/coordinator]:${NC}"
       read -r ONLY_AGENT
       ;;
-    3) exec bash "$0" --diagnose-only ;;
-    4) collect_debug_bundle "manual from menu"; exit 0 ;;
+    4) exec bash "$0" --diagnose-only ;;
+    5) collect_debug_bundle "manual from menu"; exit 0 ;;
     1|"") : ;;
     *) echo "Не распознал выбор. Выход."; exit 0 ;;
   esac
+fi
+
+if [[ "$ONLY_AGENT" == "designer" || "$ONLY_AGENT" == "coordinator" ]]; then
+  VIP_MODE=true
+fi
+
+if [[ "$VIP_MODE" == true ]]; then
+  step_header "V1" "ПРОВЕРКА VIP-ТОКЕНА"
+  if [[ -z "${VIP_TOKEN:-}" ]]; then
+    explain "Для VIP-режима нужен токен из @AITeamVIPBot." \
+      "" \
+      "Он проверяется локально, без сетевых запросов." \
+      "Формат: VIP-XXXXXXXXXXXXXXXX-XXXXXXXX"
+    echo -e "   ${BOLD}${WHITE}Введите VIP-токен:${NC}"
+    read -r VIP_TOKEN
+  fi
+
+  if ! verify_vip_token "$VIP_TOKEN"; then
+    warn "VIP-токен не прошёл локальную проверку."
+    echo -e "   ${DIM}Проверьте что токен скопирован целиком из @AITeamVIPBot и попробуйте снова.${NC}"
+    exit 1
+  fi
+  ok "VIP-токен подтверждён. Открываю установку 5 агентов."
 fi
 
 # ─── Определяем список агентов для установки ────────────────────
 AGENTS_TO_INSTALL=()
 if [[ -n "$ONLY_AGENT" ]]; then
   case "$ONLY_AGENT" in
-    tech|marketer|producer) AGENTS_TO_INSTALL=("$ONLY_AGENT") ;;
-    *) echo "ERROR: --only должен быть tech/marketer/producer, получено: $ONLY_AGENT"; exit 1 ;;
+    tech|marketer|producer|designer|coordinator) AGENTS_TO_INSTALL=("$ONLY_AGENT") ;;
+    *) echo "ERROR: --only должен быть tech/marketer/producer/designer/coordinator, получено: $ONLY_AGENT"; exit 1 ;;
   esac
+elif [[ "$VIP_MODE" == true ]]; then
+  AGENTS_TO_INSTALL=(tech marketer producer designer coordinator)
 else
   AGENTS_TO_INSTALL=(tech marketer producer)
 fi
@@ -333,7 +378,7 @@ DEFAULT_MODEL="openai-codex/gpt-5.4"
 AGENT_MODEL="${AGENT_MODEL:-}"  # из --config если задан
 
 if [[ -z "$AGENT_MODEL" ]]; then
-  explain "Какую модель использовать для всех трёх агентов?" \
+  explain "Какую модель использовать для выбранных агентов?" \
     "" \
     "Модель можно сменить в любой момент через ${BOLD}openclaw-switch-model${NC}" \
     "или напрямую: ${BOLD}openclaw config set agents.defaults.model.primary <id>${NC}"
@@ -367,7 +412,7 @@ record_telemetry "R1_model_chosen" "ok"
 # ═══════════════════════════════════════════════════════════════
 step_header "R2" "TELEGRAM BOT TOKENS"
 
-explain "Нужны три разных бота — по одному на каждого агента." \
+explain "Нужны отдельные Telegram-боты — по одному на каждого агента." \
   "" \
   "Создайте их через ${BOLD}@BotFather${NC} в Telegram (для каждого — ${BOLD}/newbot${NC})." \
   "Названия на ваш вкус, например: 'Мой Технарь', 'Мой Маркетолог', 'Мой Продюсер'." \
@@ -388,9 +433,11 @@ explain "Нужны три разных бота — по одному на ка
 for agent in "${AGENTS_TO_INSTALL[@]}"; do
   emoji=""; label=""
   case "$agent" in
-    tech)     emoji="🔧"; label="Технарь" ;;
-    marketer) emoji="📈"; label="Маркетолог" ;;
-    producer) emoji="🎬"; label="Продюсер" ;;
+    tech)        emoji="🔧"; label="Технарь" ;;
+    marketer)    emoji="📈"; label="Маркетолог" ;;
+    producer)    emoji="🎬"; label="Продюсер" ;;
+    designer)    emoji="🎨"; label="Дизайнер" ;;
+    coordinator) emoji="🧭"; label="Координатор" ;;
   esac
 
   # Если токен передан через --config — берём оттуда как «preset»,
@@ -647,7 +694,7 @@ cat << 'FINISH'
    ║                                                                ║
    ║   🎉  АГЕНТЫ УСТАНОВЛЕНЫ!                                       ║
    ║                                                                ║
-   ║   Три бота готовы отвечать в Telegram.                         ║
+   ║   Готовые боты могут отвечать в Telegram.                      ║
    ║                                                                ║
    ╚════════════════════════════════════════════════════════════════╝
 FINISH
@@ -659,9 +706,11 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
   target_id="${agent}${SUFFIX:+-$SUFFIX}"
   emoji=""; label=""
   case "$agent" in
-    tech)     emoji="🔧"; label="Технарь" ;;
-    marketer) emoji="📈"; label="Маркетолог" ;;
-    producer) emoji="🎬"; label="Продюсер" ;;
+    tech)        emoji="🔧"; label="Технарь" ;;
+    marketer)    emoji="📈"; label="Маркетолог" ;;
+    producer)    emoji="🎬"; label="Продюсер" ;;
+    designer)    emoji="🎨"; label="Дизайнер" ;;
+    coordinator) emoji="🧭"; label="Координатор" ;;
   esac
   _usr_var="BOT_USERNAME_$agent"
   username="${!_usr_var:-неизвестно}"
