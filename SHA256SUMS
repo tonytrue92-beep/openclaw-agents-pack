@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-04-21 07:20:47 UTC
-# Commit: 9d4524b
+# Generated: 2026-04-21 17:47:15 UTC
+# Commit: 79e5d82
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
@@ -9,7 +9,8 @@
 
 052652b05f20f19154cc5f7638f8539f87ca4b9ee9220bb362e0966cdc907604  scripts/demo-simulate.sh
 72a06322022e501159c816163c34a736086a73dc2a771b494fc28dc9521d4f79  scripts/diagnose-agents.sh
-0e6ed10d932aca6bf18b196e175cbc696a644332dc9d7169fa61650cd9ce6f6f  scripts/install-agents.sh
+56564c785967f4dbd1e171aac0f370c1a248414ee66b5eafb8b0e7c4763f3a5b  scripts/install-agents.sh
+c58d722a490b4af6cc2140107a11fed107434ef89c6af9c5daf0e8e6ad916e34  scripts/install-git-hooks.sh
 c36331554fd1f118f47481abb39a59a98a7ad003fe32299befbc87bb0c619b1d  scripts/security-audit.sh
 bc9f1a5161c71e95c0ed14d8f2f5ce6176d4a44bf4e858095aee505c1cb1dd40  scripts/smoke-test.sh
 e5d674feca33e389ce3970f9aec8839439ba9fbf2fab989cdab1c32b6b842f11  scripts/update-checksums.sh
@@ -18,6 +19,15 @@ a959670e0d0055b982a154dbdf1e6c720d41a07df65076e25c612aa3c3318e0d  scripts/lib/de
 67ae5e834855ded0e92ca7cce7f6208ba52dbfbe27b13b8e2ae0f79bbd01e01a  scripts/lib/preflight.sh
 254823d67596058a74884c7a932ed61d83216828993368e1909ae7f29a99e63b  scripts/lib/telemetry.sh
 7d14dc9f88e0af7ae47c7b91279c5e3eae4266d79145d5fb725a0900d5639a36  scripts/lib/ui.sh
+51d2c3abe4eb8bdfab6a7c0e0d380fbc8a87df369328f2449e601cef2a4531da  scripts/lib/vip.sh
+746a7947afd4fa41e66e5419f3951e5bfbe9b210ec96cf7a448f8c1bc5c43210  templates/coordinator/AGENTS.md
+1379f924cf4b4d6d0a306ecc2544a913dab706a1325fcf8eb9b267686ee8551c  templates/coordinator/IDENTITY.md
+858f2e5f0054db62ba569273b9cca3ab4c017d33eb613cdf53b7f29d094b2a58  templates/coordinator/MEMORY.md
+dbe03c34b66f1f934918a6a03f0b554a70749b18a0cdad224bd9ac958fc4add9  templates/coordinator/USER.md
+9b7ec40b898d0b3ae6bbe91dfd0a8fdd15e20a5f8018be8f955b12cf4600c05e  templates/designer/AGENTS.md
+1379f924cf4b4d6d0a306ecc2544a913dab706a1325fcf8eb9b267686ee8551c  templates/designer/IDENTITY.md
+61052e1746b8daf1718a061e4432b4b2b4c211e0343e587482847d0ea307e267  templates/designer/MEMORY.md
+dbe03c34b66f1f934918a6a03f0b554a70749b18a0cdad224bd9ac958fc4add9  templates/designer/USER.md
 aa32efb6c93d28f8467eede0c1d18db71f4d371d4a42d61091be840a937af7e6  templates/marketer/AGENTS.md
 b308c35c4a624022136cbe2726e74847e9e9ebfbc3033e811fab7f747d02f077  templates/marketer/IDENTITY.md
 15901195d84730768d63f917f6db802c52e3921ff6f34e2e1695f9c839f92572  templates/marketer/MEMORY.md
