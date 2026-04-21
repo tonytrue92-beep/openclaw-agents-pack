@@ -429,6 +429,118 @@ fi
 trap 'on_installer_error $LINENO' ERR
 
 # ═══════════════════════════════════════════════════════════════
+#  R0. АНАЛИЗ ТЕКУЩЕГО СОСТОЯНИЯ
+# ═══════════════════════════════════════════════════════════════
+#
+# Определяем что уже установлено, чтобы не просить у клиента токены
+# на тех агентов, которых не надо ставить. Три сценария:
+#
+#   FRESH      — никого нет → просто ставим всех из AGENTS_TO_INSTALL
+#   UPGRADE    — стоят 3 (Standard), ставим 5 (VIP) → default «дополнить
+#                недостающих», существующих не трогаем (их Telegram-боты,
+#                MEMORY.md, настроенная личность — всё сохраняется)
+#   OVERWRITE  — уже стоит то же количество что ставим (напр. 3=3 или
+#                5=5) → клиент чинит/обновляет → default «перезаписать»
+#
+# Этот шаг идёт ДО R2 (токены) — чтобы при upgrade клиент вводил 2 токена
+# вместо 5 (только для недостающих), это не теряет время впустую.
+
+step_header "R0" "АНАЛИЗ ТЕКУЩЕГО СОСТОЯНИЯ"
+
+EXISTING_AGENTS=()
+MISSING_AGENTS=()
+for agent in "${AGENTS_TO_INSTALL[@]}"; do
+  target_id="${agent}${SUFFIX:+-$SUFFIX}"
+  if agent_exists "$target_id"; then
+    EXISTING_AGENTS+=("$target_id")
+  else
+    MISSING_AGENTS+=("$agent")
+  fi
+done
+
+CLEANUP_EXISTING=false  # ставим true если в R4 надо сначала снести старых
+
+if [[ ${#EXISTING_AGENTS[@]} -eq 0 ]]; then
+  # Сценарий FRESH
+  echo -e "   ${GREEN}✓${NC} Свежая установка — агентов в системе ещё нет"
+  record_telemetry "R0_fresh" "ok"
+
+elif [[ ${#MISSING_AGENTS[@]} -eq 0 ]]; then
+  # Сценарий OVERWRITE — всё из AGENTS_TO_INSTALL уже стоит
+  echo ""
+  warn "Все агенты уже установлены:"
+  for aid in "${EXISTING_AGENTS[@]}"; do
+    echo -e "   ${YELLOW}○${NC} ${aid}"
+  done
+  echo ""
+  if [[ -n "$CONFIG_FILE" ]]; then
+    CLEANUP_EXISTING=true
+    echo -e "   ${DIM}--config режим: перезаписываю начисто без вопросов.${NC}"
+  else
+    echo -e "   ${BOLD}${WHITE}Что делать?${NC}"
+    echo -e "   ${CYAN}1)${NC} ${BOLD}Перезаписать начисто${NC} ${DIM}(снести и поставить заново — починка / обновление)${NC}"
+    echo -e "   ${CYAN}2)${NC} Ничего не делать — выйти"
+    echo ""
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2, Enter = 1]:${NC}"
+    read -r R0_CHOICE
+    case "${R0_CHOICE:-1}" in
+      1) CLEANUP_EXISTING=true ;;
+      2) echo -e "   ${DIM}Выхожу. Для диагностики: ${GREEN}--diagnose-only${NC}"; exit 0 ;;
+      *) warn "Не распознал выбор. Прерываю."; exit 1 ;;
+    esac
+  fi
+  record_telemetry "R0_overwrite" "ok"
+
+else
+  # Сценарий UPGRADE — часть стоит, часть не хватает.
+  # Типичный кейс: клиент апгрейднулся Standard→VIP, был на 3 агентах,
+  # теперь ставит 5 → default «дополнить, сохранить старых».
+  echo ""
+  echo -e "   ${BOLD}${WHITE}🔼 Обнаружен апгрейд (не полная, но частичная установка):${NC}"
+  echo ""
+  echo -e "   ${GREEN}Уже установлены${NC} ${DIM}(будут сохранены):${NC}"
+  for aid in "${EXISTING_AGENTS[@]}"; do
+    echo -e "      ${GREEN}✓${NC} ${aid}"
+  done
+  echo ""
+  echo -e "   ${YELLOW}Не хватает${NC} ${DIM}(будут добавлены):${NC}"
+  for aid in "${MISSING_AGENTS[@]}"; do
+    echo -e "      ${YELLOW}+${NC} ${aid}"
+  done
+  echo ""
+
+  if [[ -n "$CONFIG_FILE" ]]; then
+    # В non-interactive всегда upgrade (минимум действий)
+    AGENTS_TO_INSTALL=("${MISSING_AGENTS[@]}")
+    echo -e "   ${DIM}--config режим: доустанавливаю только недостающих.${NC}"
+  else
+    echo -e "   ${BOLD}${WHITE}Что делать?${NC}"
+    echo -e "   ${CYAN}1)${NC} ${BOLD}Дополнить${NC} ${DIM}(поставить только недостающих, существующих не трогать)${NC}  ${GREEN}← рекомендуется${NC}"
+    echo -e "   ${CYAN}2)${NC} Перезаписать всех ${DIM}(снести ВСЕХ ${#EXISTING_AGENTS[@]} и поставить заново ${#AGENTS_TO_INSTALL[@]}, теряете MEMORY.md)${NC}"
+    echo -e "   ${CYAN}3)${NC} Прервать"
+    echo ""
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
+    read -r R0_CHOICE
+    case "${R0_CHOICE:-1}" in
+      1)
+        # Дополнить: AGENTS_TO_INSTALL = только missing, существующих не трогаем
+        AGENTS_TO_INSTALL=("${MISSING_AGENTS[@]}")
+        echo -e "   ${GREEN}✓${NC} Буду ставить только: ${AGENTS_TO_INSTALL[*]}"
+        echo -e "   ${DIM}Существующие агенты (${EXISTING_AGENTS[*]}) остаются как есть${NC}"
+        record_telemetry "R0_upgrade_add_missing" "ok"
+        ;;
+      2)
+        CLEANUP_EXISTING=true
+        echo -e "   ${YELLOW}!${NC} Перезапишу всех ${#AGENTS_TO_INSTALL[@]} агентов начисто. MEMORY.md существующих будет потеряна."
+        record_telemetry "R0_upgrade_overwrite_all" "ok"
+        ;;
+      3) echo -e "   ${DIM}Прервано.${NC}"; exit 0 ;;
+      *) warn "Не распознал выбор. Прерываю."; exit 1 ;;
+    esac
+  fi
+fi
+
+# ═══════════════════════════════════════════════════════════════
 #  R1. Выбор модели
 # ═══════════════════════════════════════════════════════════════
 step_header "R1" "ВЫБОР МОДЕЛИ"
@@ -600,90 +712,19 @@ fi
 record_telemetry "R2_tokens_collected" "ok"
 
 # ═══════════════════════════════════════════════════════════════
-#  R3. Проверка существующих агентов (повторный запуск установщика)
+#  R3. Cleanup существующих (если был выбран overwrite в R0)
 # ═══════════════════════════════════════════════════════════════
 #
-# Если клиент запускает установщик повторно (после частичной установки,
-# после кривых токенов, после переустановки первого установщика) — не
-# просим его удалять руками через `openclaw agents delete` и `rm -rf`.
-# Это слишком техсложно для нашей ЦА. Вместо этого: находим что уже
-# установлено, ОДИН РАЗ спрашиваем «перезаписать или пропустить», и
-# дальше чистим и ставим заново без возни.
-step_header "R3" "ПРОВЕРКА СУЩЕСТВУЮЩИХ АГЕНТОВ"
-
-# Собираем список уже существующих
-EXISTING_AGENTS=()
-for agent in "${AGENTS_TO_INSTALL[@]}"; do
-  target_id="${agent}${SUFFIX:+-$SUFFIX}"
-  if agent_exists "$target_id"; then
-    EXISTING_AGENTS+=("$target_id")
-  fi
-done
-
-if [[ ${#EXISTING_AGENTS[@]} -eq 0 ]]; then
-  echo -e "   ${GREEN}✓${NC} Свежая установка — конфликтов нет"
-else
-  echo ""
-  warn "Обнаружены уже установленные агенты:"
+# Если в R0 клиент выбрал «перезаписать начисто» — сносим всё старое.
+# Если upgrade-сценарий («дополнить») — этот блок пропускается, и в R4
+# ставятся только недостающие агенты, существующих не трогаем.
+if [[ "$CLEANUP_EXISTING" == true && ${#EXISTING_AGENTS[@]} -gt 0 ]]; then
+  step_header "R3" "ОЧИСТКА СТАРЫХ АГЕНТОВ"
+  echo -e "   ${DIM}Сношу существующих, чтобы поставить начисто...${NC}"
   for aid in "${EXISTING_AGENTS[@]}"; do
-    echo -e "   ${YELLOW}○${NC} ${aid}"
+    cleanup_agent_completely "$aid"
   done
-  echo ""
-
-  # В --config / --install режиме без лишних вопросов перезаписываем
-  # (клиент явно сказал «ставь», не надо прерываться на меню).
-  if [[ -n "$CONFIG_FILE" ]]; then
-    OVERWRITE_CHOICE="1"
-    echo -e "   ${DIM}--config режим: перезаписываю начисто без вопросов.${NC}"
-  else
-    echo -e "   ${BOLD}${WHITE}Что делать?${NC}"
-    echo -e "   ${CYAN}1)${NC} ${BOLD}Перезаписать начисто${NC} ${DIM}(рекомендуется — удалит старых и поставит заново)${NC}"
-    echo -e "   ${CYAN}2)${NC} Пропустить уже установленных ${DIM}(поставить только те, которых нет)${NC}"
-    echo -e "   ${CYAN}3)${NC} Прервать установку"
-    echo ""
-    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
-    read -r OVERWRITE_CHOICE
-    OVERWRITE_CHOICE="${OVERWRITE_CHOICE:-1}"
-  fi
-
-  case "$OVERWRITE_CHOICE" in
-    1)
-      echo ""
-      echo -e "   ${DIM}Чищу всё старое перед переустановкой...${NC}"
-      for aid in "${EXISTING_AGENTS[@]}"; do
-        cleanup_agent_completely "$aid"
-      done
-      record_telemetry "R3_overwrite" "ok"
-      ;;
-    2)
-      # Убираем уже существующих из списка установки
-      NEW_LIST=()
-      for agent in "${AGENTS_TO_INSTALL[@]}"; do
-        target_id="${agent}${SUFFIX:+-$SUFFIX}"
-        skip=false
-        for existing in "${EXISTING_AGENTS[@]}"; do
-          [[ "$existing" == "$target_id" ]] && { skip=true; break; }
-        done
-        [[ "$skip" == false ]] && NEW_LIST+=("$agent")
-      done
-      AGENTS_TO_INSTALL=("${NEW_LIST[@]}")
-      if [[ ${#AGENTS_TO_INSTALL[@]} -eq 0 ]]; then
-        echo -e "   ${DIM}Все агенты уже установлены — ставить нечего.${NC}"
-        echo -e "   ${DIM}Для диагностики состояния: ${GREEN}--diagnose-only${NC}"
-        exit 0
-      fi
-      echo -e "   ${DIM}Пропущены: ${EXISTING_AGENTS[*]}. Ставлю только остальных.${NC}"
-      record_telemetry "R3_skip_existing" "ok"
-      ;;
-    3)
-      echo -e "   ${DIM}Прервано.${NC}"
-      exit 0
-      ;;
-    *)
-      warn "Не распознал выбор ($OVERWRITE_CHOICE). Прерываю на всякий случай."
-      exit 1
-      ;;
-  esac
+  record_telemetry "R3_cleanup" "ok"
 fi
 
 # ═══════════════════════════════════════════════════════════════
