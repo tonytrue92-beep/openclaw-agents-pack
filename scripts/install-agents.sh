@@ -151,6 +151,33 @@ ONLY_AGENT=""
 SUFFIX=""
 CONFIG_FILE=""
 
+# ─── EXIT trap — не даём тихо уйти в шелл без подсказки ───────
+#
+# Bug-репорт 2026-04-21: клиенты жаловались что установщик иногда
+# «встаёт и выкидывает в терминал» — оказалось что команда exec bash $0
+# в пункте 4 меню падала на /dev/fd/N (curl-bash scenario), и exec
+# молча выходил. Аналогично любая необработанная ошибка при set -e
+# может выйти без визуальной причины.
+#
+# Этот trap печатает подсказку при exit code != 0, ЕСЛИ мы не поставили
+# $_last_exit_reason вручную в месте осознанного выхода. Для нормальных
+# выходов (install_complete, manual_menu_5, invalid_menu_choice) —
+# trap молчит.
+_last_exit_reason=""
+trap '
+  _rc=$?
+  if [[ $_rc -ne 0 && -z "$_last_exit_reason" ]]; then
+    echo ""
+    echo "━━━ установщик завершился неожиданно (exit=$_rc) ━━━"
+    echo ""
+    echo "Если выше в терминале нет понятной ошибки — соберите debug-bundle"
+    echo "и пришлите в саппорт. Одна команда:"
+    echo ""
+    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --collect-debug"
+    echo ""
+  fi
+' EXIT
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --install) SKIP_MENU=true; shift ;;
@@ -325,10 +352,31 @@ if [[ "$SKIP_MENU" != true ]]; then
       echo -e "   ${BOLD}${WHITE}Какого агента поставить? [tech/marketer/producer/designer/coordinator]:${NC}"
       read -r ONLY_AGENT
       ;;
-    4) exec bash "$0" --diagnose-only ;;
-    5) collect_debug_bundle "manual from menu"; exit 0 ;;
+    4)
+      # ВАЖНО: НЕ делать `exec bash "$0" ...` — при запуске через
+      # `bash <(curl -fsSL ...)` переменная $0 указывает на уже закрытый
+      # file descriptor (/dev/fd/N), exec падает с ошибкой
+      # «No such file or directory» и тихо выкидывает клиента в шелл
+      # без объяснений. Вместо exec — качаем свежую копию через curl
+      # и запускаем с флагом. Это работает и при curl-pipe, и при
+      # локальном запуске из clone'а.
+      echo ""
+      echo -e "   ${DIM}Запускаю диагностику...${NC}"
+      bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --diagnose-only
+      _last_exit_reason="manual_diagnose"
+      exit 0
+      ;;
+    5)
+      collect_debug_bundle "manual from menu"
+      _last_exit_reason="manual_debug_bundle"
+      exit 0
+      ;;
     1|"") : ;;
-    *) echo "Не распознал выбор. Выход."; exit 0 ;;
+    *)
+      echo "Не распознал выбор «$MENU_CHOICE». Выход."
+      _last_exit_reason="invalid_menu_choice"
+      exit 0
+      ;;
   esac
 fi
 
