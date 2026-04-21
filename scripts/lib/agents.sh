@@ -148,6 +148,26 @@ prepare_workspace_from_templates() {
       return 1
     fi
   done
+
+  # ─── Anti-sharing watermark ───────────────────────────────────
+  # Для VIP-установок вставляем в IDENTITY.md скрытый markdown-комментарий
+  # с хэшем email и TG ID клиента. Markdown-комментарии не рендерятся,
+  # агент их не видит, но если клиент «поделится» файлами — по watermark
+  # видно чей это инстанс. Психологический сдерживающий фактор.
+  #
+  # Формат: <!-- issued-to: <email_hash16> | tg:<tg_id> | <agent_id> | YYYY-MM-DD -->
+  # email_hash16 = первая секция VIP-токена (не сам email — так не палим PII).
+  if [[ "${VIP_MODE:-false}" == true && -n "${VIP_TOKEN:-}" && -n "${MACHINE_TG_ID:-}" ]]; then
+    local identity_md="${workspace_dir}/IDENTITY.md"
+    if [[ -f "$identity_md" ]]; then
+      local hash_part
+      hash_part=$(vip_token_get_hash "$VIP_TOKEN" 2>/dev/null || echo "unknown")
+      {
+        echo ""
+        echo "<!-- issued-to: ${hash_part} | tg:${MACHINE_TG_ID} | ${agent_id} | $(date -u +%Y-%m-%d) -->"
+      } >> "$identity_md"
+    fi
+  fi
 }
 
 # ─── Полная очистка всего связанного с агентом ──────────────────

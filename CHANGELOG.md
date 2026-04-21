@@ -6,6 +6,65 @@
 
 ---
 
+## 2026-04-21 — Wave 3 (VIP v2: TG-binding, anti-sharing)
+
+### Security — VIP-токен привязывается к Telegram user_id
+
+Раньше токен был детерминирован от email — любой с этим токеном мог
+поставить 5 агентов. Если VIP-клиент пересылает токен другу — друг
+бесплатно получает VIP. Классическая проблема инфопродуктов.
+
+Фикс: новый формат токена `VIP-<email_hash16>-<tg_user_id>-<signature>`,
+где `tg_user_id` зашит в payload и подписан Ed25519 приватным ключом
+бота. Установщик:
+
+- Автоматически читает TG ID клиента из `~/.openclaw/openclaw.json`
+  (первый установщик уже записал туда `OWNER_TG_ID` для allowlist)
+- Сравнивает с tg_user_id внутри токена
+- При несовпадении — отказ с объяснением «этот токен выдан для другого TG»
+- Retry через `continue` (по правилу #20 в handoff первого установщика)
+
+Подмена чужого TG id невозможна — это аккаунт Telegram. Шаринг
+становится бесполезным.
+
+### Added
+
+- **`scripts/lib/vip.sh`** обновлён под v2 формат токена:
+  - `verify_vip_token <token> <machine_tg_id>` — раздельные exit codes
+    (2=формат, 3=tg-mismatch, 4=base64, 5=bad signature) для точных
+    сообщений пользователю
+  - `vip_token_get_expected_tg <token>` — извлечь ожидаемый TG ID
+    (для show'а пользователю «токен выдан для TG X»)
+  - `vip_token_get_hash <token>` — извлечь email_hash16 для fire-and-
+    forget логирования
+  - `vip_detect_owner_tg_id` — автодетект TG ID из `~/.openclaw/openclaw.json`
+    через чтение `channels.telegram.allowFrom` / `allowlistAllowFrom`
+  - `vip_log_activation <token_hash> <tg_id>` — fire-and-forget POST
+    на `/log/activation` endpoint бота. Таймаут 3 сек, в фоне, при
+    недоступности молча пропускаем. Бот ведёт журнал уникальных IP
+    по каждому токену и шлёт Антону алерт при ≥3 IP за 7 дней.
+
+- **V1 (`install-agents.sh`)** переписан:
+  - Автоматическое чтение TG ID из настроек первого установщика
+  - Цикл `while true` с `continue` для retry (правило #20)
+  - Точные сообщения под каждый exit code валидации
+  - При `--config` режиме — fail-fast, без retry
+
+- **Watermark в IDENTITY.md для VIP-установок**
+  (`scripts/lib/agents.sh:prepare_workspace_from_templates`):
+  `<!-- issued-to: <hash> | tg:<tg_id> | <agent_id> | YYYY-MM-DD -->`
+  Markdown-комментарий не рендерится, агенты его не видят, но если
+  VIP-клиент кому-то пришлёт свои файлы — ясно чей это инстанс.
+  Психологический сдерживающий слой.
+
+### Breaking
+
+v1-токены (формат `VIP-<hash>-<signature>` без tg_user_id) больше не
+валидируются. Все клиенты должны получить свежие токены у
+`@AITeamVIPBot`. Для смягчения — см. инструкцию в handoff.
+
+---
+
 ## 2026-04-19 — Wave 2 (post-first-client fixes + video demo)
 
 ### Added

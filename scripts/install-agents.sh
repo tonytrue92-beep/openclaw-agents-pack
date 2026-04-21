@@ -338,21 +338,78 @@ fi
 
 if [[ "$VIP_MODE" == true ]]; then
   step_header "V1" "ПРОВЕРКА VIP-ТОКЕНА"
-  if [[ -z "${VIP_TOKEN:-}" ]]; then
-    explain "Для VIP-режима нужен токен из @AITeamVIPBot." \
-      "" \
-      "Он проверяется локально, без сетевых запросов." \
-      "Просто вставьте токен целиком, как прислал бот."
-    echo -e "   ${BOLD}${WHITE}Введите VIP-токен:${NC}"
-    read -r VIP_TOKEN
+
+  # Автоматически берём TG ID клиента из настроек первого установщика.
+  # Если не нашли — попросим ввести руками.
+  MACHINE_TG_ID=$(vip_detect_owner_tg_id)
+
+  if [[ -z "$MACHINE_TG_ID" ]]; then
+    explain "Не нашёл ваш Telegram ID в настройках OpenClaw." \
+      "Возможно вы ещё не настраивали Telegram-канал в первом установщике." \
+      "Узнать свой TG ID: напишите @userinfobot в Telegram."
+    echo -e "   ${BOLD}${WHITE}Введите ваш Telegram user ID:${NC}"
+    read -r MACHINE_TG_ID
+    [[ ! "$MACHINE_TG_ID" =~ ^[0-9]+$ ]] && { warn "TG ID должен быть числом."; exit 1; }
+  else
+    echo -e "   ${GREEN}✓${NC} Ваш Telegram ID (из настроек первого установщика): ${BOLD}${MACHINE_TG_ID}${NC}"
   fi
 
-  if ! verify_vip_token "$VIP_TOKEN"; then
-    warn "VIP-токен не прошёл локальную проверку."
-    echo -e "   ${DIM}Проверьте что токен скопирован целиком из @AITeamVIPBot и попробуйте снова.${NC}"
-    exit 1
-  fi
-  ok "VIP-токен подтверждён. Открываю установку 5 агентов."
+  # Запрос токена (в цикле — если клиент ввёл не тот, не выходим по exit)
+  while true; do
+    if [[ -z "${VIP_TOKEN:-}" ]]; then
+      explain "Нужен VIP-токен из @AITeamVIPBot." \
+        "" \
+        "Важно: получайте токен в боте с ТОГО ЖЕ Telegram-аккаунта," \
+        "куда подключите агентов. Иначе проверка не пройдёт." \
+        "" \
+        "Токен привязан к вашему TG ID — шаринг с друзьями не работает."
+      echo -e "   ${BOLD}${WHITE}Вставьте VIP-токен:${NC}"
+      read -r VIP_TOKEN
+    fi
+
+    # Раздельная валидация для точного диагноза
+    verify_vip_token "$VIP_TOKEN" "$MACHINE_TG_ID"
+    rc=$?
+
+    case $rc in
+      0)
+        ok "VIP-токен подтверждён для TG ID ${MACHINE_TG_ID}. Открываю установку 5 агентов."
+        # Fire-and-forget сообщение боту — если бот увидит что этот токен
+        # активируется с 4+ разных IP за неделю, пришлёт админу алерт.
+        vip_log_activation "$(vip_token_get_hash "$VIP_TOKEN")" "$MACHINE_TG_ID" || true
+        break
+        ;;
+      2)
+        warn "Формат токена неверный."
+        echo -e "   ${DIM}Ожидается: VIP-XXXXXXXXXXXXXXXX-123456789-<длинная-подпись>${NC}"
+        echo -e "   ${DIM}Скопируйте токен из @AITeamVIPBot целиком.${NC}"
+        ;;
+      3)
+        expected_tg=$(vip_token_get_expected_tg "$VIP_TOKEN" || echo "?")
+        warn "Этот токен выдан для TG ID ${expected_tg}, а вы на ${MACHINE_TG_ID}."
+        echo -e "   ${DIM}Это анти-шаринг защита: токен работает только на том TG-аккаунте,${NC}"
+        echo -e "   ${DIM}с которого вы писали боту @AITeamVIPBot при получении.${NC}"
+        echo -e "   ${DIM}Если это ваш токен — получите новый в боте, пишите с ТОГО ЖЕ TG.${NC}"
+        echo -e "   ${DIM}Если не ваш — попросите владельца получить свой.${NC}"
+        ;;
+      4|5)
+        warn "Криптографическая проверка подписи провалилась."
+        echo -e "   ${DIM}Токен мог быть повреждён при копировании или подделан.${NC}"
+        echo -e "   ${DIM}Получите свежий в @AITeamVIPBot.${NC}"
+        ;;
+    esac
+
+    [[ -n "$CONFIG_FILE" ]] && exit 1  # в non-interactive не даём retry
+
+    echo ""
+    echo -e "   ${BOLD}${WHITE}Попробовать другой токен? [Y/n]:${NC}"
+    read -r retry
+    if [[ "$retry" == "n" || "$retry" == "N" ]]; then
+      echo -e "   ${DIM}Прервано. Получите новый токен в @AITeamVIPBot с правильного TG-аккаунта.${NC}"
+      exit 1
+    fi
+    VIP_TOKEN=""  # сбрасываем чтобы в следующей итерации снова запросить
+  done
 fi
 
 # ─── Определяем список агентов для установки ────────────────────
