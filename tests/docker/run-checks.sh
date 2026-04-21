@@ -55,13 +55,15 @@ else
   fail "--diagnose-only не напечатал ожидаемый заголовок"
 fi
 
-# 7. Все 12 шаблонов на месте
+# 7. Шаблоны на месте — Standard (3 агента × 4 файла = 12) или
+#    VIP (+ designer + coordinator = 20). Любой из этих двух значений
+#    валиден; промежуточное число = частичное состояние, это fail.
 template_count=$(find templates -name "*.md" | wc -l | tr -d ' ')
-if [[ "$template_count" == "12" ]]; then
-  pass "templates/ содержит ровно 12 md-файлов (3 агента × 4 файла)"
-else
-  fail "templates/ содержит $template_count файлов (ожидается 12)"
-fi
+case "$template_count" in
+  12) pass "templates/ содержит 12 md-файлов (Standard-набор: tech, marketer, producer)" ;;
+  20) pass "templates/ содержит 20 md-файлов (VIP-набор: + designer, coordinator)" ;;
+  *)  fail "templates/ содержит $template_count файлов (ожидается 12 Standard или 20 VIP)" ;;
+esac
 
 echo ""
 echo "=== Docker smoke — всё зелёное ==="

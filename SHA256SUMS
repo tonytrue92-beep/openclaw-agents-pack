@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-04-21 18:21:59 UTC
-# Commit: f4b0c79
+# Generated: 2026-04-21 18:22:26 UTC
+# Commit: 21db3e6
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
