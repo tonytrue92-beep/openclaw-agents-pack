@@ -164,6 +164,7 @@ CONFIG_FILE=""
 # выходов (install_complete, manual_menu_5, invalid_menu_choice) —
 # trap молчит.
 _last_exit_reason=""
+# shellcheck disable=SC2154  # _rc присваивается внутри trap action (через $?)
 trap '
   _rc=$?
   if [[ $_rc -ne 0 && -z "$_last_exit_reason" ]]; then
