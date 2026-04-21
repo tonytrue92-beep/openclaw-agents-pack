@@ -379,10 +379,26 @@ if [[ "$VIP_MODE" == true ]]; then
         vip_log_activation "$(vip_token_get_hash "$VIP_TOKEN")" "$MACHINE_TG_ID" || true
         break
         ;;
+      6)
+        # v1-токен: подпись валидна, но без TG-binding. Это легаси-формат
+        # от бота, который ещё не обновился до v2. Продолжаем установку,
+        # но предупреждаем клиента что защита от шаринга не активна.
+        warn "Ваш VIP-токен в старом формате (без TG-привязки)."
+        echo -e "   ${DIM}Подпись валидна — токен настоящий.${NC}"
+        echo -e "   ${DIM}Но защита от расшаривания пока не активна для этого токена.${NC}"
+        echo -e "   ${DIM}Когда администратор обновит бота, вы сможете получить${NC}"
+        echo -e "   ${DIM}свежий v2-токен в @AITeamVIPBot — он будет с защитой.${NC}"
+        echo ""
+        echo -e "   ${GREEN}Продолжаю установку 5 агентов...${NC}"
+        vip_log_activation "$(vip_token_get_hash "$VIP_TOKEN")" "${MACHINE_TG_ID:-0}" || true
+        break
+        ;;
       2)
-        warn "Формат токена неверный."
-        echo -e "   ${DIM}Ожидается: VIP-XXXXXXXXXXXXXXXX-123456789-<длинная-подпись>${NC}"
-        echo -e "   ${DIM}Скопируйте токен из @AITeamVIPBot целиком.${NC}"
+        warn "Формат токена не распознан."
+        echo -e "   ${DIM}Ожидается одна из структур:${NC}"
+        echo -e "   ${DIM}  • v2: VIP-XXXXXXXXXXXXXXXX-123456789-<длинная-подпись>${NC}"
+        echo -e "   ${DIM}  • v1: VIP-XXXXXXXXXXXXXXXX-<длинная-подпись>${NC}"
+        echo -e "   ${DIM}Скопируйте токен из @AITeamVIPBot целиком (без пробелов в конце).${NC}"
         ;;
       3)
         expected_tg=$(vip_token_get_expected_tg "$VIP_TOKEN" || echo "?")
@@ -394,8 +410,10 @@ if [[ "$VIP_MODE" == true ]]; then
         ;;
       4|5)
         warn "Криптографическая проверка подписи провалилась."
-        echo -e "   ${DIM}Токен мог быть повреждён при копировании или подделан.${NC}"
-        echo -e "   ${DIM}Получите свежий в @AITeamVIPBot.${NC}"
+        echo -e "   ${DIM}Возможные причины:${NC}"
+        echo -e "   ${DIM}  • токен повреждён при копировании (обрезан, лишние символы)${NC}"
+        echo -e "   ${DIM}  • бот администратора обновил ключ подписи — нужен свежий токен${NC}"
+        echo -e "   ${DIM}Получите свежий в @AITeamVIPBot (/start → email/phone).${NC}"
         ;;
     esac
 

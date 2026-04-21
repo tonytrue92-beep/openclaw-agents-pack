@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-04-21 19:20:19 UTC
-# Commit: 9ca4112
+# Generated: 2026-04-21 20:17:34 UTC
+# Commit: 045fd7d
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
@@ -9,17 +9,17 @@
 
 052652b05f20f19154cc5f7638f8539f87ca4b9ee9220bb362e0966cdc907604  scripts/demo-simulate.sh
 72a06322022e501159c816163c34a736086a73dc2a771b494fc28dc9521d4f79  scripts/diagnose-agents.sh
-1bf5a3d215471484fa1e89ded27f352d351783f7f3cbc8891fc7aeecc8c5d50a  scripts/install-agents.sh
+7ff051586071ff1a0af76bb2e3e5f97b84295bf659cccec80c7036d1d33898cc  scripts/install-agents.sh
 c58d722a490b4af6cc2140107a11fed107434ef89c6af9c5daf0e8e6ad916e34  scripts/install-git-hooks.sh
 c36331554fd1f118f47481abb39a59a98a7ad003fe32299befbc87bb0c619b1d  scripts/security-audit.sh
-bc9f1a5161c71e95c0ed14d8f2f5ce6176d4a44bf4e858095aee505c1cb1dd40  scripts/smoke-test.sh
+12067ef034c8d47b58b940a4188240603c74caac5a0972679cd457bfc37d6f7b  scripts/smoke-test.sh
 e5d674feca33e389ce3970f9aec8839439ba9fbf2fab989cdab1c32b6b842f11  scripts/update-checksums.sh
 dfcd7ededd9516bec0268449d3a7f3d4ed3d02aabaa9fa53f2506513c2ab5f29  scripts/lib/agents.sh
 a959670e0d0055b982a154dbdf1e6c720d41a07df65076e25c612aa3c3318e0d  scripts/lib/debug-bundle.sh
 67ae5e834855ded0e92ca7cce7f6208ba52dbfbe27b13b8e2ae0f79bbd01e01a  scripts/lib/preflight.sh
 254823d67596058a74884c7a932ed61d83216828993368e1909ae7f29a99e63b  scripts/lib/telemetry.sh
 7d14dc9f88e0af7ae47c7b91279c5e3eae4266d79145d5fb725a0900d5639a36  scripts/lib/ui.sh
-9dc795969a73099559983e846ee03f6238b1f50ff356d2343c38d87acb305fe9  scripts/lib/vip.sh
+07206a7afdf2195650078d0e9152a840afdc6b3ef188e6365a5039f087e6a12b  scripts/lib/vip.sh
 c98253e479bd90f3265cf521ed55fffc77da83652dc29da3979a5da4ad481b87  templates/coordinator/AGENTS.md
 a0577b6d013a3ffc864e37489d86c47cfefc59eea3b2dba984a69fcceae82845  templates/coordinator/IDENTITY.md
 3769491b2afe147486f8acad24cce4ea8009389ac0d9325428757a456b10c2f0  templates/coordinator/MEMORY.md

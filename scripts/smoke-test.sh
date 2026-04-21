@@ -73,6 +73,45 @@ if ps -p "$HB_PID" &>/dev/null; then
 fi
 pass "heartbeat стартует и корректно останавливается"
 
+# ─── Test 5: VIP v2 end-to-end с реальным токеном от @AITeamVIPBot ───
+# Токен выдан 2026-04-21 после sync-фикса (бот обновлён до v2).
+# TG=123456789 — тестовое несуществующее значение, токен бесполезен
+# для реального злоумышленника (чужой TG, проверка провалится).
+# shellcheck disable=SC1091
+source scripts/lib/vip.sh
+
+REAL_VIP_TOKEN="VIP-4EAF70B1F7A79796-123456789-Luu9d94qEEvJxrBZkQiRHJo2sdunPjmIh6SOAMh4aVyInPzMs3iDDV5tlJVGztUQk0P5wIIyESLtBUPbHzDEAw"
+REAL_VIP_TG="123456789"
+
+# 5a. Формат распознаётся как v2
+[[ "$(vip_token_version "$REAL_VIP_TOKEN")" == "v2" ]] || fail "v2 token не распознан как v2"
+pass "v2 формат распознаётся"
+
+# 5b. Корректный TG → rc=0
+set +e
+verify_vip_token "$REAL_VIP_TOKEN" "$REAL_VIP_TG"
+rc=$?
+set -e
+[[ "$rc" == "0" ]] || fail "valid token с правильным TG: ожидался rc=0, получен rc=$rc"
+pass "VIP v2 валидация с правильным TG ($REAL_VIP_TG): rc=0"
+
+# 5c. Чужой TG → rc=3 (TG mismatch, анти-шаринг)
+set +e
+verify_vip_token "$REAL_VIP_TOKEN" "999999999"
+rc=$?
+set -e
+[[ "$rc" == "3" ]] || fail "valid token с чужим TG: ожидался rc=3, получен rc=$rc"
+pass "VIP v2 анти-шаринг с чужим TG: rc=3 (блокирует)"
+
+# 5d. Испорченный токен → rc=5 (подпись не проходит)
+BROKEN_TOKEN="VIP-4EAF70B1F7A79796-123456789-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+set +e
+verify_vip_token "$BROKEN_TOKEN" "123456789"
+rc=$?
+set -e
+[[ "$rc" == "5" ]] || fail "broken signature: ожидался rc=5, получен rc=$rc"
+pass "VIP v2 отвергает токен с битой подписью: rc=5"
+
 rm -f /tmp/fake.json
 
 echo ""
