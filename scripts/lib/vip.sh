@@ -4,20 +4,14 @@
 
 VIP_PUBLIC_KEY_PEM=$(cat <<'EOF'
 -----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsb1HPv/Pw4U+c1MOr8Ci
-Z6+PIdUmRdJLn0fpl53TWgagAh2ibJqLsAIxKHjPlUnU/FLXF0ylzYKqq4ZObw7a
-xbK6nTbbnphHueiWr15/URUyUbKBfz/nryyp3q90a6y/wBXg9FWJWZo/F/n+5YM3
-j9KTMFS/JGSZfY4vzFuJuA6rrFt4ZwFyR8/tP8DUtg3cVJVQhtC4zE2JkULONVJx
-Gu4y+PXNrnaOIwOoIIYemEO1ksHs8QuOYUs/DakC0kqXtpTR1SEKdIPY+hN47e64
-itpd+46P0Gg+bUJA+lEz8lo+o/nhVdDzgnxtC/uRB0/7tiJu1FiAzePmPpZThIno
-pQIDAQAB
+MCowBQYDK2VwAyEAQIjPPB5LB1R3outrY1HMaVRVUB2tkDhHtpC8LLJ+8rA=
 -----END PUBLIC KEY-----
 EOF
 )
 
 verify_vip_token() {
   local token="$1"
-  [[ "$token" =~ ^VIP-[A-F0-9]{16}-[A-Za-z0-9_-]{80,}$ ]] || return 1
+  [[ "$token" =~ ^VIP-[A-F0-9]{16}-[A-Za-z0-9_-]{80,100}$ ]] || return 1
 
   local payload signature tmpdir
   payload=$(printf '%s' "$token" | cut -d'-' -f2)
@@ -43,7 +37,7 @@ PY
     return 1
   fi
 
-  if openssl dgst -sha256 -verify "$tmpdir/public.pem" -signature "$tmpdir/signature.bin" "$tmpdir/payload.txt" >/dev/null 2>&1; then
+  if openssl pkeyutl -verify -pubin -inkey "$tmpdir/public.pem" -rawin -in "$tmpdir/payload.txt" -sigfile "$tmpdir/signature.bin" >/dev/null 2>&1; then
     rm -rf "$tmpdir"
     return 0
   fi
