@@ -111,25 +111,33 @@ verify_vip_token() {
   esac
 }
 
-# ─── v2 проверка ───────────────────────────────────────────────
-_verify_v2() {
-  local token="$1"
-  local machine_tg_id="$2"
+# ─── Внутренняя проверка Ed25519 подписи ───────────────────────
+# Сначала через Node crypto (стабильнее на разных системах), потом fallback на openssl.
+_verify_ed25519_signature() {
+  local payload="$1"
+  local sig_part="$2"
 
-  local hash_part tg_part sig_part
-  hash_part=$(printf '%s' "$token" | cut -d'-' -f2)
-  tg_part=$(printf '%s' "$token" | cut -d'-' -f3)
-  sig_part=$(printf '%s' "$token" | cut -d'-' -f4-)
-
-  # TG-binding проверка (быстро, без openssl)
-  if [[ -n "$machine_tg_id" && "$tg_part" != "$machine_tg_id" ]]; then
-    return 3
+  if command -v node >/dev/null 2>&1; then
+    if VIP_PUBLIC_KEY_PEM="$VIP_PUBLIC_KEY_PEM" VIP_PAYLOAD="$payload" VIP_SIG_B64="$sig_part" node - <<'JS' >/dev/null 2>&1
+const crypto = require('crypto');
+try {
+  const publicKey = crypto.createPublicKey(process.env.VIP_PUBLIC_KEY_PEM);
+  const payload = Buffer.from(process.env.VIP_PAYLOAD || '', 'utf8');
+  const signature = Buffer.from(process.env.VIP_SIG_B64 || '', 'base64url');
+  const ok = crypto.verify(null, payload, publicKey, signature);
+  process.exit(ok ? 0 : 1);
+} catch {
+  process.exit(1);
+}
+JS
+    then
+      return 0
+    fi
   fi
 
   local tmpdir
   tmpdir=$(mktemp -d -t vipverify.XXXXXX)
-
-  printf '%s|%s' "$hash_part" "$tg_part" > "$tmpdir/payload.txt"
+  printf '%s' "$payload" > "$tmpdir/payload.txt"
   printf '%s\n' "$VIP_PUBLIC_KEY_PEM" > "$tmpdir/public.pem"
 
   if ! _decode_b64url "$sig_part" "$tmpdir/signature.bin"; then
@@ -148,6 +156,27 @@ _verify_v2() {
   return 5
 }
 
+# ─── v2 проверка ───────────────────────────────────────────────
+_verify_v2() {
+  local token="$1"
+  local machine_tg_id="$2"
+
+  local hash_part tg_part sig_part
+  hash_part=$(printf '%s' "$token" | cut -d'-' -f2)
+  tg_part=$(printf '%s' "$token" | cut -d'-' -f3)
+  sig_part=$(printf '%s' "$token" | cut -d'-' -f4-)
+
+  if [[ -n "$machine_tg_id" && "$tg_part" != "$machine_tg_id" ]]; then
+    return 3
+  fi
+
+  _verify_ed25519_signature "${hash_part}|${tg_part}" "$sig_part"
+  local rc=$?
+  [[ $rc -eq 4 ]] && return 4
+  [[ $rc -eq 0 ]] && return 0
+  return 5
+}
+
 # ─── v1 проверка (легаси) ──────────────────────────────────────
 # Возвращает 0 если подпись валидна, 1 — не валидна.
 _verify_v1() {
@@ -157,27 +186,7 @@ _verify_v1() {
   hash_part=$(printf '%s' "$token" | cut -d'-' -f2)
   sig_part=$(printf '%s' "$token" | cut -d'-' -f3-)
 
-  local tmpdir
-  tmpdir=$(mktemp -d -t vipverify.XXXXXX)
-
-  # v1 подпись от чистого hash_part
-  printf '%s' "$hash_part" > "$tmpdir/payload.txt"
-  printf '%s\n' "$VIP_PUBLIC_KEY_PEM" > "$tmpdir/public.pem"
-
-  if ! _decode_b64url "$sig_part" "$tmpdir/signature.bin"; then
-    rm -rf "$tmpdir"
-    return 1
-  fi
-
-  if openssl pkeyutl -verify -pubin -inkey "$tmpdir/public.pem" \
-       -rawin -in "$tmpdir/payload.txt" -sigfile "$tmpdir/signature.bin" \
-       >/dev/null 2>&1; then
-    rm -rf "$tmpdir"
-    return 0
-  fi
-
-  rm -rf "$tmpdir"
-  return 1
+  _verify_ed25519_signature "$hash_part" "$sig_part" >/dev/null 2>&1
 }
 
 # ─── Утилита: декодирование base64url в бинарный файл ──────────
