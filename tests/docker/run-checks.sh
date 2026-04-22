@@ -55,14 +55,14 @@ else
   fail "--diagnose-only не напечатал ожидаемый заголовок"
 fi
 
-# 7. Шаблоны на месте — Standard (3 агента × 4 файла = 12) или
-#    VIP (+ designer + coordinator = 20). Любой из этих двух значений
-#    валиден; промежуточное число = частичное состояние, это fail.
+# 7. Шаблоны на месте — Standard (3 × 4 = 12) или
+#    VIP (+ designer + coordinator + copywriter = 24).
+#    Промежуточные числа = частичное состояние, это fail.
 template_count=$(find templates -name "*.md" | wc -l | tr -d ' ')
 case "$template_count" in
-  12) pass "templates/ содержит 12 md-файлов (Standard-набор: tech, marketer, producer)" ;;
-  20) pass "templates/ содержит 20 md-файлов (VIP-набор: + designer, coordinator)" ;;
-  *)  fail "templates/ содержит $template_count файлов (ожидается 12 Standard или 20 VIP)" ;;
+  12) pass "templates/ содержит 12 md-файлов (Standard: tech, marketer, producer)" ;;
+  24) pass "templates/ содержит 24 md-файла (VIP: + designer, coordinator, copywriter)" ;;
+  *)  fail "templates/ содержит $template_count файлов (ожидается 12 Standard или 24 VIP)" ;;
 esac
 
 echo ""

@@ -90,7 +90,7 @@ for arg in "$@"; do
       cat <<HELP
 OpenClaw Agents Pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})
 
-Установщик Standard (3 агента) и VIP (5 агентов)
+Установщик Standard (3 агента) и VIP (6 агентов)
 поверх уже работающего OpenClaw.
 
 Usage: bash install-agents.sh [OPTIONS]
@@ -99,7 +99,7 @@ Options:
   --install              Пропустить меню, поставить Standard-набор (3 агента)
   --vip-token <token>    Включить VIP-режим (5 агентов) и валидировать токен локально
   --vps, --headless      VPS-режим (skip GUI, SSH-tunnel-инструкция для dashboard)
-  --only <agent>         Поставить только одного: tech | marketer | producer | designer | coordinator
+  --only <agent>         Поставить только одного: tech | marketer | producer | designer | coordinator | copywriter
   --suffix <str>         Суффикс к id при коллизии (tech-2, marketer-2, …)
   --config <file>        env-файл для неинтерактивной установки:
                            BOT_TOKEN_TECH=...
@@ -194,7 +194,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --only)
       ONLY_AGENT="${2:-}"
-      [[ -z "$ONLY_AGENT" ]] && { echo "ERROR: --only требует значение (tech|marketer|producer|designer|coordinator)"; exit 1; }
+      [[ -z "$ONLY_AGENT" ]] && { echo "ERROR: --only требует значение (tech|marketer|producer|designer|coordinator|copywriter)"; exit 1; }
       shift 2
       ;;
     --suffix)
@@ -331,12 +331,13 @@ if [[ "$SKIP_MENU" != true ]]; then
   echo -e "       🔧 Технарь   📈 Маркетолог   🎬 Продюсер"
   echo -e "       ${DIM}Токен НЕ нужен — просто выбирайте и ставьте.${NC}"
   echo ""
-  echo -e "   ${BOLD}${YELLOW}  2)${NC}  ${BOLD}VIP — 5 агентов${NC}  ${DIM}(тариф «VIP» курса)${NC}"
-  echo -e "       🔧 Технарь   📈 Маркетолог   🎬 Продюсер   🎨 Дизайнер   🧭 Координатор"
+  echo -e "   ${BOLD}${YELLOW}  2)${NC}  ${BOLD}VIP — 6 агентов${NC}  ${DIM}(тариф «VIP» курса)${NC}"
+  echo -e "       🔧 Технарь   📈 Маркетолог   🎬 Продюсер"
+  echo -e "       🎨 Дизайнер  🧭 Координатор  ✍️  Копирайтер"
   echo -e "       ${DIM}Понадобится VIP-токен — получить в ${BOLD}@AITeamVIPBot${NC}${DIM} по вашему email или телефону.${NC}"
   echo ""
   echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}Установить только одного${NC}"
-  echo -e "       ${DIM}Выберите: tech, marketer, producer, designer или coordinator.${NC}"
+  echo -e "       ${DIM}Выберите: tech, marketer, producer, designer, coordinator или copywriter.${NC}"
   echo ""
   echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Диагностика${NC} — проверить уже установленных"
   echo -e "       ${DIM}Ничего не меняет, только показывает состояние.${NC}"
@@ -350,7 +351,7 @@ if [[ "$SKIP_MENU" != true ]]; then
   case "$MENU_CHOICE" in
     2) VIP_MODE=true ;;
     3)
-      echo -e "   ${BOLD}${WHITE}Какого агента поставить? [tech/marketer/producer/designer/coordinator]:${NC}"
+      echo -e "   ${BOLD}${WHITE}Какого агента поставить? [tech/marketer/producer/designer/coordinator/copywriter]:${NC}"
       read -r ONLY_AGENT
       ;;
     4)
@@ -381,7 +382,7 @@ if [[ "$SKIP_MENU" != true ]]; then
   esac
 fi
 
-if [[ "$ONLY_AGENT" == "designer" || "$ONLY_AGENT" == "coordinator" ]]; then
+if [[ "$ONLY_AGENT" == "designer" || "$ONLY_AGENT" == "coordinator" || "$ONLY_AGENT" == "copywriter" ]]; then
   VIP_MODE=true
 fi
 
@@ -422,7 +423,7 @@ if [[ "$VIP_MODE" == true ]]; then
 
     case $rc in
       0)
-        ok "VIP-токен подтверждён для TG ID ${MACHINE_TG_ID}. Открываю установку 5 агентов."
+        ok "VIP-токен подтверждён для TG ID ${MACHINE_TG_ID}. Открываю установку 6 агентов."
         # Fire-and-forget сообщение боту — если бот увидит что этот токен
         # активируется с 4+ разных IP за неделю, пришлёт админу алерт.
         vip_log_activation "$(vip_token_get_hash "$VIP_TOKEN")" "$MACHINE_TG_ID" || true
@@ -438,7 +439,7 @@ if [[ "$VIP_MODE" == true ]]; then
         echo -e "   ${DIM}Когда администратор обновит бота, вы сможете получить${NC}"
         echo -e "   ${DIM}свежий v2-токен в @AITeamVIPBot — он будет с защитой.${NC}"
         echo ""
-        echo -e "   ${GREEN}Продолжаю установку 5 агентов...${NC}"
+        echo -e "   ${GREEN}Продолжаю установку 6 агентов...${NC}"
         vip_log_activation "$(vip_token_get_hash "$VIP_TOKEN")" "${MACHINE_TG_ID:-0}" || true
         break
         ;;
@@ -483,11 +484,11 @@ fi
 AGENTS_TO_INSTALL=()
 if [[ -n "$ONLY_AGENT" ]]; then
   case "$ONLY_AGENT" in
-    tech|marketer|producer|designer|coordinator) AGENTS_TO_INSTALL=("$ONLY_AGENT") ;;
-    *) echo "ERROR: --only должен быть tech/marketer/producer/designer/coordinator, получено: $ONLY_AGENT"; exit 1 ;;
+    tech|marketer|producer|designer|coordinator|copywriter) AGENTS_TO_INSTALL=("$ONLY_AGENT") ;;
+    *) echo "ERROR: --only должен быть tech/marketer/producer/designer/coordinator/copywriter, получено: $ONLY_AGENT"; exit 1 ;;
   esac
 elif [[ "$VIP_MODE" == true ]]; then
-  AGENTS_TO_INSTALL=(tech marketer producer designer coordinator)
+  AGENTS_TO_INSTALL=(tech marketer producer designer coordinator copywriter)
 else
   AGENTS_TO_INSTALL=(tech marketer producer)
 fi
@@ -676,6 +677,7 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     producer)    emoji="🎬"; label="Продюсер" ;;
     designer)    emoji="🎨"; label="Дизайнер" ;;
     coordinator) emoji="🧭"; label="Координатор" ;;
+    copywriter)  emoji="✍️"; label="Копирайтер" ;;
   esac
 
   # Если токен передан через --config — берём оттуда как «preset»,
@@ -878,6 +880,7 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     producer)    emoji="🎬"; label="Продюсер" ;;
     designer)    emoji="🎨"; label="Дизайнер" ;;
     coordinator) emoji="🧭"; label="Координатор" ;;
+    copywriter)  emoji="✍️"; label="Копирайтер" ;;
   esac
   _usr_var="BOT_USERNAME_$agent"
   username="${!_usr_var:-неизвестно}"

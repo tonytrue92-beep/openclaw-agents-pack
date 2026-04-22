@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-04-21 20:35:53 UTC
-# Commit: daf5bfc
+# Generated: 2026-04-22 08:26:31 UTC
+# Commit: 406338a
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
@@ -9,7 +9,7 @@
 
 052652b05f20f19154cc5f7638f8539f87ca4b9ee9220bb362e0966cdc907604  scripts/demo-simulate.sh
 72a06322022e501159c816163c34a736086a73dc2a771b494fc28dc9521d4f79  scripts/diagnose-agents.sh
-435fb1f098b551ae7434b03456834f60f0d87506446591e1c02211d19dc7f4b5  scripts/install-agents.sh
+b4bebd5fd9881d1f45dee9eb4b4eee67b06c9f991a7bec8803e2e1db9487ee4d  scripts/install-agents.sh
 c58d722a490b4af6cc2140107a11fed107434ef89c6af9c5daf0e8e6ad916e34  scripts/install-git-hooks.sh
 c36331554fd1f118f47481abb39a59a98a7ad003fe32299befbc87bb0c619b1d  scripts/security-audit.sh
 12067ef034c8d47b58b940a4188240603c74caac5a0972679cd457bfc37d6f7b  scripts/smoke-test.sh
@@ -19,11 +19,15 @@ a959670e0d0055b982a154dbdf1e6c720d41a07df65076e25c612aa3c3318e0d  scripts/lib/de
 67ae5e834855ded0e92ca7cce7f6208ba52dbfbe27b13b8e2ae0f79bbd01e01a  scripts/lib/preflight.sh
 254823d67596058a74884c7a932ed61d83216828993368e1909ae7f29a99e63b  scripts/lib/telemetry.sh
 7d14dc9f88e0af7ae47c7b91279c5e3eae4266d79145d5fb725a0900d5639a36  scripts/lib/ui.sh
-07206a7afdf2195650078d0e9152a840afdc6b3ef188e6365a5039f087e6a12b  scripts/lib/vip.sh
+3964c67a6cf251e3fa09aeb1cd13e2323f980bfaeef1e5484b052474003610f4  scripts/lib/vip.sh
 c98253e479bd90f3265cf521ed55fffc77da83652dc29da3979a5da4ad481b87  templates/coordinator/AGENTS.md
 a0577b6d013a3ffc864e37489d86c47cfefc59eea3b2dba984a69fcceae82845  templates/coordinator/IDENTITY.md
 3769491b2afe147486f8acad24cce4ea8009389ac0d9325428757a456b10c2f0  templates/coordinator/MEMORY.md
 0fa79ff9a8d3c753f4b01d91437a4a8f0ea8ad0535e60e8c119c975de63a2b57  templates/coordinator/USER.md
+a3bc08001480f7d91e2b7860c750210a150c270e7ecec6b249334ba7e0eff141  templates/copywriter/AGENTS.md
+824b9bad4c3a034a44a75a988c628e20a056d892c565f6f5353d17edbfc30be6  templates/copywriter/IDENTITY.md
+779bd31411e9d58fd2db35a7f1d4a27e14beb0898e636fceeba37255dab8e996  templates/copywriter/MEMORY.md
+726b070604e48e84212f20ee0ea3001a651f93170d74af38544ce602b09da0fb  templates/copywriter/USER.md
 0e6a45c3ce44222e75d2c647302d0f12dacc278728861b1e5a7dcc4a3472f74a  templates/designer/AGENTS.md
 c6e817245889d82427e5388e6aae428955d12418c0cdf058d7cc63e194b4458a  templates/designer/IDENTITY.md
 bd6f153f2fc564d8616ebaeb16665130be2abd1a8bfef531064fcbc82756b1a6  templates/designer/MEMORY.md
