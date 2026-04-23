@@ -123,14 +123,45 @@ copy_auth_profile_from_main() {
 # Шаблоны скачиваются с GitHub raw, пинованные к INSTALLER_COMMIT —
 # контент и скрипт версионируются вместе.
 #
+# Два режима:
+#
+#   • full (default) — свежая установка / полная перезапись. Скачивает
+#     все md (IDENTITY/AGENTS/MEMORY/USER + SOUL/LEARNING/skills для VIP),
+#     генерит новый anti-sharing watermark из VIP_TOKEN.
+#
+#   • refresh — обновление существующей установки (wave 7). Скачивает
+#     только «системные» md (IDENTITY/AGENTS + SOUL/LEARNING/skills), НЕ
+#     трогает MEMORY.md и USER.md (это пользовательские данные — контекст
+#     сессий и ответы онбординга). Старые файлы бэкапятся в
+#     <workspace>/.backups/<timestamp>/. Watermark из старой IDENTITY.md
+#     переносится в новую как есть (не перевыпускаем — для refresh нам
+#     не нужен VIP_TOKEN).
+#
 # Args:
-#   $1 = agent_id (tech / marketer / producer)
+#   $1 = agent_id (tech / marketer / producer / designer / coordinator / copywriter)
 #   $2 = workspace dir
+#   $3 = mode: "full" (default) | "refresh"
 prepare_workspace_from_templates() {
   local agent_id="$1"
   local workspace_dir="$2"
+  local mode="${3:-full}"
 
   mkdir -p "$workspace_dir"
+
+  # ─── Refresh mode: бэкап + вытащить старый watermark ──────────
+  local backup_dir=""
+  local old_watermark=""
+  if [[ "$mode" == "refresh" ]]; then
+    local ts
+    ts=$(date +%Y%m%d-%H%M%S)
+    backup_dir="${workspace_dir}/.backups/${ts}"
+    mkdir -p "$backup_dir"
+    # Сохраняем anti-sharing watermark из старой IDENTITY.md
+    # (строка `<!-- issued-to: ... -->` из wave 3 / 6)
+    if [[ -f "${workspace_dir}/IDENTITY.md" ]]; then
+      old_watermark=$(grep -E '^<!-- issued-to:' "${workspace_dir}/IDENTITY.md" 2>/dev/null | head -1)
+    fi
+  fi
 
   # Commit-pin: если __COMMIT_PLACEHOLDER__ или dev — берём main
   local commit_ref="${INSTALLER_COMMIT:-main}"
@@ -139,8 +170,22 @@ prepare_workspace_from_templates() {
   fi
   local base="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/${commit_ref}/templates/${agent_id}"
 
-  for md in IDENTITY AGENTS MEMORY USER; do
+  # ─── Базовые md-файлы ────────────────────────────────────────
+  # full: скачиваем все 4 (IDENTITY/AGENTS/MEMORY/USER)
+  # refresh: только IDENTITY/AGENTS — MEMORY и USER это пользовательские
+  # данные (контекст + ответы онбординга), трогать нельзя.
+  local md_list="IDENTITY AGENTS MEMORY USER"
+  if [[ "$mode" == "refresh" ]]; then
+    md_list="IDENTITY AGENTS"
+  fi
+
+  local md
+  for md in $md_list; do
     local dst="${workspace_dir}/${md}.md"
+    # В refresh mode — бэкап старого перед перезаписью
+    if [[ "$mode" == "refresh" && -f "$dst" ]]; then
+      cp "$dst" "${backup_dir}/${md}.md" 2>/dev/null || true
+    fi
     if curl -fsSL --max-time 10 "${base}/${md}.md" -o "$dst" 2>/dev/null; then
       echo -e "   ${GREEN}✓${NC} ${agent_id}/${md}.md"
     else
@@ -166,9 +211,15 @@ prepare_workspace_from_templates() {
   esac
 
   if [[ "$has_extras" == true ]]; then
-    # SOUL и LEARNING
+    # SOUL и LEARNING — в refresh mode тоже обновляем (это «системная»
+    # часть, не содержит пользовательских ответов). Бэкап по-прежнему
+    # сохраняем.
+    local extra
     for extra in SOUL LEARNING; do
       local extra_dst="${workspace_dir}/${extra}.md"
+      if [[ "$mode" == "refresh" && -f "$extra_dst" ]]; then
+        cp "$extra_dst" "${backup_dir}/${extra}.md" 2>/dev/null || true
+      fi
       if curl -fsSL --max-time 10 "${base}/${extra}.md" -o "$extra_dst" 2>/dev/null; then
         echo -e "   ${GREEN}✓${NC} ${agent_id}/${extra}.md"
       else
@@ -183,6 +234,11 @@ prepare_workspace_from_templates() {
       coordinator) skills_list="agent-collaboration-network close-loop" ;;
       copywriter)  skills_list="reef-copywriting brand-voice-profile" ;;
     esac
+
+    # В refresh mode — целиком бэкапим skills/ перед перезаписью
+    if [[ "$mode" == "refresh" && -d "${workspace_dir}/skills" ]]; then
+      cp -R "${workspace_dir}/skills" "${backup_dir}/skills" 2>/dev/null || true
+    fi
 
     mkdir -p "${workspace_dir}/skills"
     local skill
@@ -207,7 +263,19 @@ prepare_workspace_from_templates() {
   #
   # Формат: <!-- issued-to: <email_hash16> | tg:<tg_id> | <agent_id> | YYYY-MM-DD -->
   # email_hash16 = первая секция VIP-токена (не сам email — так не палим PII).
-  if [[ "${VIP_MODE:-false}" == true && -n "${VIP_TOKEN:-}" && -n "${MACHINE_TG_ID:-}" ]]; then
+  #
+  # В refresh mode — не перевыпускаем, а переносим старый watermark из
+  # сохранённой строки (у нас нет VIP_TOKEN в refresh).
+  if [[ "$mode" == "refresh" && -n "$old_watermark" ]]; then
+    local identity_md="${workspace_dir}/IDENTITY.md"
+    if [[ -f "$identity_md" ]]; then
+      {
+        echo ""
+        echo "$old_watermark"
+      } >> "$identity_md"
+    fi
+  elif [[ "$mode" != "refresh" && "${VIP_MODE:-false}" == true \
+          && -n "${VIP_TOKEN:-}" && -n "${MACHINE_TG_ID:-}" ]]; then
     local identity_md="${workspace_dir}/IDENTITY.md"
     if [[ -f "$identity_md" ]]; then
       local hash_part
@@ -218,6 +286,27 @@ prepare_workspace_from_templates() {
       } >> "$identity_md"
     fi
   fi
+
+  # ─── Refresh summary ─────────────────────────────────────────
+  if [[ "$mode" == "refresh" ]]; then
+    echo -e "   ${DIM}Бэкап старых шаблонов: ${backup_dir}${NC}"
+    echo -e "   ${DIM}MEMORY.md и USER.md не тронуты${NC}"
+  fi
+}
+
+# ─── Найти все установленные агенты (для --refresh-templates) ────
+#
+# Итерируется по известным ID, проверяет agent_exists и возвращает
+# список существующих (через stdout, по одному на строку). Используется
+# неинтерактивным режимом --refresh-templates чтобы не спрашивать
+# клиента какие агенты у него стоят.
+find_installed_agents() {
+  local candidate
+  for candidate in tech marketer producer designer coordinator copywriter; do
+    if agent_exists "$candidate"; then
+      echo "$candidate"
+    fi
+  done
 }
 
 # ─── Полная очистка всего связанного с агентом ──────────────────

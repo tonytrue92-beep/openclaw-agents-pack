@@ -52,6 +52,7 @@ install-agents.sh --vps           # для развёртывания на VPS
 install-agents.sh --only tech     # поставить только одного
 install-agents.sh --diagnose-only # проверить что все три живы (ничего не меняет)
 install-agents.sh --collect-debug # собрать debug-bundle для саппорта
+install-agents.sh --refresh-templates  # обновить шаблоны (IDENTITY/AGENTS/SOUL/LEARNING/skills) без потери MEMORY + USER
 install-agents.sh --config <file> # неинтерактивно, читать токены из env-файла
 install-agents.sh --version       # версия установщика
 install-agents.sh --help          # полная справка

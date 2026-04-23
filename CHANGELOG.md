@@ -6,6 +6,91 @@
 
 ---
 
+## 2026-04-23 — Wave 7 (безопасное обновление шаблонов: `--refresh-templates`)
+
+Для клиентов у которых уже стоят агенты, и которые хотят получить новые
+шаблоны (SOUL.md, LEARNING.md, обновлённые skills) **без потери MEMORY.md
+и USER.md**. Раньше апдейт требовал полной переустановки с потерей
+накопленного контекста — это блокировало обновления у тех кто уже
+наработал данные.
+
+### Added
+
+- **Новый флаг `--refresh-templates`** (неинтерактивный):
+  ```bash
+  bash <(curl -fsSL .../install-agents.sh) --refresh-templates
+  ```
+  Находит все установленные агенты через `openclaw agents list`, идёт
+  по каждому, обновляет шаблоны. Не спрашивает токены / модель /
+  каналы. Не нужен VIP-токен.
+
+- **Новый пункт меню в R0 (interactive)**:
+  Когда установщик видит что все целевые агенты уже стоят (сценарий
+  OVERWRITE), теперь предлагается **3 варианта** вместо 2:
+  1. **Обновить шаблоны** (default, безопасно) ← новое
+  2. Перезаписать начисто (как раньше, с потерей MEMORY.md)
+  3. Ничего не делать
+
+  Старый default «Перезаписать» заменён на «Обновить» — это то что
+  в 90% случаев нужно клиенту после выхода новой версии. Кто хочет
+  clean reinstall — явно выбирает пункт 2.
+
+- **Бэкапы перед перезаписью**: при любом refresh старые файлы
+  сохраняются в `~/.openclaw/workspace-<agent>/.backups/<YYYYMMDD-HHMMSS>/`.
+  Если новая версия шаблона что-то сломала — откатиться одной командой:
+  ```bash
+  cp ~/.openclaw/workspace-designer/.backups/20260423-143022/* \
+     ~/.openclaw/workspace-designer/
+  ```
+
+### Changed
+
+- **`scripts/lib/agents.sh`** — `prepare_workspace_from_templates()` теперь
+  принимает третий аргумент `mode` (`full` | `refresh`):
+  - `full` (default, поведение как раньше): качает все 4 md-файла +
+    VIP-extras, генерит новый watermark из VIP_TOKEN.
+  - `refresh`: качает только **системные** файлы (IDENTITY, AGENTS,
+    SOUL, LEARNING, skills) — MEMORY.md и USER.md **не трогает**.
+    Сохраняет существующий anti-sharing watermark (из старой IDENTITY.md),
+    не перевыпускает — для refresh VIP-токен не нужен.
+
+- **Новая функция `find_installed_agents()`** — итерируется по
+  известным ID и возвращает список установленных. Используется
+  `--refresh-templates` чтобы не спрашивать клиента.
+
+### Что защищено при refresh
+
+- **MEMORY.md** — контекст накопленных сессий (сработавшие заголовки,
+  стоп-слова, история задач) — **не трогается**.
+- **USER.md** — ответы клиента на онбординг (ниша, ЦА, тон) —
+  **не трогается**.
+- **Auth-profile** — `~/.openclaw/agents/<id>/agent/auth-profiles.json` —
+  **не трогается**.
+- **Telegram channel binding** + `dmPolicy`/`allowFrom` настройки —
+  **не трогаются**.
+- **Anti-sharing watermark** (wave 3) — переносится из старой
+  IDENTITY.md в новую как есть.
+
+### Upgrade scenario
+
+- **Клиенты wave 5 / 6** → запускают тот же `curl | bash`, выбирают
+  пункт 1 «Обновить шаблоны» (или сразу `--refresh-templates`) →
+  получают новые SOUL/LEARNING/skills при сохранённых MEMORY/USER.
+- **Новые клиенты** → всё как раньше, свежая установка через
+  wave 6 шаблоны.
+- **Standard-клиенты** → тоже получают обновление IDENTITY + AGENTS
+  (SOUL/LEARNING/skills у них нет — они только для VIP).
+
+### Verification
+
+- `bash scripts/smoke-test.sh` — добавлен wave-7 тест (проверка что
+  refresh mode и `--refresh-templates` на месте).
+- `bash -n scripts/install-agents.sh` — OK.
+- `--refresh-templates` на свежей машине без агентов → корректно
+  выходит без ошибок с подсказкой «сначала обычная установка».
+
+---
+
 ## 2026-04-22 — Wave 6 (VIP-агенты становятся умнее: SOUL + LEARNING + skills/)
 
 ### Added
