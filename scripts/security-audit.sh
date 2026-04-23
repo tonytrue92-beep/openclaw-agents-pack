@@ -87,9 +87,21 @@ echo ""
 
 # ─── Check 6: templates/ без личных данных автора ───
 echo "─── Check 6: templates/ не содержат личных данных автора курса ───"
-# Паттерны: имена, email, TG handle, TG user ID, VIP Factory, openclaw-factory пути
+# Покрывает (wave 6 расширение):
+#   • Имя / email / TG handle автора курса
+#   • TG user ID автора (975494053) + чужие chat_id из полных версий (1167075209)
+#   • Бренд-маркеры оригинального факторинга (vip-factory, openclaw-factory,
+#     TRUE AI AGENCY)
+#   • Пути файловой системы автора (/Users/<name>)
+#   • Прошитые API-ключи с префиксами конкретных платформ (ntn_ / cpk_ / pat_FL)
+#   • IG handle автора (instapol2136) — был в полных версиях TOOLS.md
+#
+# ПРИМЕЧАНИЕ: сознательно НЕ включаем в regex слова "сработало" и "связки"
+# — это обычные русские слова (работает / комбинации), а -i даёт
+# case-insensitive match и ловит легитимный контент в шаблонах.
+# Брендовое название курса вычищается ревью на стадии коммита вручную.
 forbidden=$(grep -rniE \
-  'antonpolakov|@tonytruee|tonytrue92|975494053|vip-factory\b|openclaw-factory\b|/Users/[a-z]+|Антон\s+Поляков|Tonytrue' \
+  'antonpolakov|@tonytruee|tonytrue92|975494053|1167075209|vip-factory\b|openclaw-factory\b|/Users/[a-z]+|Антон\s+Поляков|Tonytrue|serditov|instapol2136|TRUE AI AGENCY|ntn_[A-Za-z0-9]{20,}|cpk_[A-Za-z0-9]{20,}|pat_FL[A-Za-z0-9]{20,}' \
   templates/ 2>/dev/null || true)
 if [[ -n "$forbidden" ]]; then
   fail "templates/ содержат личные маркеры автора:"

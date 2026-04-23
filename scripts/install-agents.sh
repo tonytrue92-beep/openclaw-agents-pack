@@ -112,6 +112,10 @@ Options:
                            OWNER_TG_ID=12345678
   --diagnose-only        Проверить что агенты живы (ничего не меняет)
   --collect-debug        Собрать debug-bundle для саппорта (не нужен TTY)
+  --refresh-templates    Обновить ТОЛЬКО шаблоны уже установленных агентов
+                         (IDENTITY/AGENTS/SOUL/LEARNING/skills), сохранив
+                         MEMORY.md + USER.md + настройки каналов. Безопасный
+                         апдейт без потери данных. Не нужен VIP-токен.
   --version              Показать версию
   --help                 Показать эту справку
 
@@ -129,6 +133,7 @@ NEEDS_TTY=true
 for arg in "$@"; do
   [[ "$arg" == "--collect-debug" ]] && NEEDS_TTY=false
   [[ "$arg" == "--diagnose-only" ]] && NEEDS_TTY=false
+  [[ "$arg" == "--refresh-templates" ]] && NEEDS_TTY=false
 done
 if [[ "$NEEDS_TTY" == true && ! -t 0 ]]; then
   if [[ -e /dev/tty ]]; then
@@ -145,6 +150,7 @@ SKIP_MENU=false
 VPS_MODE=false
 COLLECT_DEBUG_ONLY=false
 DIAGNOSE_ONLY=false
+REFRESH_TEMPLATES_ONLY=false
 VIP_MODE=false
 VIP_TOKEN=""
 ONLY_AGENT=""
@@ -185,6 +191,7 @@ while [[ $# -gt 0 ]]; do
     --vps|--headless) VPS_MODE=true; SKIP_MENU=true; shift ;;
     --collect-debug) COLLECT_DEBUG_ONLY=true; shift ;;
     --diagnose-only) DIAGNOSE_ONLY=true; shift ;;
+    --refresh-templates) REFRESH_TEMPLATES_ONLY=true; shift ;;
     --vip-token)
       VIP_TOKEN="${2:-}"
       [[ -z "$VIP_TOKEN" ]] && { echo "ERROR: --vip-token требует значение"; exit 1; }
@@ -304,6 +311,71 @@ if [[ "$DIAGNOSE_ONLY" == true ]]; then
       openclaw agents bindings 2>&1 | head -20
     fi
   fi
+  exit 0
+fi
+
+# ─── --refresh-templates: обновить только системные md уже стоящих агентов ─
+#
+# Безопасный апдейт без потери данных:
+#   • скачиваются свежие IDENTITY.md, AGENTS.md (+ SOUL/LEARNING/skills для VIP)
+#   • MEMORY.md и USER.md НЕ трогаются
+#   • настройки каналов / auth-profile / telegram-привязки НЕ трогаются
+#   • старые файлы бэкапятся в ~/.openclaw/workspace-<agent>/.backups/<ts>/
+#
+# Типичный сценарий: вышла новая версия установщика (wave 6 → 7), клиент
+# хочет получить обновлённые характеры/онбординг-протоколы, но у него уже
+# есть наработанная MEMORY (контекст за недели) и заполненный USER.md
+# (ответы на вопросы онбординга). Этот флаг — для них.
+if [[ "$REFRESH_TEMPLATES_ONLY" == true ]]; then
+  echo ""
+  echo -e "${BOLD}${CYAN}♻️  Обновление шаблонов уже установленных агентов${NC}"
+  echo -e "${DIM}   agents-pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
+  echo ""
+
+  preflight_openclaw || exit 1
+
+  # Ищем какие агенты уже стоят
+  mapfile -t FOUND_AGENTS < <(find_installed_agents)
+
+  if [[ ${#FOUND_AGENTS[@]} -eq 0 ]]; then
+    warn "Не нашёл ни одного установленного агента."
+    echo -e "   ${DIM}Если агенты точно стоят — проверьте 'openclaw agents list'.${NC}"
+    echo -e "   ${DIM}Если это свежая машина — запустите установщик без флагов.${NC}"
+    exit 0
+  fi
+
+  echo -e "   ${GREEN}Найдено агентов:${NC} ${FOUND_AGENTS[*]}"
+  echo ""
+  echo -e "   ${BOLD}Буду обновлять:${NC}"
+  echo -e "     • IDENTITY.md, AGENTS.md  ${DIM}(все 6 ролей)${NC}"
+  echo -e "     • SOUL.md, LEARNING.md, skills/*/SKILL.md  ${DIM}(только VIP: designer/coordinator/copywriter)${NC}"
+  echo ""
+  echo -e "   ${BOLD}НЕ буду трогать:${NC}"
+  echo -e "     • MEMORY.md  ${DIM}(контекст сессий — ваш наработанный опыт)${NC}"
+  echo -e "     • USER.md    ${DIM}(ответы онбординга — ваша ниша/ЦА/тон)${NC}"
+  echo -e "     • Настройки каналов, Telegram-привязки, auth-profile"
+  echo ""
+  echo -e "   ${DIM}Старые файлы бэкапятся в ~/.openclaw/workspace-<agent>/.backups/<timestamp>/${NC}"
+  echo ""
+
+  for agent in "${FOUND_AGENTS[@]}"; do
+    workspace_dir="$HOME/.openclaw/workspace-${agent}"
+    if [[ ! -d "$workspace_dir" ]]; then
+      warn "Нет workspace для ${agent} (${workspace_dir}) — пропускаю"
+      continue
+    fi
+    echo -e "${BOLD}${CYAN}━━━ ${agent} ━━━${NC}"
+    prepare_workspace_from_templates "$agent" "$workspace_dir" "refresh" || {
+      warn "Не получилось обновить ${agent} — продолжаю со следующим"
+    }
+    echo ""
+  done
+
+  record_telemetry "refresh_templates_ok" "ok"
+  echo -e "${GREEN}${BOLD}✓ Готово.${NC} Шаблоны обновлены. MEMORY.md и USER.md сохранены."
+  echo ""
+  echo -e "${DIM}Чтобы откатиться — скопируйте файлы из .backups/<timestamp>/ обратно в workspace.${NC}"
+  _last_exit_reason="refresh_complete"
   exit 0
 fi
 
@@ -534,7 +606,12 @@ if [[ ${#EXISTING_AGENTS[@]} -eq 0 ]]; then
   record_telemetry "R0_fresh" "ok"
 
 elif [[ ${#MISSING_AGENTS[@]} -eq 0 ]]; then
-  # Сценарий OVERWRITE — всё из AGENTS_TO_INSTALL уже стоит
+  # Сценарий OVERWRITE — всё из AGENTS_TO_INSTALL уже стоит.
+  #
+  # Wave 7: по умолчанию предлагаем «Обновить шаблоны» — безопасный апдейт
+  # без потери MEMORY/USER. Это то что в 90% случаев нужно клиенту после
+  # выхода новой версии установщика. Полная перезапись остаётся как опция
+  # 2 — только для «сломалось, хочу с нуля».
   echo ""
   warn "Все агенты уже установлены:"
   for aid in "${EXISTING_AGENTS[@]}"; do
@@ -546,14 +623,41 @@ elif [[ ${#MISSING_AGENTS[@]} -eq 0 ]]; then
     echo -e "   ${DIM}--config режим: перезаписываю начисто без вопросов.${NC}"
   else
     echo -e "   ${BOLD}${WHITE}Что делать?${NC}"
-    echo -e "   ${CYAN}1)${NC} ${BOLD}Перезаписать начисто${NC} ${DIM}(снести и поставить заново — починка / обновление)${NC}"
-    echo -e "   ${CYAN}2)${NC} Ничего не делать — выйти"
+    echo -e "   ${CYAN}1)${NC} ${BOLD}Обновить шаблоны${NC} ${DIM}(безопасно: IDENTITY/AGENTS/SOUL/LEARNING/skills,${NC}"
+    echo -e "       ${DIM}MEMORY.md + USER.md + настройки сохраняются)${NC}  ${GREEN}← рекомендуется${NC}"
+    echo -e "   ${CYAN}2)${NC} Перезаписать начисто ${DIM}(снести всех и поставить заново — теряется MEMORY.md)${NC}"
+    echo -e "   ${CYAN}3)${NC} Ничего не делать — выйти"
     echo ""
-    echo -e "   ${BOLD}${WHITE}Выбор [1/2, Enter = 1]:${NC}"
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
     read -r R0_CHOICE
     case "${R0_CHOICE:-1}" in
-      1) CLEANUP_EXISTING=true ;;
-      2) echo -e "   ${DIM}Выхожу. Для диагностики: ${GREEN}--diagnose-only${NC}"; exit 0 ;;
+      1)
+        # Обновляем шаблоны в существующих workspace'ах и выходим —
+        # никаких токенов, моделей, каналов спрашивать не надо.
+        echo ""
+        echo -e "${BOLD}${CYAN}♻️  Обновление шаблонов${NC}"
+        echo ""
+        for aid in "${EXISTING_AGENTS[@]}"; do
+          workspace_dir="$HOME/.openclaw/workspace-${aid}"
+          if [[ ! -d "$workspace_dir" ]]; then
+            warn "Нет workspace для ${aid} — пропускаю"
+            continue
+          fi
+          echo -e "${BOLD}${CYAN}━━━ ${aid} ━━━${NC}"
+          prepare_workspace_from_templates "$aid" "$workspace_dir" "refresh" || {
+            warn "Не получилось обновить ${aid} — продолжаю со следующим"
+          }
+          echo ""
+        done
+        record_telemetry "R0_overwrite_refresh" "ok"
+        echo -e "${GREEN}${BOLD}✓ Готово.${NC} Шаблоны обновлены. MEMORY.md и USER.md сохранены."
+        echo ""
+        echo -e "${DIM}Если что-то сломалось — старые файлы лежат в ~/.openclaw/workspace-<agent>/.backups/<timestamp>/${NC}"
+        _last_exit_reason="refresh_complete"
+        exit 0
+        ;;
+      2) CLEANUP_EXISTING=true ;;
+      3) echo -e "   ${DIM}Выхожу. Для диагностики: ${GREEN}--diagnose-only${NC}"; exit 0 ;;
       *) warn "Не распознал выбор. Прерываю."; exit 1 ;;
     esac
   fi

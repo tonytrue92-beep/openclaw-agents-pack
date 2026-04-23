@@ -112,6 +112,59 @@ set -e
 [[ "$rc" == "5" ]] || fail "broken signature: ожидался rc=5, получен rc=$rc"
 pass "VIP v2 отвергает токен с битой подписью: rc=5"
 
+# ─── Test 6: wave 6 шаблоны на месте — SOUL / LEARNING / skills ───
+# Для 3 VIP-агентов должны существовать расширенные шаблоны.
+# Если файл удалили/переименовали — тест падает, CI не даст смержить.
+for vip_agent in designer coordinator copywriter; do
+  for extra in SOUL.md LEARNING.md; do
+    [[ -f "templates/${vip_agent}/${extra}" ]] \
+      || fail "отсутствует templates/${vip_agent}/${extra}"
+  done
+done
+pass "wave 6: SOUL.md + LEARNING.md присутствуют для 3 VIP-агентов"
+
+# skills/ — 2 файла на VIP-агента, по зашитым именам
+for skill in designer/skills/eachlabs-image-generation \
+             designer/skills/color-palette \
+             coordinator/skills/agent-collaboration-network \
+             coordinator/skills/close-loop \
+             copywriter/skills/reef-copywriting \
+             copywriter/skills/brand-voice-profile; do
+  [[ -f "templates/${skill}/SKILL.md" ]] \
+    || fail "отсутствует templates/${skill}/SKILL.md"
+done
+pass "wave 6: skills/*/SKILL.md на месте (6 импортированных MIT-скиллов)"
+
+# LICENSE-skills.md — единый attribution manifest
+[[ -f "templates/LICENSE-skills.md" ]] \
+  || fail "отсутствует templates/LICENSE-skills.md (MIT attribution)"
+pass "wave 6: LICENSE-skills.md attribution manifest на месте"
+
+# ─── Test 6.5: wave 7 refresh mode прописан в prepare_workspace_from_templates ───
+# Проверяем что в коде функции действительно есть проверка mode=refresh,
+# и find_installed_agents объявлена. Это статическая проверка — полный
+# dry-run требует curl к github, его оставляем на CI/live-тесты.
+grep -q 'local mode="${3:-full}"' scripts/lib/agents.sh \
+  || fail "prepare_workspace_from_templates не принимает mode-аргумент (wave 7)"
+grep -q 'find_installed_agents()' scripts/lib/agents.sh \
+  || fail "find_installed_agents не объявлена в agents.sh (wave 7)"
+grep -q 'REFRESH_TEMPLATES_ONLY' scripts/install-agents.sh \
+  || fail "--refresh-templates флаг не обработан в install-agents.sh (wave 7)"
+grep -q '"refresh"' scripts/install-agents.sh \
+  || fail "режим refresh не вызывается из install-agents.sh (wave 7)"
+pass "wave 7: refresh mode + --refresh-templates + find_installed_agents на месте"
+
+# ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
+# Гарантия что агент при старте сессии читает файлы по порядку
+# и запускает онбординг при пустом USER.md.
+for vip_agent in designer coordinator copywriter; do
+  grep -q "Session Startup" "templates/${vip_agent}/AGENTS.md" \
+    || fail "${vip_agent}/AGENTS.md не содержит секцию 'Session Startup'"
+  grep -qE "Первый контакт|онбординг" "templates/${vip_agent}/AGENTS.md" \
+    || fail "${vip_agent}/AGENTS.md не содержит секцию онбординга"
+done
+pass "wave 6: AGENTS.md у 3 VIP-агентов содержит Session Startup + онбординг"
+
 rm -f /tmp/fake.json
 
 echo ""
