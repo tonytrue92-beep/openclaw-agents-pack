@@ -149,6 +149,56 @@ prepare_workspace_from_templates() {
     fi
   done
 
+  # ─── VIP-агенты: расширенный набор (SOUL + LEARNING + skills) ──
+  #
+  # 3 VIP-специфичных агента (designer/coordinator/copywriter) получают
+  # дополнительные файлы:
+  #   • SOUL.md   — personality / границы / autonomy / онбординг-протокол
+  #   • LEARNING.md — предзаполненные anti-patterns + место для новых
+  #   • skills/<name>/SKILL.md × 2 — готовые фреймворки под роль
+  #
+  # Остальные 3 (tech/marketer/producer) используют старый минимальный
+  # формат (4 базовых md-файла). Если VIP-extras не докачались — warn,
+  # но установку не прерываем (без них агент работает хуже, но работает).
+  local has_extras=false
+  case "$agent_id" in
+    designer|coordinator|copywriter) has_extras=true ;;
+  esac
+
+  if [[ "$has_extras" == true ]]; then
+    # SOUL и LEARNING
+    for extra in SOUL LEARNING; do
+      local extra_dst="${workspace_dir}/${extra}.md"
+      if curl -fsSL --max-time 10 "${base}/${extra}.md" -o "$extra_dst" 2>/dev/null; then
+        echo -e "   ${GREEN}✓${NC} ${agent_id}/${extra}.md"
+      else
+        warn "Не скачал ${agent_id}/${extra}.md — агент будет работать в базовом режиме"
+      fi
+    done
+
+    # skills/*/SKILL.md — список зашит по ролям
+    local skills_list=""
+    case "$agent_id" in
+      designer)    skills_list="eachlabs-image-generation color-palette" ;;
+      coordinator) skills_list="agent-collaboration-network close-loop" ;;
+      copywriter)  skills_list="reef-copywriting brand-voice-profile" ;;
+    esac
+
+    mkdir -p "${workspace_dir}/skills"
+    local skill
+    for skill in $skills_list; do
+      local skill_dir="${workspace_dir}/skills/${skill}"
+      mkdir -p "$skill_dir"
+      if curl -fsSL --max-time 10 \
+           "${base}/skills/${skill}/SKILL.md" \
+           -o "${skill_dir}/SKILL.md" 2>/dev/null; then
+        echo -e "   ${GREEN}✓${NC} ${agent_id}/skills/${skill}/SKILL.md"
+      else
+        warn "Не скачал skill ${skill} для ${agent_id} — не критично"
+      fi
+    done
+  fi
+
   # ─── Anti-sharing watermark ───────────────────────────────────
   # Для VIP-установок вставляем в IDENTITY.md скрытый markdown-комментарий
   # с хэшем email и TG ID клиента. Markdown-комментарии не рендерятся,

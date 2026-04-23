@@ -112,6 +112,45 @@ set -e
 [[ "$rc" == "5" ]] || fail "broken signature: ожидался rc=5, получен rc=$rc"
 pass "VIP v2 отвергает токен с битой подписью: rc=5"
 
+# ─── Test 6: wave 6 шаблоны на месте — SOUL / LEARNING / skills ───
+# Для 3 VIP-агентов должны существовать расширенные шаблоны.
+# Если файл удалили/переименовали — тест падает, CI не даст смержить.
+for vip_agent in designer coordinator copywriter; do
+  for extra in SOUL.md LEARNING.md; do
+    [[ -f "templates/${vip_agent}/${extra}" ]] \
+      || fail "отсутствует templates/${vip_agent}/${extra}"
+  done
+done
+pass "wave 6: SOUL.md + LEARNING.md присутствуют для 3 VIP-агентов"
+
+# skills/ — 2 файла на VIP-агента, по зашитым именам
+for skill in designer/skills/eachlabs-image-generation \
+             designer/skills/color-palette \
+             coordinator/skills/agent-collaboration-network \
+             coordinator/skills/close-loop \
+             copywriter/skills/reef-copywriting \
+             copywriter/skills/brand-voice-profile; do
+  [[ -f "templates/${skill}/SKILL.md" ]] \
+    || fail "отсутствует templates/${skill}/SKILL.md"
+done
+pass "wave 6: skills/*/SKILL.md на месте (6 импортированных MIT-скиллов)"
+
+# LICENSE-skills.md — единый attribution manifest
+[[ -f "templates/LICENSE-skills.md" ]] \
+  || fail "отсутствует templates/LICENSE-skills.md (MIT attribution)"
+pass "wave 6: LICENSE-skills.md attribution manifest на месте"
+
+# ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
+# Гарантия что агент при старте сессии читает файлы по порядку
+# и запускает онбординг при пустом USER.md.
+for vip_agent in designer coordinator copywriter; do
+  grep -q "Session Startup" "templates/${vip_agent}/AGENTS.md" \
+    || fail "${vip_agent}/AGENTS.md не содержит секцию 'Session Startup'"
+  grep -qE "Первый контакт|онбординг" "templates/${vip_agent}/AGENTS.md" \
+    || fail "${vip_agent}/AGENTS.md не содержит секцию онбординга"
+done
+pass "wave 6: AGENTS.md у 3 VIP-агентов содержит Session Startup + онбординг"
+
 rm -f /tmp/fake.json
 
 echo ""

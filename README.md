@@ -75,8 +75,17 @@ bash install-agents.sh
 - [`docs/telegram-setup.md`](./docs/telegram-setup.md) — как создать три бота через @BotFather
 - [`docs/architecture.md`](./docs/architecture.md) — как устроен роутинг bot → agent
 - [`docs/vps-install.md`](./docs/vps-install.md) — установка на VPS (через `--vps`)
+- [`docs/vip-install-guide.md`](./docs/vip-install-guide.md) — VIP-гайд (6 агентов с расширенными шаблонами)
 - [`docs/troubleshooting.md`](./docs/troubleshooting.md) — если что-то сломалось
 - [`CHANGELOG.md`](./CHANGELOG.md) — что нового в каждой версии
+
+### MIT-атрибуция импортированных скиллов
+
+VIP-агенты (Дизайнер, Координатор, Копирайтер) включают по 2 «smart
+wrapper»-скилла, импортированных из репозитория
+[awesome-openclaw-skills](https://github.com/VoltAgent/awesome-openclaw-skills)
+под **MIT-лицензией**. Полный список авторов, ссылок на оригиналы и
+текст лицензии — в [`templates/LICENSE-skills.md`](./templates/LICENSE-skills.md).
 
 ---
 

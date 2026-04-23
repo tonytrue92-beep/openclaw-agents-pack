@@ -55,14 +55,23 @@ else
   fail "--diagnose-only не напечатал ожидаемый заголовок"
 fi
 
-# 7. Шаблоны на месте — Standard (3 × 4 = 12) или
-#    VIP (+ designer + coordinator + copywriter = 24).
-#    Промежуточные числа = частичное состояние, это fail.
+# 7. Шаблоны на месте.
+#
+#    Раскладка после wave 6:
+#      • 6 агентов × 4 базовых md (IDENTITY/AGENTS/MEMORY/USER) = 24
+#      • 3 VIP-агента × 2 расширения (SOUL/LEARNING)            =  6
+#      • 3 VIP-агента × 2 скилла (SKILL.md каждый)              =  6
+#      • 1 manifest LICENSE-skills.md                            =  1
+#      • ИТОГО                                                   = 37
+#
+#    Исторические значения (12 = pre-wave5, 24 = pre-wave6) оставляем
+#    валидными чтобы CI не падал на старых релизных ветках.
 template_count=$(find templates -name "*.md" | wc -l | tr -d ' ')
 case "$template_count" in
-  12) pass "templates/ содержит 12 md-файлов (Standard: tech, marketer, producer)" ;;
-  24) pass "templates/ содержит 24 md-файла (VIP: + designer, coordinator, copywriter)" ;;
-  *)  fail "templates/ содержит $template_count файлов (ожидается 12 Standard или 24 VIP)" ;;
+  12) pass "templates/ содержит 12 md-файлов (Standard pre-wave5)" ;;
+  24) pass "templates/ содержит 24 md-файла (VIP pre-wave6)" ;;
+  37) pass "templates/ содержит 37 md-файлов (VIP + SOUL/LEARNING/skills — wave 6)" ;;
+  *)  fail "templates/ содержит $template_count файлов (ожидается 12/24/37 — проверь что ничего не забыл/не потерялось)" ;;
 esac
 
 echo ""
