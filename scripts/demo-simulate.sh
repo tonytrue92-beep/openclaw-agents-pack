@@ -150,7 +150,7 @@ _beat
 # ═══════════════════════════════════════════════════════════════
 step_header "R0" "ПРОВЕРКА ОКРУЖЕНИЯ"
 
-echo -e "${DIM}   OpenClaw Factory Agents Pack v2026.04.19 (demo-commit)${NC}"
+echo -e "${DIM}   OpenClaw Factory Agents Pack v2026.04.23 (demo-commit)${NC}"
 echo -e "${DIM}   Если что-то не так — пришлите в поддержку debug-bundle${NC}"
 echo ""
 note "Проверяю сеть (5 сек)..."
