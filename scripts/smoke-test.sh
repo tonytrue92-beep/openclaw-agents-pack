@@ -182,6 +182,14 @@ pass "wave 8: блок «Если ты в группе» во всех 6 AGENTS.
   || fail "docs/group-mode.md отсутствует (wave 8)"
 pass "wave 8: docs/group-mode.md на месте"
 
+# ─── Test 6.9: wave 8.1 docs/openai-key-setup.md существует ───
+[[ -f "docs/openai-key-setup.md" ]] \
+  || fail "docs/openai-key-setup.md отсутствует (wave 8.1 — гайд по получению OpenAI ключа)"
+# В R1.5 explain должна быть прямая ссылка на api-keys
+grep -q "platform.openai.com/api-keys" scripts/install-agents.sh \
+  || fail "scripts/install-agents.sh не содержит ссылку на platform.openai.com/api-keys (wave 8.1)"
+pass "wave 8.1: docs/openai-key-setup.md + ссылка в R1.5 на месте"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
