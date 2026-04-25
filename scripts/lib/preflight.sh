@@ -6,6 +6,72 @@
 #
 # Ожидает что ui.sh уже подключён (цвета + ok/warn/ru).
 
+# ─── Detect окружение (Windows / WSL / native bash) ─────────────
+#
+# stdout: одно из значений
+#   "windows-bash"  — Git Bash / MSYS2 / Cygwin (натуральный Windows)
+#   "wsl"           — Windows Subsystem for Linux
+#   "linux"         — Linux (Ubuntu / Debian / Alpine / ...)
+#   "macos"         — macOS Darwin
+#   "unknown"       — что-то ещё
+#
+# Используется чтобы давать Windows-специфичные подсказки (нативный
+# OpenClaw installer вместо bash-скрипта factory, Git Bash вместо
+# PowerShell, и т.д.).
+detect_environment() {
+  case "${OSTYPE:-}" in
+    cygwin|msys|mingw*) printf 'windows-bash'; return 0 ;;
+    darwin*)            printf 'macos';        return 0 ;;
+  esac
+  # Linux + WSL отличаются по uname -r — WSL содержит "microsoft" или "WSL"
+  if [[ "$(uname -s 2>/dev/null)" == "Linux" ]]; then
+    if uname -r 2>/dev/null | grep -qiE 'microsoft|wsl'; then
+      printf 'wsl'
+    else
+      printf 'linux'
+    fi
+    return 0
+  fi
+  printf 'unknown'
+}
+
+# ─── Подсказка по правилам Windows-установки ─────────────────────
+#
+# Печатается ОДИН РАЗ при первом preflight'е если детектировали
+# windows-bash или wsl. Доносит главные правила из success kit:
+#   1. Не бить bash <(curl ...) в PowerShell — это Git Bash / WSL
+#   2. OpenClaw на Windows ставится официальным installer'ом, не bash-скриптом
+#   3. Не смешивать среды (всё в одной — либо везде Git Bash, либо везде WSL)
+#   4. Если raw.githubusercontent тупит — git clone репозитория
+#
+# Полный гайд: docs/windows-install-guide.md
+WINDOWS_HINTS_PRINTED=false
+print_windows_hints() {
+  [[ "$WINDOWS_HINTS_PRINTED" == true ]] && return 0
+  WINDOWS_HINTS_PRINTED=true
+
+  local env_name="$1"
+  local label="Git Bash / MSYS"
+  [[ "$env_name" == "wsl" ]] && label="WSL (Linux подсистема)"
+
+  echo ""
+  echo -e "   ${BOLD}${YELLOW}🪟 Обнаружено окружение: ${label}${NC}"
+  echo -e "   ${DIM}Несколько правил чтобы не получить -ой:${NC}"
+  echo -e "   ${DIM}  1. Не запускайте этот скрипт в PowerShell/cmd — нужен bash.${NC}"
+  echo -e "   ${DIM}  2. OpenClaw на Windows ставится официальным installer'ом${NC}"
+  echo -e "   ${DIM}     (НЕ bash-скриптом factory). После установки команды${NC}"
+  echo -e "   ${DIM}     запускаются как ${BOLD}openclaw.cmd${NC}${DIM}.${NC}"
+  echo -e "   ${DIM}  3. Если raw.githubusercontent тупит — скачайте репо:${NC}"
+  echo -e "   ${DIM}     ${BOLD}git clone https://github.com/tonytrue92-beep/openclaw-agents-pack${NC}"
+  echo -e "   ${DIM}     ${BOLD}cd openclaw-agents-pack && bash scripts/install-agents.sh${NC}"
+  echo -e "   ${DIM}  4. Не смешивайте среды: если запустили в Git Bash —${NC}"
+  echo -e "   ${DIM}     все диагностические команды (которые установщик${NC}"
+  echo -e "   ${DIM}     просит выполнить) тоже в Git Bash, не в PowerShell.${NC}"
+  echo ""
+  echo -e "   ${DIM}Полный гайд: ${CYAN}docs/windows-install-guide.md${NC} ${DIM}в репо.${NC}"
+  echo ""
+}
+
 # ─── OpenClaw preflight ─────────────────────────────────────────
 #
 # Уникальная часть второго установщика: OpenClaw должен быть уже поставлен
@@ -20,6 +86,15 @@ preflight_openclaw() {
   echo ""
   echo -e "   ${DIM}Проверяю, что OpenClaw уже установлен и живой...${NC}"
 
+  # Окружение — для Windows-специфичных подсказок ниже
+  local env_name
+  env_name=$(detect_environment)
+
+  # Печатаем правила Windows один раз (на первом вызове)
+  if [[ "$env_name" == "windows-bash" || "$env_name" == "wsl" ]]; then
+    print_windows_hints "$env_name"
+  fi
+
   if ! command -v openclaw &>/dev/null; then
     echo ""
     warn "OpenClaw не найден в PATH."
@@ -27,9 +102,31 @@ preflight_openclaw() {
     echo -e "   ${BOLD}${WHITE}Этот установщик — вторая ступень.${NC}"
     echo -e "   ${DIM}Он только ДОБАВЛЯЕТ агентов к уже работающему OpenClaw.${NC}"
     echo ""
-    echo -e "   ${BOLD}Сначала нужно установить сам OpenClaw:${NC}"
-    echo ""
-    echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
+
+    if [[ "$env_name" == "windows-bash" ]]; then
+      echo -e "   ${BOLD}Сначала нужно установить OpenClaw нативным Windows-installer'ом:${NC}"
+      echo ""
+      echo -e "      1. Скачать: ${CYAN}https://openclaw.ai/download/windows${NC}"
+      echo -e "      2. Запустить .msi / .exe — следовать мастеру"
+      echo -e "      3. После установки в ${BOLD}PowerShell${NC}: ${GREEN}openclaw.cmd configure${NC}"
+      echo -e "         → выбрать модель → вставить токен бота"
+      echo -e "      4. ${GREEN}openclaw.cmd gateway start${NC}"
+      echo -e "      5. Когда бот ответит в Telegram — возвращайтесь сюда (в Git Bash) и запускайте этот скрипт"
+      echo ""
+      echo -e "   ${DIM}Полный гайд по Windows: ${CYAN}docs/windows-install-guide.md${NC}"
+    elif [[ "$env_name" == "wsl" ]]; then
+      echo -e "   ${BOLD}В WSL можно использовать обычный bash-скрипт factory:${NC}"
+      echo ""
+      echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
+      echo ""
+      echo -e "   ${DIM}Альтернатива — поставить нативно на Windows и запускать наш скрипт${NC}"
+      echo -e "   ${DIM}отсюда (WSL увидит openclaw.exe из Windows PATH).${NC}"
+    else
+      echo -e "   ${BOLD}Сначала нужно установить сам OpenClaw:${NC}"
+      echo ""
+      echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
+    fi
+
     echo ""
     echo -e "   ${DIM}После того как бот из первого установщика напишет вам в Telegram — возвращайтесь сюда.${NC}"
     return 1

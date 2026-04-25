@@ -6,6 +6,99 @@
 
 ---
 
+## 2026-04-26 — Wave 8.3 (Windows-путь установки + 7 правил из success kit)
+
+В предыдущих версиях `docs/vip-install-guide.md` и `workbook-source.md`
+говорили клиенту «На Windows: Win → powershell» и потом давали
+`bash <(curl)` команду. **Это неверно** — в PowerShell нет `bash`,
+команда падает молча. Плюс OpenClaw на Windows ставится не bash-скриптом
+factory, а нативным `.exe` installer'ом.
+
+Wave 8.3 — фикс этой дыры: установщик распознаёт Windows-окружения,
+печатает 7 правил из реального успешного кейса, доки переписаны под
+правильный путь (Git Bash + нативный installer).
+
+### Added
+
+- **`scripts/lib/preflight.sh`** — две новые функции:
+  - `detect_environment()` — возвращает `windows-bash` / `wsl` /
+    `linux` / `macos` / `unknown` через `$OSTYPE` + `uname -r`.
+  - `print_windows_hints()` — печатается **один раз** при первом
+    `preflight_openclaw()` если детектировали Windows. Доносит
+    4 главных правила из success kit Антона:
+    1. Не запускать в PowerShell — Git Bash или WSL
+    2. OpenClaw ставится официальным `.exe`, не bash-скриптом
+    3. Если raw.githubusercontent тупит — `git clone` + `bash scripts/install-agents.sh`
+    4. Не смешивать среды (всё в Git Bash, не половину в PowerShell)
+- **`preflight_openclaw()` расширен** — если OpenClaw не найден и
+  окружение `windows-bash`, печатается **другая** инструкция:
+  скачать installer с openclaw.ai/download/windows + последовательность
+  `openclaw.cmd configure → gateway start → channels status --probe`
+  в **PowerShell**, потом возвращаться сюда (в Git Bash) для второго установщика.
+- **`docs/windows-install-guide.md`** (новый, ~450 строк):
+  - **7 правил** из success kit (вверху, чтобы не повторять грабли):
+    1. Не `bash <(curl)` в PowerShell
+    2. Если OpenClaw уже встал — не сносить, а идти по `openclaw.cmd configure → gateway start → channels status --probe`
+    3. Не смешивать среды (Git Bash ↔ PowerShell)
+    4. Не лечить вручную `auth-profiles.json` — добивать первый установщик
+    5. Если raw.githubusercontent тупит — `git clone` + локальный запуск
+    6. `channels status --probe` зелёный = проблема не в токене, смотри `openclaw.cmd logs --tail 50 --follow`
+    7. Если не достучаться до api.telegram.org — это сеть/DNS (`Test-NetConnection`, `Resolve-DnsName`)
+  - Полная пошаговая установка (Git Bash → нативный OpenClaw → PowerShell configure → Git Bash для agents-pack)
+  - Раздел «Если что-то пошло не так» с типичными проблемами
+  - FAQ из 7 вопросов (PowerShell без Git Bash, WSL vs Git Bash, корпоративный Windows, антивирус, …)
+
+### Changed
+
+- **`docs/vip-install-guide.md`** — Шаг 2 переписан: была одна
+  команда «На Mac/Windows/VPS», теперь развилка с явным Windows-блоком
+  ссылающимся на `docs/windows-install-guide.md`.
+- **`docs/workbook-source.md`** — Модуль 1:
+  - Шаг 1.1 для Windows переписан: «другой путь!» — сначала Git Bash
+    + OpenClaw installer, потом Шаг 1.2-Windows вместо обычного 1.2.
+  - Новый **Шаг 1.2-Windows**: установка OpenClaw через .exe + настройка
+    в PowerShell с командами `openclaw.cmd configure / gateway start /
+    channels status --probe`.
+  - Модуль 3 шаг 3.1: добавлена развилка Mac/Linux vs Windows
+    с двумя вариантами (curl-bash и git clone).
+- **INSTALLER_VERSION** 2026.04.26 → 2026.04.27.
+- **`scripts/smoke-test.sh`** — 1 новый ассерт: `docs/windows-install-guide.md`
+  + `detect_environment` + `print_windows_hints` + `windows-bash/wsl` упоминания.
+
+### Что увидит Windows-клиент при запуске
+
+При `bash scripts/install-agents.sh` в Git Bash на Windows (даже если
+OpenClaw не установлен):
+
+```
+🪟 Обнаружено окружение: Git Bash / MSYS
+Несколько правил чтобы не получить -ой:
+  1. Не запускайте этот скрипт в PowerShell/cmd — нужен bash.
+  2. OpenClaw на Windows ставится официальным installer'ом
+     (НЕ bash-скриптом factory). После установки команды
+     запускаются как openclaw.cmd.
+  3. Если raw.githubusercontent тупит — скачайте репо:
+     git clone https://github.com/tonytrue92-beep/openclaw-agents-pack
+     cd openclaw-agents-pack && bash scripts/install-agents.sh
+  4. Не смешивайте среды: если запустили в Git Bash —
+     все диагностические команды (которые установщик
+     просит выполнить) тоже в Git Bash, не в PowerShell.
+
+Полный гайд: docs/windows-install-guide.md в репо.
+```
+
+И **если openclaw не найден** — выдаст ссылку на нативный installer
+(`https://openclaw.ai/download/windows`), а не на bash-скрипт factory.
+
+### Why
+
+Антон в чате прислал «success kit» из 7 правил после реального опыта
+поддержки Windows-клиента. Они не были отражены ни в установщике, ни
+в доках — клиенты на Windows натыкались на одни и те же грабли и
+писали в саппорт. Это исправлено в wave 8.3.
+
+---
+
 ## 2026-04-25 — Wave 8.2 (карты РФ + ref-ссылка на виртуальную карту)
 
 Уточнение к wave 8.1. В первой версии было сказано «РФ-карты могут не

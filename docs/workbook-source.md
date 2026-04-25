@@ -71,12 +71,29 @@
 
 `[SCREENSHOT: Spotlight с набранным словом "Терминал", стрелка на приложение]`
 
-**На Windows:**
-1. Нажми клавишу `Win`
-2. Напечатай «powershell»
-3. Нажми Enter
+**🪟 На Windows (важно — другой путь!):**
 
-`[SCREENSHOT: Windows search с powershell]`
+> ⚠️ **На Windows установка идёт ИНАЧЕ.** Мы НЕ используем `bash <(curl)`
+> для установки самого OpenClaw — это путь для Mac/Linux.
+>
+> **На Windows установка из 2 частей:**
+> 1. **Сам OpenClaw** ставится нативным `.exe` installer'ом → команды
+>    запускаются как `openclaw.cmd` в **PowerShell**.
+> 2. **AI-команда (этот pack)** — ставится bash-скриптом в **Git Bash**
+>    (его надо отдельно установить).
+>
+> **Что сделать СЕЙЧАС перед продолжением:**
+> 1. Скачать и установить **Git Bash**: [git-scm.com/download/win](https://git-scm.com/download/win)
+>    (next → next → install, оставляй default)
+> 2. Скачать и установить **OpenClaw** нативно: [openclaw.ai/download/windows](https://openclaw.ai/download/windows)
+> 3. Перейти к Модулю 1.2-Windows ниже (вместо обычного Шага 1.2).
+
+`[SCREENSHOT: Git for Windows download page]`
+`[SCREENSHOT: OpenClaw Windows download page]`
+
+> 📘 **Полная инструкция по Windows** со всеми правилами и типичными
+> проблемами — `docs/windows-install-guide.md` (продюсеру: продублировать
+> 7 правил из этого гайда отдельным разделом workbook'а).
 
 **На Linux:**
 Знаешь как открыть терминал — открывай. Если нет — `Ctrl+Alt+T`.
@@ -87,6 +104,8 @@
 
 ## Шаг 1.2 — Скопируй и вставь команду установки OpenClaw
 
+> 🪟 **Если ты на Windows — пропусти этот шаг и иди к 1.2-Windows ниже.**
+
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)
 ```
@@ -95,10 +114,47 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-fac
 1. Выдели команду выше (1 строка)
 2. Скопируй (`Cmd+C` / `Ctrl+C`)
 3. Переключись на терминал
-4. Вставь (`Cmd+V` / в Windows PowerShell — правый клик мыши)
+4. Вставь (`Cmd+V`)
 5. Нажми Enter
 
 `[SCREENSHOT: терминал с вставленной командой, курсор в конце]`
+
+## Шаг 1.2-Windows — Установка OpenClaw на Windows
+
+> Эта секция — **только для Windows**. macOS / Linux пропускают.
+
+1. Запусти скачанный `OpenClawSetup-x.x.x.exe`
+2. **НЕ** «От имени администратора» — обычным пользователем
+3. На вопросах нажимай `Next` → `Next` → `Install`
+4. После установки — **закрой и снова открой PowerShell** (Win → `powershell`)
+5. В PowerShell настрой main-агента:
+
+```powershell
+openclaw.cmd configure
+# Установщик спросит:
+# - Модель AI: 1 (default — gpt-5.4)
+# - opencode.ai API-ключ: из материалов курса
+# - Telegram bot token: первый бот через @BotFather
+
+openclaw.cmd gateway start
+openclaw.cmd channels status --probe
+# Должно показать зелёное "✓ ok" — значит OpenClaw работает
+```
+
+6. Открой бота в Telegram, напиши `/start` — должен ответить «Привет, я ...»
+7. Если ответил — **OpenClaw установлен**. Иди к **Шагу 1.3**.
+
+`[SCREENSHOT: PowerShell с зелёным probe ok]`
+
+> ⚠️ **Не ищи `bash` в PowerShell** — его там нет. Это нормально.
+> Мы будем использовать PowerShell **только** для команд `openclaw.cmd`,
+> а bash-скрипт второго установщика (Модуль 3) — в Git Bash.
+
+> ⚠️ **Если выпала ошибка `ExecutionPolicy`** при запуске `openclaw.cmd configure`:
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+> ```
+> (подтверди `Y`). Это разовая настройка.
 
 ## Шаг 1.3 — Дождись окончания
 
@@ -300,12 +356,35 @@ openclaw --version
 
 ## Шаг 3.1 — Запусти установщик агентов
 
+### macOS / Linux
+
 Открой тот же терминал где ставил OpenClaw (или открой новый).
 Скопируй-вставь команду:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh)
 ```
+
+### 🪟 Windows — открой Git Bash (НЕ PowerShell!)
+
+В **Git Bash** (не в PowerShell, где ты ставил OpenClaw!) выполни
+**одну** из команд:
+
+**Вариант A** (быстро, если сеть стабильная):
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh)
+```
+
+**Вариант B** (надёжно, рекомендуется на Windows):
+```bash
+cd ~
+git clone https://github.com/tonytrue92-beep/openclaw-agents-pack
+cd openclaw-agents-pack
+bash scripts/install-agents.sh
+```
+
+> ⚠️ Если в Git Bash вылетает `bash: openclaw: command not found` —
+> закрой Git Bash и открой заново. PATH обновляется только при перезапуске.
 
 Нажми Enter. Появится меню:
 
