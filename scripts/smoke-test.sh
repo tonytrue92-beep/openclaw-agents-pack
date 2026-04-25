@@ -208,6 +208,11 @@ grep -q 'windows-bash\|wsl' scripts/lib/preflight.sh \
   || fail "preflight.sh не различает windows-bash/wsl окружения (wave 8.3)"
 pass "wave 8.3: docs/windows-install-guide.md + detect_environment + Windows hints"
 
+# ─── Test 6.11: docs/curator-cheatsheet.md существует (для AI-куратора) ───
+[[ -f "docs/curator-cheatsheet.md" ]] \
+  || fail "docs/curator-cheatsheet.md отсутствует (wave 8.5 — шпаргалка для куратора)"
+pass "wave 8.5: docs/curator-cheatsheet.md на месте"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
