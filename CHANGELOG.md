@@ -6,6 +6,111 @@
 
 ---
 
+## 2026-04-25 — Wave 8 (embedding-память opt-in + multi-agent в TG-группах)
+
+Две независимо-выкатываемые фичи. Wave 8 не трогает ядро OpenClaw —
+только конфигурирует то, что Gateway уже умеет (`memorySearch` и
+`channels.telegram.accounts.*.groupPolicy`).
+
+### Added — Feature 1: Opt-in embedding-память
+
+- **Новый шаг R1.5 в установщике** между «выбор модели» и «токены ботов»:
+  - Объяснение клиенту зачем нужна embedding-память (3-5 строк):
+    без неё MEMORY.md читается целиком при каждом ответе → дороже и
+    медленнее с ростом памяти. С ней — семантический поиск, копейки в
+    месяц.
+  - Меню «1) Включить (рекомендуется) / 2) Без embedding», default 1.
+  - Sub-вопрос: использовать тот же OpenAI-ключ что для chat-модели,
+    или ввести отдельный «cheap» ключ.
+  - Валидация ключа через ping `/v1/embeddings` (5s timeout). На неудаче
+    — retry / save-anyway / skip.
+- **Новые CLI-флаги:** `--enable-embedding` (non-interactive, берёт ключ
+  из `OPENAI_EMBEDDING_API_KEY` или `OPENAI_API_KEY`) и `--no-embedding`
+  (пропустить шаг — для CI / скриптов).
+- **Новые lib-функции в `scripts/lib/agents.sh`:**
+  - `validate_openai_embedding_key(key)` — POST на `/v1/embeddings`.
+  - `enable_embedding_for_agent(agent_id)` — пишет per-agent
+    `agents.<id>.memorySearch.{enabled,provider,model}`.
+  - `write_embedding_env_key(key)` — глобально один раз
+    `env.vars.OPENAI_EMBEDDING_API_KEY`.
+  - `index_agent_memory(agent_id)` — wrapper над `openclaw memory index`
+    с heartbeat + `|| warn`.
+  - `embedding_status_for_agent(agent_id)` — для diagnose.
+- **Хук в R4** (после `copy_auth_profile_from_main`): если
+  `EMBEDDING_ENABLED=true` — записываем env-key (один раз) + включаем
+  embedding для агента + запускаем индексацию.
+- **`--refresh-templates` НЕ трогает embedding-конфиг** — это
+  пользовательская настройка, как MEMORY/USER.
+
+### Added — Feature 2: Multi-agent TG-группы
+
+- **Новый CLI-флаг `--enable-group-mode <chat_id>`** для уже установленных
+  агентов:
+  - Bypass'ит R0–R5, идёт в dedicated entrypoint.
+  - Список агентов через `find_installed_agents()`.
+  - Печатает чек-лист «BotFather privacy disable + админы + chat_id».
+  - Спрашивает подтверждение.
+  - Для каждого агента пишет `groupPolicy=allowlist`,
+    `groupAllowFrom += chat_id` (дедуп через JSON-массив),
+    `groups.<chat_id>.requireMention=true`.
+  - Идемпотентно: повторный запуск с тем же chat_id не создаёт дубли.
+- **Новый интерактивный шаг R5b** после установки агентов
+  (только если ≥2 агентов установлено и не `--config` режим):
+  - «Хочешь чтобы агенты работали как команда в общей TG-группе? [y/N]».
+  - Default N (не пугаем).
+  - На y → пошаговый чек-лист + ввод chat_id (regex `^-?[0-9]+$`).
+  - На пустой ввод — отложено: точная команда для запуска позже.
+- **Новая lib-функция `configure_group_membership(agent_id, chat_id)`**.
+- **Блок «## Если ты в группе с другими агентами» во все 6 AGENTS.md:**
+  правила тегания (только @-mention или reply), делегирования по
+  ролям. Координатор получает дополнительную строку «я главный по
+  координации».
+- **`docs/group-mode.md`** — полный гайд: зачем, как настроить
+  (BotFather privacy disable + добавление ботов админами + получение
+  chat_id), типичные сценарии (утренний брифинг, запрос на продакшн),
+  типичные проблемы, откат.
+
+### Changed
+
+- **`scripts/diagnose-agents.sh`:**
+  - Раньше итерировал по жёсткому списку `tech / marketer / producer`.
+    Теперь динамически определяет какие установлены через
+    `openclaw agents list` (поддерживает 3 / 5 / 6 агентов).
+  - Добавлены строки **embedding** и **group-mode** в диагностический
+    вывод (зелёный / серый / жёлтый).
+- **`templates/<agent>/AGENTS.md`** — добавлен блок про работу в группе
+  (все 6 ролей).
+
+### Что нужно от клиента вручную (нельзя автоматизировать)
+
+- **Privacy mode у каждого бота** через `@BotFather` → `/setprivacy` →
+  `Disable`. Иначе бот в группе видит только сообщения адресованные ему.
+- **Создать TG-группу** и добавить ботов как админов.
+- **Узнать chat_id** через `@username_to_id_bot` или из URL супергруппы.
+
+### Что под капотом (для Антона / технаря)
+
+- OpenClaw v2026.4.22+ уже поддерживает `memorySearch` (OpenAI
+  text-embedding-3-large + sqlite-vec) и `channels.telegram.accounts.*.
+  {groupPolicy,groupAllowFrom,groups,requireMention}`. Wave 8 — это
+  тонкая UX-обёртка над тем что уже умеет Gateway.
+- Watermark из IDENTITY.md (wave 3) не задействован — embedding и
+  group-mode не нуждаются в TG-binding'е VIP-токена.
+
+### Verification
+
+- `bash scripts/smoke-test.sh` — 18/18 pass (13 старых + 5 новых wave-8
+  ассертов).
+- `bash scripts/security-audit.sh` — 6/6 pass.
+- `--refresh-templates` не пишет `memorySearch` (verify через `bash -x`).
+- Live-тест embedding: dump в MEMORY.md → переиндексация → запрос с
+  перефразированной формулировкой → должна быть сослана на сохранённый
+  факт.
+- Live-тест group-mode: 2 бота в группе, один тегает другого — оба
+  отвечают.
+
+---
+
 ## 2026-04-23 — Wave 7 (безопасное обновление шаблонов: `--refresh-templates`)
 
 Для клиентов у которых уже стоят агенты, и которые хотят получить новые

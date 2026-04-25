@@ -154,6 +154,34 @@ grep -q '"refresh"' scripts/install-agents.sh \
   || fail "режим refresh не вызывается из install-agents.sh (wave 7)"
 pass "wave 7: refresh mode + --refresh-templates + find_installed_agents на месте"
 
+# ─── Test 6.6: wave 8 embedding + group-mode прописаны ───
+# Статические grep-ассерты что новые функции и флаги на месте.
+grep -q 'enable_embedding_for_agent' scripts/lib/agents.sh \
+  || fail "enable_embedding_for_agent не объявлена в agents.sh (wave 8)"
+grep -q 'configure_group_membership' scripts/lib/agents.sh \
+  || fail "configure_group_membership не объявлена в agents.sh (wave 8)"
+grep -q 'validate_openai_embedding_key' scripts/lib/agents.sh \
+  || fail "validate_openai_embedding_key не объявлена (wave 8)"
+grep -q 'R1\.5' scripts/install-agents.sh \
+  || fail "Шаг R1.5 (embedding) не прописан в install-agents.sh (wave 8)"
+grep -q -- '--enable-group-mode' scripts/install-agents.sh \
+  || fail "Флаг --enable-group-mode не прописан (wave 8)"
+grep -q -- '--enable-embedding' scripts/install-agents.sh \
+  || fail "Флаг --enable-embedding не прописан (wave 8)"
+pass "wave 8: embedding + group-mode lib функции и флаги на месте"
+
+# ─── Test 6.7: wave 8 AGENTS.md содержит блок «Если ты в группе» ───
+for vip_agent in tech marketer producer designer coordinator copywriter; do
+  grep -q "Если ты в группе" "templates/${vip_agent}/AGENTS.md" \
+    || fail "${vip_agent}/AGENTS.md не содержит блок «Если ты в группе» (wave 8)"
+done
+pass "wave 8: блок «Если ты в группе» во всех 6 AGENTS.md"
+
+# ─── Test 6.8: wave 8 docs/group-mode.md существует ───
+[[ -f "docs/group-mode.md" ]] \
+  || fail "docs/group-mode.md отсутствует (wave 8)"
+pass "wave 8: docs/group-mode.md на месте"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
