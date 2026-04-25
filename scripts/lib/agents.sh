@@ -309,6 +309,223 @@ find_installed_agents() {
   done
 }
 
+# ─── Валидация OpenAI API-ключа через embeddings endpoint ───────
+#
+# Делает 1-токен POST на /v1/embeddings — самый дешёвый способ
+# убедиться что ключ работает + имеет доступ к embedding-моделям
+# (некоторые ключи органзаций могут быть ограничены только chat-моделями).
+#
+# Args:
+#   $1 = api key
+# Returns:
+#   0 — ключ валидный
+#   1 — ошибка (сеть / 401 / 403 / нет доступа к модели)
+validate_openai_embedding_key() {
+  local key="$1"
+  local response
+  response=$(curl --max-time 5 -s -w '\n%{http_code}' \
+    -X POST 'https://api.openai.com/v1/embeddings' \
+    -H "Authorization: Bearer ${key}" \
+    -H 'Content-Type: application/json' \
+    -d '{"model":"text-embedding-3-large","input":"ping"}' 2>/dev/null)
+
+  local http_code
+  http_code=$(echo "$response" | tail -1)
+  local body
+  body=$(echo "$response" | sed '$d')
+
+  if [[ "$http_code" == "200" ]]; then
+    # Проверим что в ответе есть массив embedding'ов
+    if echo "$body" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('data') and len(d['data'])>0 else 1)" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+# ─── Включить embedding-память для агента ───────────────────────
+#
+# Прописывает в ~/.openclaw/openclaw.json:
+#   • agents.<id>.memorySearch.enabled = true
+#   • agents.<id>.memorySearch.provider = openai
+#   • agents.<id>.memorySearch.model = text-embedding-3-large
+#
+# OPENAI_EMBEDDING_API_KEY пишется отдельно один раз глобально через
+# guard-флаг EMBEDDING_ENV_WRITTEN (см. caller в install-agents.sh).
+#
+# Per-agent а не agents.defaults — чтобы --only-установка одного
+# агента не флипала switch у уже стоящих.
+#
+# Все вызовы openclaw config set идут через redaction-pipe чтобы
+# случайно не утёк ключ если openclaw напечатает его в stdout.
+#
+# Args:
+#   $1 = agent_id
+enable_embedding_for_agent() {
+  local agent_id="$1"
+
+  echo -e "   ${DIM}Включаю embedding-память для ${BOLD}${agent_id}${NC}${DIM}...${NC}"
+
+  { openclaw config set "agents.${agent_id}.memorySearch.enabled" true 2>&1 || true; } \
+    | sed -E -e 's/sk-[A-Za-z0-9_-]{20,}/sk-[REDACTED]/g' \
+    | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
+
+  { openclaw config set "agents.${agent_id}.memorySearch.provider" openai 2>&1 || true; } \
+    | sed -E -e 's/sk-[A-Za-z0-9_-]{20,}/sk-[REDACTED]/g' \
+    | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
+
+  { openclaw config set "agents.${agent_id}.memorySearch.model" text-embedding-3-large 2>&1 || true; } \
+    | sed -E -e 's/sk-[A-Za-z0-9_-]{20,}/sk-[REDACTED]/g' \
+    | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
+}
+
+# ─── Записать OpenAI ключ в env.vars ─────────────────────────────
+#
+# Пишется глобально один раз на запуск установщика. Caller должен
+# guard'ить через EMBEDDING_ENV_WRITTEN чтобы не дублировать вызов.
+#
+# Args:
+#   $1 = api key
+write_embedding_env_key() {
+  local key="$1"
+  { openclaw config set 'env.vars.OPENAI_EMBEDDING_API_KEY' "$key" 2>&1 || true; } \
+    | sed -E -e 's/sk-[A-Za-z0-9_-]{20,}/sk-[REDACTED]/g' \
+    | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
+}
+
+# ─── Запустить индексацию памяти агента (embedding) ──────────────
+#
+# Wrapper над `openclaw memory index --agent <id>` с heartbeat
+# (на больших MEMORY.md может занять 10-30 сек — клиент должен
+# видеть что мы живы).
+#
+# На неудаче — warn (не убивает установку): без индекса embedding
+# просто не работает, но MEMORY.md по-прежнему доступна агенту
+# через классический path-режим.
+#
+# Args:
+#   $1 = agent_id
+index_agent_memory() {
+  local agent_id="$1"
+
+  echo -e "   ${DIM}Индексирую память: ${BOLD}${agent_id}${NC}${DIM}...${NC}"
+  start_heartbeat "memory-index-${agent_id}" 5 60 &
+  local hb_pid=$!
+
+  if ! openclaw memory index --agent "$agent_id" >/dev/null 2>&1; then
+    stop_heartbeat "$hb_pid" 2>/dev/null || true
+    warn "Не удалось проиндексировать память ${agent_id}. Можно позже: openclaw memory index --agent ${agent_id}"
+    return 0  # не критично
+  fi
+
+  stop_heartbeat "$hb_pid" 2>/dev/null || true
+  echo -e "   ${GREEN}✓${NC} ${agent_id}: память проиндексирована"
+}
+
+# ─── Получить статус embedding для агента (для diagnose) ─────────
+#
+# stdout: одна из строк:
+#   on:<doc_count>:<last_indexed_iso>
+#   off
+#   error
+#
+# Используется в diagnose-agents.sh.
+embedding_status_for_agent() {
+  local agent_id="$1"
+  local out
+  out=$(openclaw memory status --agent "$agent_id" --json 2>/dev/null || echo '{}')
+
+  python3 -c "
+import json,sys
+try:
+    d = json.loads('''${out}''')
+    enabled = d.get('enabled', False)
+    if not enabled:
+        print('off')
+        sys.exit(0)
+    docs = d.get('index', {}).get('docs', 0)
+    last = d.get('index', {}).get('lastIndexedAt', '?')
+    print(f'on:{docs}:{last}')
+except Exception:
+    print('error')
+" 2>/dev/null || echo "error"
+}
+
+# ─── Конфигурация TG-группового режима для агента ────────────────
+#
+# Прописывает per-agent TG-канал:
+#   • channels.telegram.accounts.<id>.groupPolicy = allowlist
+#   • channels.telegram.accounts.<id>.groupAllowFrom — добавляет chat_id (дедуп)
+#   • channels.telegram.accounts.<id>.groups.<chat_id>.requireMention = true
+#
+# Идемпотентно: повторный запуск с тем же chat_id не создаёт дубли.
+# Читает существующий groupAllowFrom через --json, добавляет уникально.
+#
+# Args:
+#   $1 = agent_id (= account_id в нашей схеме)
+#   $2 = chat_id (signed integer, может быть -100… для supergroup или -… для basic)
+configure_group_membership() {
+  local agent_id="$1"
+  local chat_id="$2"
+
+  echo -e "   ${DIM}Настраиваю group-mode: ${BOLD}${agent_id}${NC}${DIM} ↔ chat ${chat_id}${NC}"
+
+  # 1. groupPolicy = allowlist
+  openclaw config set "channels.telegram.accounts.${agent_id}.groupPolicy" allowlist &>/dev/null || true
+
+  # 2. groupAllowFrom — читаем массив, добавляем chat_id если нет
+  local existing_json
+  existing_json=$(openclaw config get "channels.telegram.accounts.${agent_id}.groupAllowFrom" --json 2>/dev/null || echo '[]')
+
+  local new_json
+  new_json=$(python3 -c "
+import json,sys
+try:
+    arr = json.loads('''${existing_json}''')
+    if not isinstance(arr, list):
+        arr = []
+except Exception:
+    arr = []
+chat_id = '${chat_id}'
+if chat_id not in [str(x) for x in arr]:
+    arr.append(chat_id)
+print(json.dumps(arr))
+" 2>/dev/null)
+
+  if [[ -n "$new_json" ]]; then
+    openclaw config set "channels.telegram.accounts.${agent_id}.groupAllowFrom" "$new_json" --strict-json &>/dev/null || true
+  fi
+
+  # 3. requireMention = true для этой группы
+  openclaw config set "channels.telegram.accounts.${agent_id}.groups.${chat_id}.requireMention" true --strict-json &>/dev/null || true
+
+  echo -e "   ${GREEN}✓${NC} ${agent_id}: group-mode настроен (chat ${chat_id})"
+}
+
+# ─── Получить статус group-mode для агента (для diagnose) ────────
+#
+# stdout: одна из строк:
+#   on:<chat_id1>,<chat_id2>,…
+#   off
+#   error
+group_mode_status_for_agent() {
+  local agent_id="$1"
+  local out
+  out=$(openclaw config get "channels.telegram.accounts.${agent_id}.groupAllowFrom" --json 2>/dev/null || echo '[]')
+
+  python3 -c "
+import json,sys
+try:
+    arr = json.loads('''${out}''')
+    if isinstance(arr, list) and len(arr) > 0:
+        print('on:' + ','.join(str(x) for x in arr))
+    else:
+        print('off')
+except Exception:
+    print('error')
+" 2>/dev/null || echo "error"
+}
+
 # ─── Полная очистка всего связанного с агентом ──────────────────
 #
 # Идемпотентный clean-reinstall. Вызывается когда повторно запускают

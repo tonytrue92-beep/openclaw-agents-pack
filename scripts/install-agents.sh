@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.04.23"
+INSTALLER_VERSION="2026.04.25"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -116,6 +116,15 @@ Options:
                          (IDENTITY/AGENTS/SOUL/LEARNING/skills), сохранив
                          MEMORY.md + USER.md + настройки каналов. Безопасный
                          апдейт без потери данных. Не нужен VIP-токен.
+  --enable-embedding     Включить embedding-память (семантический поиск)
+                         неинтерактивно. Берёт ключ из OPENAI_EMBEDDING_API_KEY
+                         или OPENAI_API_KEY (env / config).
+  --no-embedding         Пропустить шаг embedding (для скриптов / CI).
+  --enable-group-mode <chat_id>
+                         Настроить уже установленных агентов на работу в
+                         общем TG-чате с заданным chat_id. Перед этим
+                         нужно вручную: /setprivacy → Disable у каждого
+                         бота через @BotFather + добавить ботов в группу.
   --version              Показать версию
   --help                 Показать эту справку
 
@@ -134,7 +143,10 @@ for arg in "$@"; do
   [[ "$arg" == "--collect-debug" ]] && NEEDS_TTY=false
   [[ "$arg" == "--diagnose-only" ]] && NEEDS_TTY=false
   [[ "$arg" == "--refresh-templates" ]] && NEEDS_TTY=false
+  [[ "$arg" == "--enable-group-mode" ]] && NEEDS_TTY=false
 done
+# --enable-embedding and --no-embedding still require TTY because the rest
+# of the install flow is interactive (model choice, tokens, etc.)
 if [[ "$NEEDS_TTY" == true && ! -t 0 ]]; then
   if [[ -e /dev/tty ]]; then
     exec < /dev/tty
@@ -151,6 +163,9 @@ VPS_MODE=false
 COLLECT_DEBUG_ONLY=false
 DIAGNOSE_ONLY=false
 REFRESH_TEMPLATES_ONLY=false
+ENABLE_EMBEDDING_FLAG=false
+NO_EMBEDDING=false
+ENABLE_GROUP_MODE_CHAT_ID=""
 VIP_MODE=false
 VIP_TOKEN=""
 ONLY_AGENT=""
@@ -192,6 +207,14 @@ while [[ $# -gt 0 ]]; do
     --collect-debug) COLLECT_DEBUG_ONLY=true; shift ;;
     --diagnose-only) DIAGNOSE_ONLY=true; shift ;;
     --refresh-templates) REFRESH_TEMPLATES_ONLY=true; shift ;;
+    --enable-embedding) ENABLE_EMBEDDING_FLAG=true; shift ;;
+    --no-embedding) NO_EMBEDDING=true; shift ;;
+    --enable-group-mode)
+      ENABLE_GROUP_MODE_CHAT_ID="${2:-}"
+      [[ -z "$ENABLE_GROUP_MODE_CHAT_ID" ]] && { echo "ERROR: --enable-group-mode требует chat_id"; exit 1; }
+      [[ ! "$ENABLE_GROUP_MODE_CHAT_ID" =~ ^-?[0-9]+$ ]] && { echo "ERROR: --enable-group-mode chat_id должен быть числом (может быть отрицательным для групп)"; exit 1; }
+      shift 2
+      ;;
     --vip-token)
       VIP_TOKEN="${2:-}"
       [[ -z "$VIP_TOKEN" ]] && { echo "ERROR: --vip-token требует значение"; exit 1; }
@@ -376,6 +399,72 @@ if [[ "$REFRESH_TEMPLATES_ONLY" == true ]]; then
   echo ""
   echo -e "${DIM}Чтобы откатиться — скопируйте файлы из .backups/<timestamp>/ обратно в workspace.${NC}"
   _last_exit_reason="refresh_complete"
+  exit 0
+fi
+
+# ─── --enable-group-mode <chat_id>: настроить группу для уже стоящих ─
+#
+# Обходит R0–R5, идёт по установленным агентам и прописывает каждому:
+#   • channels.telegram.accounts.<id>.groupPolicy = allowlist
+#   • channels.telegram.accounts.<id>.groupAllowFrom += chat_id (дедуп)
+#   • channels.telegram.accounts.<id>.groups.<chat_id>.requireMention = true
+#
+# Идемпотентно: повторный запуск с тем же chat_id ничего не ломает.
+#
+# Перед этим клиент ВРУЧНУЮ должен:
+#   1. У @BotFather: /setprivacy → выбрать каждого бота → Disable
+#   2. Создать TG-группу, добавить ВСЕХ ботов админами
+#   3. Узнать chat_id (через @username_to_id_bot)
+if [[ -n "$ENABLE_GROUP_MODE_CHAT_ID" ]]; then
+  echo ""
+  echo -e "${BOLD}${CYAN}👥 Настройка group-mode (TG-группа c командой агентов)${NC}"
+  echo -e "${DIM}   agents-pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
+  echo ""
+
+  preflight_openclaw || exit 1
+
+  mapfile -t FOUND_AGENTS < <(find_installed_agents)
+
+  if [[ ${#FOUND_AGENTS[@]} -eq 0 ]]; then
+    warn "Не нашёл ни одного установленного агента."
+    echo -e "   ${DIM}Сначала установите агентов обычным запуском без флагов.${NC}"
+    exit 0
+  fi
+
+  if [[ ${#FOUND_AGENTS[@]} -lt 2 ]]; then
+    warn "Найден только 1 агент: ${FOUND_AGENTS[0]}. Group-mode полезен от 2+ агентов."
+    echo -e "   ${BOLD}${WHITE}Всё равно настроить? [y/N]:${NC}"
+    read -r CONFIRM
+    [[ "${CONFIRM:-N}" != "y" && "${CONFIRM:-N}" != "Y" ]] && exit 0
+  fi
+
+  echo -e "   ${GREEN}Найдено агентов:${NC} ${FOUND_AGENTS[*]}"
+  echo -e "   ${GREEN}Chat ID группы:${NC} ${ENABLE_GROUP_MODE_CHAT_ID}"
+  echo ""
+
+  echo -e "   ${BOLD}${YELLOW}⚠️  Важно сделать ВРУЧНУЮ ДО этого шага:${NC}"
+  echo -e "   1. У ${BOLD}@BotFather${NC} → /setprivacy → каждый бот → ${BOLD}Disable${NC}"
+  echo -e "      (чтобы боты видели сообщения в группе, не только адресованные им)"
+  echo -e "   2. Создать TG-группу, добавить ${BOLD}ВСЕХ${NC} ботов из списка как ${BOLD}админов${NC}"
+  echo -e "   3. Получить chat_id группы (через ${BOLD}@username_to_id_bot${NC} или из URL супергруппы)"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Сделано? Применить настройки группы? [y/N]:${NC}"
+  read -r CONFIRM
+  if [[ "${CONFIRM:-N}" != "y" && "${CONFIRM:-N}" != "Y" ]]; then
+    echo -e "   ${DIM}Отменено. Запустите снова когда будете готовы.${NC}"
+    exit 0
+  fi
+
+  for aid in "${FOUND_AGENTS[@]}"; do
+    configure_group_membership "$aid" "$ENABLE_GROUP_MODE_CHAT_ID"
+  done
+
+  record_telemetry "group_mode_configured" "ok"
+  echo ""
+  echo -e "${GREEN}${BOLD}✓ Готово.${NC} Все агенты настроены на работу в группе ${ENABLE_GROUP_MODE_CHAT_ID}."
+  echo ""
+  echo -e "${DIM}Проверка: напишите в группе \"@<bot_username>, привет\" — ответит только тегнутый.${NC}"
+  _last_exit_reason="group_mode_configured"
   exit 0
 fi
 
@@ -751,6 +840,155 @@ ok "Модель: ${AGENT_MODEL}"
 record_telemetry "R1_model_chosen" "ok"
 
 # ═══════════════════════════════════════════════════════════════
+#  R1.5. EMBEDDING-ПАМЯТЬ (opt-in)
+# ═══════════════════════════════════════════════════════════════
+#
+# Спрашиваем клиента, нужна ли ему «умная память» с семантическим поиском.
+# OpenClaw v2026.4.22+ умеет text-embedding-3-large + sqlite-vec,
+# но при свежей установке embedding не включён — это явный opt-in.
+#
+# Зачем нужно объяснение:
+#   • Без embedding агент перечитывает MEMORY.md ЦЕЛИКОМ при каждом
+#     ответе. Через 2-3 месяца это 50+ КБ контекста = долго и дорого.
+#   • С embedding ищется СЕМАНТИЧЕСКИ — находит «ты говорил про
+#     лендинг неделю назад» даже если сейчас спрашиваешь по-другому.
+#   • Стоимость ≈$0.13 за 1M токенов = копейки в месяц для одного клиента.
+#
+# Флаги для non-interactive:
+#   --enable-embedding — включить без вопросов (нужен OPENAI_EMBEDDING_API_KEY в env)
+#   --no-embedding — пропустить шаг (в т.ч. для --config режима)
+
+step_header "R1.5" "ПАМЯТЬ С СЕМАНТИЧЕСКИМ ПОИСКОМ (EMBEDDING)"
+
+EMBEDDING_ENABLED=false
+EMBEDDING_KEY=""
+EMBEDDING_ENV_WRITTEN=false
+
+if [[ "$NO_EMBEDDING" == true ]]; then
+  echo -e "   ${DIM}--no-embedding: пропускаю шаг (память будет без семантического поиска).${NC}"
+  record_telemetry "R1_5_skipped_flag" "ok"
+elif [[ "$ENABLE_EMBEDDING_FLAG" == true ]]; then
+  # Non-interactive: ключ должен быть в OPENAI_EMBEDDING_API_KEY или OPENAI_API_KEY
+  if [[ -n "${OPENAI_EMBEDDING_API_KEY:-}" ]]; then
+    EMBEDDING_KEY="$OPENAI_EMBEDDING_API_KEY"
+  elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    EMBEDDING_KEY="$OPENAI_API_KEY"
+  else
+    warn "--enable-embedding: но не найден OPENAI_EMBEDDING_API_KEY / OPENAI_API_KEY. Пропускаю."
+    EMBEDDING_KEY=""
+  fi
+  if [[ -n "$EMBEDDING_KEY" ]]; then
+    EMBEDDING_ENABLED=true
+    echo -e "   ${GREEN}✓${NC} --enable-embedding: ключ найден, включу embedding."
+    record_telemetry "R1_5_enabled_flag" "ok"
+  fi
+elif [[ -n "$CONFIG_FILE" ]]; then
+  # --config: пропускаем (можно добавить EMBEDDING_ENABLED=true в config-файле)
+  if [[ "${EMBEDDING_ENABLED:-false}" == true ]]; then
+    EMBEDDING_KEY="${OPENAI_EMBEDDING_API_KEY:-${OPENAI_API_KEY:-}}"
+    if [[ -z "$EMBEDDING_KEY" ]]; then
+      warn "--config: EMBEDDING_ENABLED=true но нет ключа. Пропускаю."
+      EMBEDDING_ENABLED=false
+    fi
+  fi
+else
+  # Интерактивный путь: объяснение + меню
+  explain "Без embedding агент перечитывает память (MEMORY.md) целиком при каждом ответе." \
+    "Через 2-3 месяца там будет 50+ КБ — бот станет медленнее и дороже." \
+    "" \
+    "С embedding он ищет в памяти ${BOLD}семантически${NC} — находит \"ты говорил" \
+    "про лендинг неделю назад\" даже если ты сейчас спрашиваешь иначе." \
+    "" \
+    "Стоимость ≈\$0.13 за 1M токенов = ${BOLD}копейки в месяц${NC} для одного клиента." \
+    "Нужен OpenAI API-ключ — можно тот же что для модели, можно отдельный."
+
+  echo -e "   ${BOLD}${WHITE}Подключить embedding-память?${NC}"
+  echo -e "   ${CYAN}1)${NC} ${BOLD}Включить${NC} ${DIM}(рекомендуется)${NC}  ${GREEN}← по умолчанию${NC}"
+  echo -e "   ${CYAN}2)${NC} Без embedding ${DIM}(по старому, MEMORY.md читается целиком)${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Выбор [1/2, Enter = 1]:${NC}"
+  read -r EMB_CHOICE
+
+  case "${EMB_CHOICE:-1}" in
+    1)
+      echo ""
+      echo -e "   ${BOLD}${WHITE}Использовать тот же ключ что для chat-модели?${NC}"
+      echo -e "   ${CYAN}1)${NC} ${BOLD}Да${NC}, тот же OPENAI_API_KEY  ${GREEN}← по умолчанию${NC}"
+      echo -e "   ${CYAN}2)${NC} Нет, введу отдельный (например, дешёвый ключ только под embedding)"
+      echo ""
+      echo -e "   ${BOLD}${WHITE}Выбор [1/2, Enter = 1]:${NC}"
+      read -r KEY_CHOICE
+
+      case "${KEY_CHOICE:-1}" in
+        1)
+          # Берём существующий из openclaw.json
+          existing_key=$(openclaw config get 'env.vars.OPENAI_API_KEY' 2>/dev/null | tr -d '"' | tr -d ' ')
+          if [[ -n "$existing_key" && "$existing_key" != "null" ]]; then
+            EMBEDDING_KEY="$existing_key"
+            echo -e "   ${GREEN}✓${NC} Использую существующий OPENAI_API_KEY"
+          else
+            warn "Не нашёл OPENAI_API_KEY в конфиге. Введите ключ вручную."
+            echo -e "   ${BOLD}${WHITE}OpenAI API-ключ (sk-...):${NC}"
+            read -rs EMBEDDING_KEY
+            echo ""
+          fi
+          ;;
+        2)
+          echo -e "   ${BOLD}${WHITE}OpenAI API-ключ для embedding (sk-...):${NC}"
+          read -rs EMBEDDING_KEY
+          echo ""
+          ;;
+        *)
+          warn "Не распознал выбор, использую тот же ключ."
+          existing_key=$(openclaw config get 'env.vars.OPENAI_API_KEY' 2>/dev/null | tr -d '"' | tr -d ' ')
+          [[ -n "$existing_key" && "$existing_key" != "null" ]] && EMBEDDING_KEY="$existing_key"
+          ;;
+      esac
+
+      if [[ -z "$EMBEDDING_KEY" ]]; then
+        warn "Ключ не введён. Пропускаю embedding."
+        EMBEDDING_ENABLED=false
+        record_telemetry "R1_5_no_key" "ok"
+      else
+        # Валидация ключа через ping
+        echo -e "   ${DIM}Проверяю ключ через api.openai.com/v1/embeddings (5 сек)...${NC}"
+        if validate_openai_embedding_key "$EMBEDDING_KEY"; then
+          echo -e "   ${GREEN}✓${NC} Ключ валидный, embedding-доступ есть"
+          EMBEDDING_ENABLED=true
+          record_telemetry "R1_5_validated" "ok"
+        else
+          warn "Не смог валидировать ключ (сеть / неверный ключ / нет доступа к embedding-моделям)."
+          echo -e "   ${BOLD}${WHITE}Что делать?${NC}"
+          echo -e "   ${CYAN}1)${NC} Сохранить и продолжить ${DIM}(вдруг временный сбой сети)${NC}"
+          echo -e "   ${CYAN}2)${NC} Пропустить embedding"
+          echo ""
+          echo -e "   ${BOLD}${WHITE}Выбор [1/2, Enter = 2]:${NC}"
+          read -r FALLBACK
+          case "${FALLBACK:-2}" in
+            1)
+              EMBEDDING_ENABLED=true
+              record_telemetry "R1_5_skipped_validation" "ok"
+              ;;
+            *)
+              EMBEDDING_ENABLED=false
+              record_telemetry "R1_5_validation_failed" "ok"
+              ;;
+          esac
+        fi
+      fi
+      ;;
+    2)
+      echo -e "   ${DIM}Без embedding — память будет читаться целиком (как раньше).${NC}"
+      record_telemetry "R1_5_disabled" "ok"
+      ;;
+    *)
+      warn "Не распознал выбор. Без embedding."
+      record_telemetry "R1_5_invalid_choice" "ok"
+      ;;
+  esac
+fi
+
+# ═══════════════════════════════════════════════════════════════
 #  R2. Сбор Telegram tokens
 # ═══════════════════════════════════════════════════════════════
 step_header "R2" "TELEGRAM BOT TOKENS"
@@ -934,7 +1172,18 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
   # 4.5 Копируем auth-profile из main
   copy_auth_profile_from_main "$target_id"
 
-  # 4.6 Забываем токен
+  # 4.6 Embedding-память (если клиент согласился в R1.5)
+  if [[ "${EMBEDDING_ENABLED:-false}" == true ]]; then
+    # Глобальный env-key пишем один раз на запуск
+    if [[ "${EMBEDDING_ENV_WRITTEN:-false}" != true && -n "${EMBEDDING_KEY:-}" ]]; then
+      write_embedding_env_key "$EMBEDDING_KEY"
+      EMBEDDING_ENV_WRITTEN=true
+    fi
+    enable_embedding_for_agent "$target_id"
+    index_agent_memory "$target_id"
+  fi
+
+  # 4.7 Забываем токен
   unset "BOT_TOKEN_$agent" _tok_var
 
   record_telemetry "R4_installed" "${target_id}"
@@ -956,6 +1205,79 @@ else
   warn "Gateway не поднялся после рестарта. Попробуйте: openclaw gateway restart"
 fi
 record_telemetry "R5_gateway_restart" "ok"
+
+# ═══════════════════════════════════════════════════════════════
+#  R5b. ОБЩАЯ TG-ГРУППА (опционально)
+# ═══════════════════════════════════════════════════════════════
+#
+# Показывается только если установлено ≥2 агентов и установка
+# интерактивная (не --config). Default — N (не пугаем клиента).
+#
+# Если клиент соглашается — пошагово ведём через настройку.
+# Можно отложить — клиент получит точную команду для запуска позже.
+
+# Считаем сколько реально установилось (не пропущенных)
+INSTALLED_COUNT=0
+INSTALLED_LIST=()
+for agent in "${AGENTS_TO_INSTALL[@]}"; do
+  [[ -z "$agent" ]] && continue
+  target_id="${agent}${SUFFIX:+-$SUFFIX}"
+  if agent_exists "$target_id"; then
+    INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+    INSTALLED_LIST+=("$target_id")
+  fi
+done
+
+if [[ $INSTALLED_COUNT -ge 2 && -z "$CONFIG_FILE" && "$VPS_MODE" != true ]]; then
+  step_header "R5b" "ОБЩАЯ TG-ГРУППА (опционально)"
+  explain "Хочешь чтобы агенты могли работать ${BOLD}как команда${NC} в общей TG-группе?" \
+    "Они смогут тегать друг друга — Координатор спрашивает Маркетолога," \
+    "Маркетолог пишет смыслы, передаёт Копирайтеру, тот пишет текст и т.д." \
+    "" \
+    "Если интересно — нужно будет несколько ручных шагов с @BotFather"
+
+  echo -e "   ${BOLD}${WHITE}Настроить общую группу? [y/N]:${NC}"
+  read -r GROUP_CHOICE
+
+  if [[ "${GROUP_CHOICE:-N}" == "y" || "${GROUP_CHOICE:-N}" == "Y" ]]; then
+    echo ""
+    echo -e "   ${BOLD}${YELLOW}Сделай ВРУЧНУЮ:${NC}"
+    echo -e "   1. У ${BOLD}@BotFather${NC} → ${BOLD}/setprivacy${NC} → выбери КАЖДОГО бота → ${BOLD}Disable${NC}"
+    echo -e "      ${DIM}(чтобы бот видел все сообщения в группе, а не только адресованные ему)${NC}"
+    echo -e "   2. Создай TG-группу, добавь ${BOLD}всех ${INSTALLED_COUNT} ботов${NC} как ${BOLD}админов${NC}"
+    echo -e "   3. Получи chat_id группы:"
+    echo -e "      • Открой ${BOLD}@username_to_id_bot${NC}, напиши /start, перешли любое сообщение из группы"
+    echo -e "      • Или для супергруппы: посмотри URL t.me/c/${BOLD}<число>${NC} → chat_id = -100<число>"
+    echo ""
+    echo -e "   ${BOLD}${WHITE}Введи chat_id (число с минусом, например -100123456789).${NC}"
+    echo -e "   ${DIM}Или нажми Enter — настрою позже одной командой.${NC}"
+    echo ""
+    read -r GROUP_CHAT_ID
+
+    if [[ -z "$GROUP_CHAT_ID" ]]; then
+      echo ""
+      echo -e "   ${YELLOW}Отложено.${NC} Когда будешь готов — выполни:"
+      echo -e "   ${BOLD}${CYAN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --enable-group-mode <chat_id>${NC}"
+      record_telemetry "R5b_postponed" "ok"
+    elif [[ ! "$GROUP_CHAT_ID" =~ ^-?[0-9]+$ ]]; then
+      warn "Не похоже на chat_id (должно быть число, может быть отрицательным). Пропускаю."
+      record_telemetry "R5b_invalid_id" "ok"
+    else
+      echo ""
+      echo -e "   ${DIM}Настраиваю group-mode для ${INSTALLED_COUNT} агентов с chat_id ${GROUP_CHAT_ID}...${NC}"
+      echo ""
+      for aid in "${INSTALLED_LIST[@]}"; do
+        configure_group_membership "$aid" "$GROUP_CHAT_ID"
+      done
+      record_telemetry "R5b_configured" "ok"
+      echo ""
+      echo -e "   ${GREEN}${BOLD}✓ Group-mode настроен.${NC}"
+      echo -e "   ${DIM}В группе агенты отвечают только когда их тегают (@<bot_username>).${NC}"
+    fi
+  else
+    record_telemetry "R5b_declined" "ok"
+  fi
+fi
 
 # ═══════════════════════════════════════════════════════════════
 #  Финальный экран
