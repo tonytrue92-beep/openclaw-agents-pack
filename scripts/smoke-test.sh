@@ -190,6 +190,17 @@ grep -q "platform.openai.com/api-keys" scripts/install-agents.sh \
   || fail "scripts/install-agents.sh не содержит ссылку на platform.openai.com/api-keys (wave 8.1)"
 pass "wave 8.1: docs/openai-key-setup.md + ссылка в R1.5 на месте"
 
+# ─── Test 6.10: wave 8.3 docs/windows-install-guide.md + Windows detector ───
+[[ -f "docs/windows-install-guide.md" ]] \
+  || fail "docs/windows-install-guide.md отсутствует (wave 8.3 — Windows гайд)"
+grep -q 'detect_environment()' scripts/lib/preflight.sh \
+  || fail "detect_environment() не объявлена в preflight.sh (wave 8.3)"
+grep -q 'print_windows_hints' scripts/lib/preflight.sh \
+  || fail "print_windows_hints() не объявлена (wave 8.3)"
+grep -q 'windows-bash\|wsl' scripts/lib/preflight.sh \
+  || fail "preflight.sh не различает windows-bash/wsl окружения (wave 8.3)"
+pass "wave 8.3: docs/windows-install-guide.md + detect_environment + Windows hints"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.

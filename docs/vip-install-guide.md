@@ -74,19 +74,48 @@
 
 ## Шаг 2. Запустите установщик (1 минута)
 
+### На macOS / Linux / VPS
+
 Откройте терминал:
+- **На Mac**: `Cmd + Space` → `Терминал` → Enter
+- **На Linux**: `Ctrl + Alt + T`
+- **На VPS**: подключитесь по SSH
 
-- **На Mac**: `Cmd + Space` → напечатайте `Терминал` → Enter
-- **На Windows**: `Win` → напечатайте `powershell` → Enter
-- **На VPS**: подключитесь по SSH к вашему серверу
-
-Скопируйте команду и вставьте:
+Команда:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh)
 ```
 
-Нажмите Enter. Установщик запустится и покажет меню.
+### 🪟 На Windows — другой путь!
+
+**Не запускайте эту команду в PowerShell** — она написана на bash и
+требует Git Bash или WSL. Также **OpenClaw на Windows ставится не
+этим bash-скриптом**, а нативным `.exe` installer'ом.
+
+**Краткая последовательность для Windows:**
+
+1. Установить **Git Bash** — [git-scm.com/download/win](https://git-scm.com/download/win) (next-next-install)
+2. Установить **OpenClaw** нативно — [openclaw.ai/download/windows](https://openclaw.ai/download/windows)
+3. В **PowerShell** настроить main-агента:
+   ```powershell
+   openclaw.cmd configure
+   openclaw.cmd gateway start
+   openclaw.cmd channels status --probe   # должно быть зелёное
+   ```
+4. В **Git Bash** (не PowerShell!) запустить наш установщик:
+   ```bash
+   git clone https://github.com/tonytrue92-beep/openclaw-agents-pack
+   cd openclaw-agents-pack
+   bash scripts/install-agents.sh
+   ```
+
+> 📘 **Полный гайд по Windows** со скриншотами, типичными проблемами
+> и FAQ — в [`docs/windows-install-guide.md`](./windows-install-guide.md).
+> Содержит 7 правил из реального успешного кейса — обязательно прочти
+> перед установкой.
+
+Нажмите Enter после команды установщика. Установщик запустится и покажет меню.
 
 ---
 
