@@ -275,7 +275,7 @@ chat-модели, либо ввести отдельный «дешёвый».
 EU / US — используй её на странице billing OpenAI напрямую.
 
 Если нет — самый быстрый способ выпустить виртуальную зарубежную карту:
-[https://t.me/WhisperSummaryAI_bot?start=ref_1167075209](https://t.me/WhisperSummaryAI_bot?start=ref_1167075209) →
+[https://t.me/WantToPayBot?start=w17851188--GUSNM](https://t.me/WantToPayBot?start=w17851188--GUSNM) →
 выпусти карту (Казахстан/Армения) → пополни рублями (~500₽) →
 используй её реквизиты в OpenAI billing. Полный пошаговый гайд
 со всеми вариантами — в [`docs/openai-key-setup.md`](./openai-key-setup.md).

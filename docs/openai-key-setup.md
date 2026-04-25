@@ -97,7 +97,7 @@ OpenAI **не принимает** карты выпущенные в Росси
 Visa / Mastercard — в т.ч. в OpenAI.
 
 🔗 **Ссылка для регистрации:**
-[https://t.me/WhisperSummaryAI_bot?start=ref_1167075209](https://t.me/WhisperSummaryAI_bot?start=ref_1167075209)
+[https://t.me/WantToPayBot?start=w17851188--GUSNM](https://t.me/WantToPayBot?start=w17851188--GUSNM)
 
 **Шаги:**
 1. Открой ссылку в Telegram → нажми Start

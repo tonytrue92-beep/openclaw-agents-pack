@@ -296,7 +296,7 @@ openclaw --version
 > карты РФ (МИР, российские Visa/Mastercard). Нужна зарубежная карта.
 >
 > **Самое быстрое решение** (если нет зарубежной карты):
-> 1. Открой [https://t.me/WhisperSummaryAI_bot?start=ref_1167075209](https://t.me/WhisperSummaryAI_bot?start=ref_1167075209)
+> 1. Открой [https://t.me/WantToPayBot?start=w17851188--GUSNM](https://t.me/WantToPayBot?start=w17851188--GUSNM)
 > 2. Выпусти виртуальную карту (страна — Казахстан/Армения)
 > 3. Пополни рублями (~500₽) → используй её реквизиты в OpenAI billing
 >
