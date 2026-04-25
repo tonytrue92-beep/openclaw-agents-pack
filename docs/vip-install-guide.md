@@ -228,6 +228,17 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-age
 коротким объяснением. Можно использовать тот же OpenAI-ключ что для
 chat-модели, либо ввести отдельный «дешёвый».
 
+**Где взять OpenAI API-ключ для embedding?**
+Полный гайд со скриншотами и инструкцией по картам РФ —
+[`docs/openai-key-setup.md`](./openai-key-setup.md). Кратко:
+1. Создай аккаунт на [platform.openai.com](https://platform.openai.com/signup)
+   (или используй существующий ChatGPT-аккаунт — тот же email/пароль)
+2. На [api-keys](https://platform.openai.com/api-keys) → `Create new secret key`
+   → скопируй `sk-proj-…`
+3. На [billing](https://platform.openai.com/settings/organization/billing)
+   положи минимум $5 (хватит на 2 года embedding для одного клиента)
+4. Вставь ключ в установщик когда спросит в шаге R1.5
+
 **Как сделать чтобы агенты работали как команда в общей TG-группе?**
 Это называется **group-mode**. Возможно если установлено ≥2 агентов.
 Принцип: все боты сидят в одной общей группе, тегают друг друга
