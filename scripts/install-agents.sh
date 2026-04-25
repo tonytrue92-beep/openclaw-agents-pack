@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.04.27"
+INSTALLER_VERSION="2026.04.28"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -906,6 +906,11 @@ else
     "${DIM}(войти → Create new secret key → скопировать sk-... → положить \$5 на счёт${NC}" \
     "${DIM} в Settings → Billing — этого хватит на годы embedding для одного клиента)${NC}" \
     "" \
+    "${BOLD}${YELLOW}⚠️  Российская карта в OpenAI НЕ пройдёт${NC} ${DIM}(санкции, обхода нет).${NC}" \
+    "${DIM}Самый быстрый способ выпустить виртуальную зарубежную карту:${NC}" \
+    "   ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}" \
+    "${DIM}Или используй уже имеющуюся карту KZ/AM/GE/TR/ОАЭ/EU/US.${NC}" \
+    "" \
     "${DIM}Полный гайд со скриншотами: docs/openai-key-setup.md в репо${NC}"
 
   echo -e "   ${BOLD}${WHITE}Подключить embedding-память?${NC}"
@@ -935,6 +940,7 @@ else
           else
             warn "Не нашёл OPENAI_API_KEY в конфиге. Введите ключ вручную."
             echo -e "   ${DIM}Где взять: ${CYAN}https://platform.openai.com/api-keys${NC} ${DIM}→ Create new secret key${NC}"
+            echo -e "   ${DIM}РФ-карта НЕ пройдёт. Виртуальная зарубежная: ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
             echo -e "   ${BOLD}${WHITE}OpenAI API-ключ (sk-...):${NC}"
             read -rs EMBEDDING_KEY
             echo ""
@@ -943,6 +949,7 @@ else
         2)
           echo -e "   ${DIM}Где взять: ${CYAN}https://platform.openai.com/api-keys${NC} ${DIM}→ Create new secret key${NC}"
           echo -e "   ${DIM}На счёт нужно положить минимум \$5 в Settings → Billing.${NC}"
+          echo -e "   ${DIM}РФ-карта НЕ пройдёт. Виртуальная зарубежная: ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
           echo -e "   ${BOLD}${WHITE}OpenAI API-ключ для embedding (sk-...):${NC}"
           read -rs EMBEDDING_KEY
           echo ""
