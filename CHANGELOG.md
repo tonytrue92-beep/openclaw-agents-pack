@@ -6,6 +6,95 @@
 
 ---
 
+## 2026-04-26 — Wave 11 (system audit fixes: P0 + P1)
+
+Полный системный аудит установщика по 3 направлениям (security,
+edge cases, compatibility) выявил 11 проблем. Закрыты все P0 и
+ключевые P1. Остальные (P2 / nice-to-have) — отложены.
+
+### Fixed — P0 (критичные)
+
+- **Python path injection в `preflight.sh`** (wave 9 BUG-05 JSON
+  validation) — путь к `auth-profiles.json` интерполировался через
+  heredoc. Если `$HOME` содержит `'` или `"` — Python падал
+  с syntax error. Теперь путь передаётся через `sys.argv[1]`.
+- **`disable_bonjour_for_vps` без openclaw** (wave 10.1 регрессия) —
+  функция вызывалась в `--vps` режиме до того как preflight
+  проверил `command -v openclaw`. На свежей VPS без OpenClaw
+  падало бы с `command not found`. Добавлен guard
+  `[[ "$VPS_MODE" == true ]] && command -v openclaw &>/dev/null`.
+
+### Fixed — P1 (важные)
+
+- **`mapfile` несовместимость с bash 3.2** — `find_installed_agents`
+  использовал `mapfile -t` (bash 4+). Хотя shebang-gate
+  перезапускает в новом bash, lib-файлы могут source'иться где
+  угодно. Заменено на portable `while IFS= read -r ... done < <(...)`
+  паттерн.
+- **Stale `BOT_TOKEN_*` в shell-сессии** — если клиент прервал
+  предыдущий запуск Ctrl+C после ввода 2-3 токенов, переменные
+  `BOT_TOKEN_TECH/MARKETER/...` остаются в env. На следующем
+  запуске установщик подбирал их как preset_token и пытался
+  использовать (возможно отозванные) токены. Теперь в начале
+  скрипта делается `unset BOT_TOKEN_TECH ... BOT_TOKEN_COPYWRITER`.
+- **`prepare_workspace_from_templates` без error-handling в R4** —
+  при сетевом сбое curl падал, оставляя workspace частично
+  заполненным, установщик продолжал создавать агентов без
+  шаблонов. Теперь обёрнуто в `if ! ...; then warn + telemetry`.
+- **TG self-test rate-limit на 6 ботах** (wave 9 BUG-03) — 6 быстрых
+  `getMe`-запросов в Telegram API могли ловить `429 Too Many Requests`
+  и давать ложные fail'ы. Добавлен `sleep 0.5` между вызовами.
+- **Empty `BOT_TOKEN_*` в `--config` режиме** — `BOT_TOKEN_TECH=" "`
+  (только пробелы) проходил проверку `[[ -z ]]` и падал позже
+  без понятного сообщения. Теперь явная проверка через `tr -d`
+  + информативное сообщение «проверь что в config-файле не пустой».
+- **`umask 077` для temp-файлов с секретами** — `debug-bundle.sh` и
+  `vip.sh` создают `mktemp` файлы с PEM-ключами / debug-логами.
+  Без `umask 077` они на multi-user системе могли быть читаемыми
+  чужими. Добавлен `umask 077` в начало обоих модулей.
+- **`README.md` устаревал на 3 агентах** (wave 5 регрессия) — текст
+  начинался с «трёх предустановленных агентов», игнорируя VIP
+  с 6 агентами + расширения. Переписано на актуальный набор
+  (Standard 3 / VIP 6 + SOUL / LEARNING / skills / онбординг /
+  embedding / group-mode).
+
+### Skipped — P2 / nice-to-have (на потом)
+
+- **Trap для orphan-канала между `add_telegram_channel` и
+  `create_agent_with_bind`** — если критичный fail между этими
+  двумя — channel создан, агент нет. Текущий cleanup при
+  `--install` overwrite уже это решает на повторном запуске.
+  Trap-based fix рискует ложными срабатываниями.
+- **Template count formula** в `tests/docker/run-checks.sh` —
+  жёсткий список 12/24/37. CI friction для dev. Решим позже,
+  когда появится новый шаблон.
+- **Mock Telegram/OpenAI API** для unit-тестов — серьёзная работа,
+  требует выбор фреймворка (bats-core?). Wave 12 если будет
+  сценарий ломки в проде.
+- **Telemetry IP-correlation note** в SECURITY.md — низкий риск,
+  оставим документировать в будущей публичной security-policy.
+- **Locale-зависимое regex matching** в `vip.sh` — теоретическая
+  проблема на не-UTF-8 локалях. Большинство VPS UTF-8.
+
+### Changed
+
+- INSTALLER_VERSION `2026.04.30.1` → `2026.04.30.2`.
+- 7 новых smoke-test ассертов (P0 + P1 фиксы).
+
+### Verification
+
+- `bash -n` всех модифицированных скриптов: OK
+- `scripts/smoke-test.sh`: 23/23 pass
+- `scripts/security-audit.sh`: 6/6 pass
+
+### Атрибуция
+
+3 параллельных Explore-агента из системного аудита нашли проблемы.
+Реальный кейс с bonjour на VPS (благодарность Анатолию в чате)
+закрыт ещё в wave 10.1.
+
+---
+
 ## 2026-04-26 — Wave 10.1 (hotfix: bonjour на VPS ломал Gateway)
 
 Реальный кейс из чата клиентов (благодарность Анатолию за репорт):

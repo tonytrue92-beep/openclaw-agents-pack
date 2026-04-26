@@ -273,6 +273,29 @@ grep -q 'СЦЕНАРИЙ 4а' docs/curator-cheatsheet.md \
   || fail "curator-cheatsheet не содержит сценарий «бот молчит на VPS / bonjour» (wave 10.1)"
 pass "wave 10.1: bonjour VPS-hotfix во всех слоях (lib + install + diagnose + curator)"
 
+# ─── Test 6.15: wave 11 audit fixes ──────────────────────────────
+# P0: python json validation должен использовать sys.argv (не heredoc-injection)
+grep -q 'sys.argv\[1\]' scripts/lib/preflight.sh \
+  || fail "preflight.sh не использует sys.argv для пути auth-profiles (wave 11 P0 — path injection fix)"
+# P0: bonjour guard через command -v openclaw
+grep -q 'VPS_MODE.*&&.*command -v openclaw' scripts/install-agents.sh \
+  || fail "install-agents.sh не имеет guard 'command -v openclaw' перед disable_bonjour_for_vps (wave 11 P0)"
+# P1: portable while-read replacement для mapfile
+grep -qE 'while IFS= read -r _agent_id' scripts/install-agents.sh \
+  || fail "install-agents.sh всё ещё использует mapfile вместо portable while-read (wave 11 P1 — bash 3.2 compat)"
+# P1: BOT_TOKEN_* unset в начале
+grep -qE 'unset BOT_TOKEN_TECH BOT_TOKEN_MARKETER' scripts/install-agents.sh \
+  || fail "install-agents.sh не делает unset BOT_TOKEN_* в начале (wave 11 P1 stale-token cleanup)"
+# P1: umask 077 в lib-файлах с секретами
+grep -q '^umask 077' scripts/lib/debug-bundle.sh \
+  || fail "debug-bundle.sh не имеет umask 077 (wave 11 P1 — temp file secrets)"
+grep -q '^umask 077' scripts/lib/vip.sh \
+  || fail "vip.sh не имеет umask 077 (wave 11 P1 — temp file PEM/sig)"
+# P1: TG self-test sleep против rate-limit (контекст: rate-limit protection)
+grep -q 'sleep 0.5  # rate-limit protection' scripts/install-agents.sh \
+  || fail "install-agents.sh R5 self-test без sleep против rate-limit (wave 11 P1)"
+pass "wave 11: P0 (python injection / bonjour guard) + P1 (mapfile/unset/umask/sleep) на месте"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
