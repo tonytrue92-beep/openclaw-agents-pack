@@ -219,7 +219,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-age
 Если **через 30-60 секунд скрипт не скачался** или вылетает с
 TLS / redirect ошибкой — переходи на Вариант B (он надёжнее).
 
-#### Вариант B — через `git clone` (рабочий путь, рекомендуется на Windows)
+#### Вариант B — через self-contained bundle (рекомендуется на Windows)
+
+Один файл, никаких nested curl. Стабильно работает даже на медленных
+сетях:
+
+```bash
+bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)
+```
+
+Это наш скрипт + все библиотеки запечены в один файл. После curl —
+никаких дополнительных запросов к raw.githubusercontent.com.
+
+#### Вариант C — через `git clone` (если bundle тоже не работает)
 
 ```bash
 cd ~
@@ -228,10 +240,10 @@ cd openclaw-agents-pack
 bash scripts/install-agents.sh
 ```
 
-Это надёжнее чем `bash <(curl)` потому что:
-- Все файлы скрипта **локально**, ничего не тянется с raw.githubusercontent
-- Можно повторять без перекачки
-- Видно что скачалось — `ls scripts/`
+Запасной путь — все файлы локально, ничего не тянется по сети. Подходит
+если и raw.githubusercontent.com и github.com/releases не работают —
+но тогда `git clone` тоже скорее всего не сработает (`git clone`
+тянет с github.com:443 как и releases).
 
 ### Шаг 5 — Пройти меню установщика
 

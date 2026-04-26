@@ -27,6 +27,18 @@ openclaw --version
 bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh)
 ```
 
+> 🛡 **Если raw.githubusercontent.com режется фаерволом / VPN / медленно**
+> (типичная проблема на VPS и корпоративных сетях) — используй
+> **self-contained bundle** из GitHub Releases:
+>
+> ```bash
+> bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)
+> ```
+>
+> Один файл — никаких nested curl. Версия совпадает с последним
+> релизным тегом. SHA256 — в файле `install-agents-bundled.sh.sha256`
+> рядом с asset'ом.
+
 Установщик спросит три токена, модель (по умолчанию `openai-codex/gpt-5.4`), проверит что OpenClaw жив, и за 3-5 минут развернёт всех трёх агентов. Напиши каждому боту — он ответит.
 
 ---

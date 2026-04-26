@@ -81,11 +81,23 @@
 - **На Linux**: `Ctrl + Alt + T`
 - **На VPS**: подключитесь по SSH
 
-Команда:
+**Команда (стабильная сеть):**
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh)
 ```
+
+**Если на корпоративной сети / VPS / VPN это вылетает с timeout** —
+используй **self-contained bundle** (один файл, без зависимости от
+`raw.githubusercontent.com`):
+
+```bash
+bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)
+```
+
+Bundle публикуется автоматически при каждом релизе. Версия совпадает
+с последним тегом. Internal-логика та же — просто один файл вместо
+6 nested curl'ов.
 
 ### 🪟 На Windows — другой путь!
 

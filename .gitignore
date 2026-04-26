@@ -16,6 +16,9 @@ openclaw-debug-*.tar.gz
 # Smoke-test output
 tests/docker/output/
 
+# Build artifacts (wave 10 — собирается локально / в Release workflow)
+/dist/
+
 # Env files with secrets (клиенты могут создавать для non-interactive)
 *.env
 !*.env.example

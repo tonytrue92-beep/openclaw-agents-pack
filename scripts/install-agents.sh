@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.04.29"
+INSTALLER_VERSION="2026.04.30"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -246,6 +246,12 @@ done
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # В CI/Docker scripts/lib лежит рядом; при `bash <(curl ...)` ничего не лежит,
 # поэтому скачиваем lib/ с того же commit-pin.
+#
+# wave 10: маркеры `=== BUNDLE_LIB_BEGIN ===` / `=== BUNDLE_LIB_END ===`
+# используются `scripts/build-bundle.sh` чтобы заменить весь этот блок на
+# inline-контент lib/*.sh при сборке self-contained `install-agents-bundled.sh`.
+# Не удалять и не переименовывать без обновления build-bundle.sh.
+# === BUNDLE_LIB_BEGIN ===
 if [[ -d "${SCRIPT_DIR}/lib" ]]; then
   # shellcheck disable=SC1091
   source "${SCRIPT_DIR}/lib/ui.sh"
@@ -284,15 +290,19 @@ else
       echo "  • Слишком медленное соединение (10 сек на файл не хватило)"
       echo "  • Указанный коммит (${_LIB_COMMIT}) не существует на GitHub"
       echo ""
-      echo "Рабочее решение — скачать репозиторий целиком и запустить локально:"
+      echo "Рабочее решение №1 — self-contained bundle (один файл, без nested curl):"
+      echo ""
+      echo "    bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)"
+      echo ""
+      echo "Рабочее решение №2 — git clone репозитория и запустить локально:"
       echo ""
       echo "    git clone https://github.com/tonytrue92-beep/openclaw-agents-pack"
       echo "    cd openclaw-agents-pack"
       echo "    bash scripts/install-agents.sh"
       echo ""
-      echo "Локальный запуск минует raw.githubusercontent и работает стабильно"
-      echo "даже на медленной сети. Все остальные эндпоинты (Telegram API,"
-      echo "OpenAI API) — отдельная проверка, см. вывод установщика дальше."
+      echo "Bundled-версия минует raw.githubusercontent (использует release CDN)."
+      echo "Все остальные эндпоинты (Telegram API, OpenAI API) — отдельная"
+      echo "проверка, см. вывод установщика дальше."
       echo ""
       exit 1
     fi
@@ -301,6 +311,7 @@ else
   done
   # Оставляем _LIB_TMP до конца скрипта (source может подгрузить ещё что-то)
 fi
+# === BUNDLE_LIB_END ===
 
 # ─── --collect-debug: ничего не ставим, собираем bundle и выходим ─
 if [[ "$COLLECT_DEBUG_ONLY" == true ]]; then
