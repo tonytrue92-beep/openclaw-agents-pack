@@ -43,14 +43,18 @@ for mod in "${LIB_ORDER[@]}"; do
   fi
 done
 
-if ! grep -q '=== BUNDLE_LIB_BEGIN ===' "$SRC"; then
-  echo "ERROR: маркер === BUNDLE_LIB_BEGIN === не найден в $SRC" >&2
+# Маркеры должны быть anchored на начало строки и точно соответствовать
+# bash-комментарию `# === BUNDLE_LIB_BEGIN ===`. Иначе awk поймает
+# любое упоминание в других комментариях (например в документирующем
+# тексте) и обрежет файл в неправильном месте.
+if ! grep -qE '^# === BUNDLE_LIB_BEGIN ===$' "$SRC"; then
+  echo "ERROR: маркер '# === BUNDLE_LIB_BEGIN ===' не найден в $SRC" >&2
   echo "       Возможно блок lib-source был переписан без сохранения маркеров." >&2
   exit 1
 fi
 
-if ! grep -q '=== BUNDLE_LIB_END ===' "$SRC"; then
-  echo "ERROR: маркер === BUNDLE_LIB_END === не найден в $SRC" >&2
+if ! grep -qE '^# === BUNDLE_LIB_END ===$' "$SRC"; then
+  echo "ERROR: маркер '# === BUNDLE_LIB_END ===' не найден в $SRC" >&2
   exit 1
 fi
 
@@ -60,9 +64,11 @@ mkdir -p "$OUT_DIR"
 TMP_BUNDLE=$(mktemp)
 trap 'rm -f "$TMP_BUNDLE"' EXIT
 
-# 1. Часть до маркера BUNDLE_LIB_BEGIN — печатаем всё включая строку маркера
+# 1. Часть до маркера BUNDLE_LIB_BEGIN — печатаем всё включая строку маркера.
+# Anchor на начало строки и точное совпадение чтобы не сработало на
+# упоминание маркера в других комментариях.
 awk '
-  /=== BUNDLE_LIB_BEGIN ===/ { print; exit }
+  /^# === BUNDLE_LIB_BEGIN ===$/ { print; exit }
   { print }
 ' "$SRC" > "$TMP_BUNDLE"
 
@@ -88,10 +94,11 @@ awk '
   done
 } >> "$TMP_BUNDLE"
 
-# 3. Часть после маркера BUNDLE_LIB_END — печатаем начиная со строки маркера
+# 3. Часть после маркера BUNDLE_LIB_END — печатаем начиная со строки маркера.
+# Anchor на начало строки.
 awk '
   found { print; next }
-  /=== BUNDLE_LIB_END ===/ { print; found=1; next }
+  /^# === BUNDLE_LIB_END ===$/ { print; found=1; next }
 ' "$SRC" >> "$TMP_BUNDLE"
 
 # ─── Выходной файл с warning-headerom ──────────────────────────
