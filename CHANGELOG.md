@@ -6,6 +6,164 @@
 
 ---
 
+## 2026-04-29 — Wave 9 (system hardening: BUG-01/03/05/06 из техотчёта)
+
+Куратор-агент собрал по реальным кейсам клиентов из чата ИИ Team
+техотчёт от 2026-04-26 (источник:
+`/Users/antonpolakov/openclaw-factory/agents/curator/tmp/openclaw-install-fix-report-2026-04-26.md`).
+Главная боль не в «есть баги», а в том что **продукт даёт ложный
+прогресс и не локализует слой сбоя** — саппорт ловит каскад
+«токен невалидный / бот молчит / установщик завис / модель не
+работает» под разными масками, хотя в основе один из 6 системных
+классов.
+
+Wave 9 закрывает **4 P0-класса в нашей зоне** — `openclaw-agents-pack`.
+Остальные 3 (BUG-02 gateway.mode / BUG-04 provider+model key /
+BUG-07 macOS UX) — эскалируются на технаря через
+`docs/curator-cheatsheet.md`.
+
+### Added — BUG-01: hard preflight базовых утилит
+
+В `scripts/lib/preflight.sh` → `preflight_openclaw()` в самом начале
+теперь проверяется наличие `bash`, `python3`, `curl` через
+`command -v`. Если хоть одна утилита отсутствует — hard-stop с
+**ОС-специфичной** инструкцией как поставить:
+
+- На Windows (Git Bash) → ссылка на git-scm.com/download/win
+- На macOS → `brew install <missing>`
+- На Linux/WSL → `apt-get install -y <missing>`
+
+Раньше клиент уезжал в R0 и висел там бесконечно с непонятной
+ошибкой если в системе не было python3 или curl.
+
+### Added — BUG-05: hard JSON validation `main/auth-profiles.json`
+
+В `preflight_openclaw()` блок проверки auth-profile расширен:
+1. **Файл существует** (как раньше — `[[ -f ]]`)
+2. **Файл не пустой** (`[[ -s ]]`) — раньше `{}` или 0 байт проходили
+3. **Валидный JSON** (через `python3 json.load`) — раньше любой мусор
+   проходил
+4. **Не пустой объект** — `len(d) == 0` или not dict → fail
+
+При любом нарушении — hard-stop с прямой инструкцией:
+> Не лечи файл вручную (это приведёт к 401 у новых агентов) —
+> перезапусти первый установщик начисто.
+
+Из техотчёта: «частый кейс ложного фикса — клиент сам создаёт `{}`
+чтобы обойти отсутствие файла → потом получает 401 у новых агентов».
+
+**Guard для `--refresh-templates`:** этот режим не использует
+main/auth-profile для копирования, поэтому пропускает deep-validation
+через флаг `SKIP_AUTH_PROFILE_CHECK=true`. Иначе клиент с битым main
+не сможет даже refresh применить.
+
+### Added — BUG-06: localized curl-error messages
+
+Блок lib-fetch (~строки 270-300 в `scripts/install-agents.sh`) при
+сбое curl на `raw.githubusercontent.com` теперь печатает:
+
+```
+ERROR: не смог скачать scripts/lib/<mod>.sh с GitHub raw.
+       Хост: raw.githubusercontent.com
+       Commit: <commit>
+       Timeout: 10 сек
+
+Возможные причины:
+  • raw.githubusercontent.com временно недоступен или режется фаерволом
+  • Корпоративный VPN / прокси не пропускает HTTPS к GitHub
+  • Слишком медленное соединение (10 сек на файл не хватило)
+  • Указанный коммит не существует на GitHub
+
+Рабочее решение — скачать репозиторий целиком и запустить локально:
+    git clone https://github.com/tonytrue92-beep/openclaw-agents-pack
+    cd openclaw-agents-pack
+    bash scripts/install-agents.sh
+
+Локальный запуск минует raw.githubusercontent...
+```
+
+Раньше было голое «не смог скачать X» + `exit=28` без объяснения.
+
+### Added — BUG-03: Telegram-канал self-test после R5
+
+В `scripts/lib/agents.sh` новая функция `telegram_channel_self_test(account_id)`:
+- Достаёт сохранённый токен через `openclaw config get`
+- Пингует `getMe` через уже существующую `validate_telegram_token`
+- Не печатает токен в stdout
+
+В `scripts/install-agents.sh` сразу **после** `R5 gateway restart` для каждого
+установленного агента:
+
+```
+Проверяю что каждый бот отвечает в Telegram (5-10 сек)...
+✓ tech: бот отвечает
+✓ marketer: бот отвечает
+○ producer: бот НЕ отвечает (gateway running, но Telegram-канал лежит)
+
+⚠️ Telegram-каналы не работают для: producer
+Это означает: gateway запущен, но Telegram-токен/привязка не работает.
+Не запускай reinstall — проблема в Telegram access layer. Что проверить:
+  1. Токен бота в @BotFather (мог быть сброшен через /revoke)
+  2. Бот не заблокирован тобой в Telegram
+  3. api.telegram.org не блокируется фаерволом / VPN
+  4. Запусти: openclaw channels status --probe
+  5. Логи gateway: openclaw logs --tail 50 --follow
+```
+
+Раньше после R5 клиент видел только «Gateway: running» — но это не
+гарантия что Telegram-канал работает.
+
+`INSTALLED_LIST` сформирован раньше R5 (после R4 цикла), теперь доступен
+для self-test и для R5b group-mode.
+
+### Added — Эскалация на технаря в `docs/curator-cheatsheet.md`
+
+Новая секция «Эскалация на технаря (вне нашей зоны)» со таблицей
+симптом → BUG-класс → куда эскалировать. Покрывает 3 класса вне
+нашей зоны:
+
+- BUG-02 (gateway.mode / plugin-runtime-deps / typebox)
+- BUG-04 (provider/model/key/auth-profile flow)
+- BUG-07 (macOS / Homebrew / Xcode UX)
+
+Со ссылкой на полный техотчёт. Куратор знает когда **не лечить**, а
+сразу слать в backlog `openclaw-factory`.
+
+### Changed
+
+- **INSTALLER_VERSION** 2026.04.28 → 2026.04.29.
+- **smoke-test.sh** — 8 новых ассертов (по одному на каждый под-фикс
+  wave 9 + эскалация в curator).
+
+### Verification
+
+- `bash -n`: OK
+- `scripts/smoke-test.sh`: 20/20 pass (+1 wave-9 ассерт-блок)
+- `scripts/security-audit.sh`: 6/6 pass
+
+### Live-testing план
+
+После выкатки:
+1. **BUG-01** — `PATH=/tmp bash scripts/install-agents.sh --diagnose-only`
+   → должен упасть с указанием каких утилит не хватает
+2. **BUG-05** — `echo '{}' > ~/.openclaw/agents/main/agent/auth-profiles.json`
+   → запустить установщик → должен упасть **до** R0 с понятным сообщением
+3. **BUG-06** — симулировать сетевой сбой → проверить что в сообщении
+   есть `git clone …` команда
+4. **BUG-03** — намеренно сломать токен в `openclaw config set` →
+   запустить `--diagnose-only` или установщик → R5 self-test должен
+   найти проблему и не предложить reinstall
+
+### Что не сделано в wave 9 (out of scope)
+
+- BUG-02 / BUG-04 / BUG-07 — переданы в backlog `openclaw-factory`
+  через `curator-cheatsheet.md`
+- P1 пункты (Windows quoting / health summary / macOS UX) — wave 10
+- Self-contained payload (bundled archive вместо `git clone` fallback)
+  — wave 10 если будет нужно
+
+---
+
 ## 2026-04-27 — Wave 8.5 (шпаргалка для куратора курса)
 
 Куратор курса (AI-агент или живой человек) — главная точка контакта
