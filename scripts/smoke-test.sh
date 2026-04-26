@@ -260,6 +260,19 @@ if [[ -d ".github" ]]; then
 fi
 pass "wave 10: build-bundle.sh + bundle-маркеры на месте"
 
+# ─── Test 6.14: wave 10.1 bonjour VPS hotfix ─────────────────────
+grep -q 'disable_bonjour_for_vps' scripts/lib/agents.sh \
+  || fail "disable_bonjour_for_vps не объявлена (wave 10.1)"
+grep -q 'disable_bonjour_for_vps' scripts/install-agents.sh \
+  || fail "install-agents.sh не вызывает disable_bonjour_for_vps в --vps режиме (wave 10.1)"
+grep -q 'CIAO PROBING CANCELLED\|bonjour' scripts/install-agents.sh \
+  || fail "install-agents.sh не упоминает bonjour в Telegram self-test recovery (wave 10.1)"
+grep -q 'bonjour' scripts/diagnose-agents.sh \
+  || fail "diagnose-agents.sh не проверяет bonjour на Linux/WSL (wave 10.1)"
+grep -q 'СЦЕНАРИЙ 4а' docs/curator-cheatsheet.md \
+  || fail "curator-cheatsheet не содержит сценарий «бот молчит на VPS / bonjour» (wave 10.1)"
+pass "wave 10.1: bonjour VPS-hotfix во всех слоях (lib + install + diagnose + curator)"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.

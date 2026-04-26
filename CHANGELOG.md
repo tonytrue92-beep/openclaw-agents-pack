@@ -6,6 +6,75 @@
 
 ---
 
+## 2026-04-26 — Wave 10.1 (hotfix: bonjour на VPS ломал Gateway)
+
+Реальный кейс из чата клиентов (благодарность Анатолию за репорт):
+- Клиент ставил установщик на VPS дважды
+- Один раз сразу заработало, второй раз — боты молчали
+- Curator-агент в его инстансе нашёл причину: плагин `bonjour`
+  пытается анонсировать Gateway через mDNS в локальной сети, на
+  VPS падает с `CIAO PROBING CANCELLED` каждые ~45 сек, циклично
+  рестартит Gateway. Telegram-канал не успевает стабильно
+  подключиться — бот молчит.
+
+Bonjour полезен только в одном кейсе: авто-обнаружение Gateway
+iOS/macOS-приложением OpenClaw в локальной сети. На VPS / cloud
+бесполезен.
+
+Это плагин из OpenClaw core — не наш репо. Но у нашего установщика
+есть флаг `--vps`, и мы знаем «клиент на VPS». Defensive fix:
+
+### Added — `disable_bonjour_for_vps()` в `scripts/lib/agents.sh`
+
+Проверяет `openclaw config get plugins.entries.bonjour.enabled`,
+выставляет `false` если ещё не выставлено. Печатает короткое
+объяснение зачем (чтобы клиент не паниковал «что вы выключили?»).
+
+Вызывается **автоматически** в `--vps` режиме нашего установщика —
+сразу после `preflight_openclaw + preflight_network_check`, до
+создания агентов. Идемпотентно: повторный запуск ничего не ломает.
+
+### Added — bonjour-check в `scripts/diagnose-agents.sh`
+
+На Linux / WSL окружениях (не macOS) проверяет состояние
+`plugins.entries.bonjour.enabled` через `openclaw config get`:
+- `false` → ✓ зелёный (правильно для VPS)
+- `true` → ⚠️ жёлтый с инструкцией как отключить + ссылкой на
+  symptom `CIAO PROBING CANCELLED` в логах
+
+### Added — recovery hint в Telegram self-test (R5)
+
+Wave 9 BUG-03 self-test после R5 уже выводил список «что проверить
+если бот молчит». Добавлен пункт #6:
+> Если в логах видишь `CIAO PROBING CANCELLED` (mDNS) или gateway
+> циклически рестартится — выключи bonjour:
+>   `openclaw config set plugins.entries.bonjour.enabled false`
+
+### Added — СЦЕНАРИЙ 4а в `docs/curator-cheatsheet.md`
+
+Новый сценарий «Бот молчит на VPS, Gateway циклически рестартится»
+с конкретным симптомом (`CIAO PROBING CANCELLED` в логах) и одной
+командой фикса. Куратор сможет локализовать за минуту.
+
+### Changed
+
+- INSTALLER_VERSION `2026.04.30` → `2026.04.30.1` (hotfix-style suffix).
+- 5 новых smoke-test ассертов (по одному на каждый слой).
+
+### Verification
+
+- bash -n всех скриптов: OK
+- smoke-test: 22/22 pass (+5 wave-10.1 ассертов)
+- security-audit: 6/6 pass
+
+### Эскалация в openclaw-factory (вне нашей зоны)
+
+Правильный фикс — отключать bonjour by default в первом установщике
+для VPS-окружений. Это работа технаря для `openclaw-factory` /
+OpenClaw core. Описано в curator-cheatsheet эскалации.
+
+---
+
 ## 2026-04-30 — Wave 10 (self-contained bundle для VPS / корп. сетей)
 
 Wave 9 BUG-06 показал в сообщении ошибки `git clone` как fallback при

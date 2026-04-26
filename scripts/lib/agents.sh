@@ -323,6 +323,48 @@ telegram_channel_self_test() {
   validate_telegram_token "$token" >/dev/null 2>&1
 }
 
+# ─── Отключить bonjour-плагин на VPS (wave 10.1 hotfix) ─────────
+#
+# Реальный кейс: клиент на VPS жаловался что бот не отвечает после
+# перезапуска. Куратор (claude-агент) нашёл причину: bonjour-плагин
+# OpenClaw core пытается анонсировать Gateway через mDNS в локальной
+# сети, на VPS падает с `CIAO PROBING CANCELLED` каждые ~45 сек, что
+# вызывает циклический рестарт Gateway. Telegram-канал не успевает
+# стабильно подключиться.
+#
+# Bonjour полезен только для одного — авто-обнаружение Gateway
+# iOS/macOS приложением OpenClaw в локальной сети. На VPS / cloud
+# серверах это бесполезно — нет «локальной сети» где себя анонсировать.
+#
+# Defensive fix: в `--vps` режиме нашего установщика проактивно
+# отключаем плагин до запуска gateway. Это не трогает агентов /
+# Telegram / модели — bonjour ни на что из этого не влияет.
+#
+# Пользователь macOS-localhost (не VPS) — этот код не вызывается,
+# у него bonjour продолжает работать как задумано.
+disable_bonjour_for_vps() {
+  local current_state
+  current_state=$(openclaw config get plugins.entries.bonjour.enabled 2>/dev/null \
+    | tr -d '"' | tr -d ' ')
+
+  # Если уже false — ничего не делаем
+  if [[ "$current_state" == "false" ]]; then
+    echo -e "   ${GREEN}✓${NC} bonjour-плагин уже отключён (хорошо для VPS)"
+    return 0
+  fi
+
+  echo -e "   ${DIM}На VPS отключаю bonjour-плагин (он не нужен и вызывает циклический рестарт Gateway)...${NC}"
+
+  if openclaw config set plugins.entries.bonjour.enabled false &>/dev/null; then
+    echo -e "   ${GREEN}✓${NC} bonjour-плагин отключён"
+    echo -e "   ${DIM}Что это: bonjour работает через mDNS — анонсирует Gateway в${NC}"
+    echo -e "   ${DIM}локальной сети для iOS/Mac-приложения OpenClaw. На VPS бесполезен.${NC}"
+  else
+    warn "Не получилось отключить bonjour-плагин."
+    echo -e "   ${DIM}Попробуй вручную: ${GREEN}openclaw config set plugins.entries.bonjour.enabled false${NC}"
+  fi
+}
+
 # ─── Найти все установленные агенты (для --refresh-templates) ────
 #
 # Итерируется по известным ID, проверяет agent_exists и возвращает
