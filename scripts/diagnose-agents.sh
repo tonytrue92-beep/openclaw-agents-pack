@@ -40,6 +40,24 @@ if command -v openclaw &>/dev/null; then
     echo -e "   ${RED}✗${NC} Gateway не отвечает"
     issues+=("gateway не работает — попробуйте: openclaw gateway restart")
   fi
+
+  # ─── wave 10.1 hotfix: bonjour-плагин на VPS ──────────────────
+  # Проверяем только на Linux/WSL (там не нужен mDNS) — на macOS
+  # bonjour полезен и должен оставаться включенным.
+  env_for_bonjour=$(detect_environment 2>/dev/null || echo "unknown")
+  if [[ "$env_for_bonjour" == "linux" || "$env_for_bonjour" == "wsl" ]]; then
+    bonjour_state=$(openclaw config get plugins.entries.bonjour.enabled 2>/dev/null \
+      | tr -d '"' | tr -d ' ')
+    if [[ "$bonjour_state" == "true" ]]; then
+      echo -e "   ${YELLOW}⚠${NC} bonjour-плагин включён, но мы на ${env_for_bonjour}"
+      echo -e "       ${DIM}На VPS / Linux bonjour может вызывать циклические рестарты Gateway${NC}"
+      echo -e "       ${DIM}(ошибка ${BOLD}CIAO PROBING CANCELLED${NC}${DIM} в логах). Рекомендую отключить:${NC}"
+      echo -e "       ${GREEN}openclaw config set plugins.entries.bonjour.enabled false${NC}"
+      issues+=("bonjour-плагин enabled на ${env_for_bonjour} — может ломать Gateway")
+    elif [[ "$bonjour_state" == "false" ]]; then
+      echo -e "   ${GREEN}✓${NC} bonjour-плагин отключён (правильно для ${env_for_bonjour})"
+    fi
+  fi
 fi
 
 # ─── 3. Каждый из установленных агентов ───

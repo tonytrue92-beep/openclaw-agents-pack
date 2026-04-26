@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.04.30"
+INSTALLER_VERSION="2026.04.30.1"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -518,6 +518,18 @@ fi
 # ─── Preflight: OpenClaw + сеть ─────────────────────────────────
 preflight_openclaw || exit 1
 preflight_network_check || true
+
+# ─── wave 10.1 hotfix: bonjour-плагин на VPS ────────────────────
+# Реальный кейс из чата клиентов: bonjour пытается анонсировать
+# Gateway через mDNS, на VPS падает `CIAO PROBING CANCELLED` каждые
+# ~45 сек, цикличный рестарт Gateway, бот не отвечает в Telegram.
+# В --vps режиме отключаем плагин превентивно (он бесполезен на VPS,
+# нужен только для авто-обнаружения Gateway iOS/Mac-приложением).
+if [[ "$VPS_MODE" == true ]]; then
+  echo ""
+  echo -e "${DIM}--vps режим: проверяю bonjour-плагин (известная проблема на VPS)...${NC}"
+  disable_bonjour_for_vps
+fi
 
 # ─── Telemetry consent (читаем из первого установщика если уже есть) ─
 ensure_telemetry_consent
@@ -1306,6 +1318,9 @@ if [[ ${#INSTALLED_LIST[@]} -gt 0 ]]; then
     echo -e "   ${DIM}  3. api.telegram.org не блокируется фаерволом / VPN${NC}"
     echo -e "   ${DIM}  4. Запусти: ${GREEN}openclaw channels status --probe${NC}"
     echo -e "   ${DIM}  5. Логи gateway: ${GREEN}openclaw logs --tail 50 --follow${NC}"
+    echo -e "   ${DIM}  6. Если в логах видишь ${BOLD}CIAO PROBING CANCELLED${NC}${DIM} (mDNS) или${NC}"
+    echo -e "   ${DIM}     gateway циклически рестартится — выключи bonjour:${NC}"
+    echo -e "   ${DIM}     ${GREEN}openclaw config set plugins.entries.bonjour.enabled false${NC}"
     record_telemetry "R5_tg_self_test_failed" "${#TG_FAILED[@]}"
   else
     record_telemetry "R5_tg_self_test_ok" "${#INSTALLED_LIST[@]}"
