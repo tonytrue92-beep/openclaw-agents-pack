@@ -247,15 +247,18 @@ grep -q '=== BUNDLE_LIB_BEGIN ===' scripts/install-agents.sh \
   || fail "install-agents.sh не содержит маркер BUNDLE_LIB_BEGIN (wave 10)"
 grep -q '=== BUNDLE_LIB_END ===' scripts/install-agents.sh \
   || fail "install-agents.sh не содержит маркер BUNDLE_LIB_END (wave 10)"
-# Release workflow для авто-публикации bundled при теге
-[[ -f ".github/workflows/release.yml" ]] \
-  || fail ".github/workflows/release.yml отсутствует (wave 10 — auto-release при теге)"
-[[ -f ".github/release-body-template.md" ]] \
-  || fail ".github/release-body-template.md отсутствует (wave 10)"
 # Сообщение об ошибке curl должно теперь упоминать bundled-URL
 grep -q 'install-agents-bundled.sh' scripts/install-agents.sh \
   || fail "install-agents.sh не упоминает bundled-URL в curl-error сообщении (wave 10)"
-pass "wave 10: build-bundle.sh + release workflow + bundle-маркеры на месте"
+# Release workflow проверяем только если .github/ присутствует
+# (Docker smoke не копирует .github/ — там этих файлов нет, и это OK).
+if [[ -d ".github" ]]; then
+  [[ -f ".github/workflows/release.yml" ]] \
+    || fail ".github/workflows/release.yml отсутствует (wave 10 — auto-release при теге)"
+  [[ -f ".github/release-body-template.md" ]] \
+    || fail ".github/release-body-template.md отсутствует (wave 10)"
+fi
+pass "wave 10: build-bundle.sh + bundle-маркеры на месте"
 
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
