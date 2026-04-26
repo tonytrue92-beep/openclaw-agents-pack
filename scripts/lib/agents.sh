@@ -294,6 +294,35 @@ prepare_workspace_from_templates() {
   fi
 }
 
+# ─── Telegram-канал self-test после установки (wave 9 BUG-03) ────
+#
+# Из техотчёта 2026-04-26: gateway running ≠ Telegram-канал работает.
+# Бывает что после R5 (gateway restart) gateway статус зелёный, но
+# конкретный бот не отвечает в Telegram (например, корпоративный
+# фаервол режет api.telegram.org только для воркер-процесса, или
+# токен по какой-то причине не сохранился в конфиге gateway).
+#
+# Решение: после R5 для каждого установленного агента достаём токен
+# из openclaw config get и пингуем Telegram getMe (через уже
+# существующую validate_telegram_token).
+#
+# Args:
+#   $1 = account_id (= agent_id в нашей схеме)
+# Returns:
+#   0 — Telegram-API отвечает на getMe (бот живой)
+#   1 — токен не найден в конфиге, или getMe не ответил
+telegram_channel_self_test() {
+  local account_id="$1"
+  local token
+  token=$(openclaw config get "channels.telegram.accounts.${account_id}.botToken" 2>/dev/null \
+    | tr -d '"' | tr -d ' ')
+  [[ -z "$token" || "$token" == "null" ]] && return 1
+
+  # validate_telegram_token уже умеет ping getMe через api.telegram.org
+  # и не печатает токен в stdout (только username при success).
+  validate_telegram_token "$token" >/dev/null 2>&1
+}
+
 # ─── Найти все установленные агенты (для --refresh-templates) ────
 #
 # Итерируется по известным ID, проверяет agent_exists и возвращает

@@ -303,6 +303,42 @@ rm -rf ~/.openclaw/workspace-<имя>
 
 ---
 
+## 🚨 Эскалация на технаря (вне нашей зоны)
+
+Эти классы багов **НЕ** в зоне `openclaw-agents-pack` — это
+`openclaw-factory` (первый установщик) или OpenClaw core.
+Если клиент жалуется на симптомы из таблицы — отправляй технарю
+**сразу**, не пытайся лечить через наш установщик.
+
+| Симптом клиента | Класс бага | Куда эскалировать |
+|---|---|---|
+| `existing config is missing gateway.mode` | BUG-02 | openclaw-factory / OpenClaw core |
+| `gateway closed (1006 abnormal closure)` | BUG-02 | openclaw-factory / OpenClaw core |
+| `Cannot find package 'openclaw' ... plugin-runtime-deps` | BUG-02 | openclaw-factory / OpenClaw core |
+| `memory-core: Error: Cannot find module 'typebox'` | BUG-02 | openclaw-factory / OpenClaw core |
+| `HTTP 401: Invalid API key` (после смены модели) | BUG-04 | OpenClaw core |
+| `Model is disabled` / `opencode:default` залипание | BUG-04 | OpenClaw core |
+| `Missing API key` после `openclaw configure` | BUG-04 | OpenClaw core |
+| `make check` / `bash has no bottle` (старый macOS) | BUG-07 | openclaw-factory bootstrap |
+| `EACCES: permission denied` / root-owned `~/.npm` | BUG-07 | openclaw-factory bootstrap |
+| Sudo password «не вводится» (новичок на macOS) | BUG-07 | objaснить что в терминале пароль невидимый, не баг |
+| Xcode CLT не подхватились после установки | BUG-07 | openclaw-factory bootstrap |
+
+**Полный техотчёт** (для технаря, не для клиента):
+`/Users/antonpolakov/openclaw-factory/agents/curator/tmp/openclaw-install-fix-report-2026-04-26.md`
+
+**Когда НЕ эскалировать:** если симптом из BUG-01/03/05/06 (наша
+зона — обработано в wave 9 v2026.04.29+). Это:
+- Установщик висит в R0 / не находит `bash`/`python3`/`curl`
+- `auth-profile` валидация / пустой/битый JSON `main`
+- `exit=28` / curl-timeout на raw.githubusercontent
+- Бот отвечает в `gateway status running`, но молчит в Telegram
+  после R5 self-test
+
+Для них кури сценарии 1-12 выше — там есть готовые ответы.
+
+---
+
 ## 🔗 Эскалация (если ничего не помогает)
 
 1. Попроси клиента запустить:

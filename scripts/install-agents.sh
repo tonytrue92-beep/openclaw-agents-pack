@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.04.28"
+INSTALLER_VERSION="2026.04.29"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -269,8 +269,31 @@ else
   _LIB_BASE="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/${_LIB_COMMIT}/scripts/lib"
   for _mod in ui preflight telemetry debug-bundle agents vip; do
     if ! curl -fsSL --max-time 10 "${_LIB_BASE}/${_mod}.sh" -o "${_LIB_TMP}/${_mod}.sh"; then
-      echo "ERROR: не смог скачать scripts/lib/${_mod}.sh с GitHub"
-      echo "Проверьте сеть и что commit ${_LIB_COMMIT} существует."
+      # wave 9 BUG-06: localized curl-error message с хост-разделением
+      # и подсказкой про git clone fallback. До этой точки ui.sh ещё
+      # не подключён, поэтому plain-text без цветов.
+      echo ""
+      echo "ERROR: не смог скачать scripts/lib/${_mod}.sh с GitHub raw."
+      echo "       Хост: raw.githubusercontent.com"
+      echo "       Commit: ${_LIB_COMMIT}"
+      echo "       Timeout: 10 сек"
+      echo ""
+      echo "Возможные причины:"
+      echo "  • raw.githubusercontent.com временно недоступен или режется фаерволом"
+      echo "  • Корпоративный VPN / прокси не пропускает HTTPS к GitHub"
+      echo "  • Слишком медленное соединение (10 сек на файл не хватило)"
+      echo "  • Указанный коммит (${_LIB_COMMIT}) не существует на GitHub"
+      echo ""
+      echo "Рабочее решение — скачать репозиторий целиком и запустить локально:"
+      echo ""
+      echo "    git clone https://github.com/tonytrue92-beep/openclaw-agents-pack"
+      echo "    cd openclaw-agents-pack"
+      echo "    bash scripts/install-agents.sh"
+      echo ""
+      echo "Локальный запуск минует raw.githubusercontent и работает стабильно"
+      echo "даже на медленной сети. Все остальные эндпоинты (Telegram API,"
+      echo "OpenAI API) — отдельная проверка, см. вывод установщика дальше."
+      echo ""
       exit 1
     fi
     # shellcheck disable=SC1090
@@ -355,7 +378,11 @@ if [[ "$REFRESH_TEMPLATES_ONLY" == true ]]; then
   echo -e "${DIM}   agents-pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
   echo ""
 
-  preflight_openclaw || exit 1
+  # wave 9 BUG-05 guard: refresh-templates не использует main/auth-profile
+  # для копирования (он только обновляет шаблоны workspace'а), так что
+  # пропускаем deep JSON-validation. Иначе клиент с битым main не
+  # сможет даже refresh применить.
+  SKIP_AUTH_PROFILE_CHECK=true preflight_openclaw || exit 1
 
   # Ищем какие агенты уже стоят
   mapfile -t FOUND_AGENTS < <(find_installed_agents)
@@ -1208,6 +1235,20 @@ done
 # ═══════════════════════════════════════════════════════════════
 #  R5. Рестарт gateway и финальная проверка
 # ═══════════════════════════════════════════════════════════════
+# ─── Сводка по реально установленным агентам ─────────────────
+# Формируем INSTALLED_LIST раньше R5 — нужно для Telegram self-test
+# (wave 9 BUG-03) и для опционального R5b (общая TG-группа).
+INSTALLED_COUNT=0
+INSTALLED_LIST=()
+for agent in "${AGENTS_TO_INSTALL[@]}"; do
+  [[ -z "$agent" ]] && continue
+  target_id="${agent}${SUFFIX:+-$SUFFIX}"
+  if agent_exists "$target_id"; then
+    INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
+    INSTALLED_LIST+=("$target_id")
+  fi
+done
+
 step_header "R5" "РЕСТАРТ GATEWAY"
 
 openclaw gateway restart 2>&1 | tail -3 | while IFS= read -r line; do
@@ -1222,6 +1263,44 @@ else
 fi
 record_telemetry "R5_gateway_restart" "ok"
 
+# ─── wave 9 BUG-03: Telegram-канал self-test после gateway restart ─
+#
+# Из техотчёта: «бот молчит в личке/группе» — пользователь крутит токены/
+# модели, хотя проблема в Telegram access layer. Локализуем заранее.
+#
+# `gateway running` ≠ «Telegram-канал работает». После рестарта
+# для каждого установленного агента дёргаем getMe через сохранённый
+# в конфиге токен. При провале — warn с конкретными причинами,
+# чтобы клиент не валил всё подряд reinstall'ом.
+if [[ ${#INSTALLED_LIST[@]} -gt 0 ]]; then
+  echo ""
+  echo -e "   ${DIM}Проверяю что каждый бот отвечает в Telegram (5-10 сек)...${NC}"
+  TG_FAILED=()
+  for _aid in "${INSTALLED_LIST[@]}"; do
+    if telegram_channel_self_test "$_aid"; then
+      echo -e "   ${GREEN}✓${NC} ${_aid}: бот отвечает"
+    else
+      echo -e "   ${YELLOW}○${NC} ${_aid}: бот НЕ отвечает (gateway running, но Telegram-канал лежит)"
+      TG_FAILED+=("$_aid")
+    fi
+  done
+  unset _aid
+  if [[ ${#TG_FAILED[@]} -gt 0 ]]; then
+    echo ""
+    warn "Telegram-каналы не работают для: ${TG_FAILED[*]}"
+    echo -e "   ${DIM}Это означает: gateway запущен, но Telegram-токен/привязка не работает.${NC}"
+    echo -e "   ${DIM}Не запускай reinstall — проблема в Telegram access layer. Что проверить:${NC}"
+    echo -e "   ${DIM}  1. Токен бота в @BotFather (мог быть сброшен через /revoke)${NC}"
+    echo -e "   ${DIM}  2. Бот не заблокирован тобой в Telegram${NC}"
+    echo -e "   ${DIM}  3. api.telegram.org не блокируется фаерволом / VPN${NC}"
+    echo -e "   ${DIM}  4. Запусти: ${GREEN}openclaw channels status --probe${NC}"
+    echo -e "   ${DIM}  5. Логи gateway: ${GREEN}openclaw logs --tail 50 --follow${NC}"
+    record_telemetry "R5_tg_self_test_failed" "${#TG_FAILED[@]}"
+  else
+    record_telemetry "R5_tg_self_test_ok" "${#INSTALLED_LIST[@]}"
+  fi
+fi
+
 # ═══════════════════════════════════════════════════════════════
 #  R5b. ОБЩАЯ TG-ГРУППА (опционально)
 # ═══════════════════════════════════════════════════════════════
@@ -1231,18 +1310,6 @@ record_telemetry "R5_gateway_restart" "ok"
 #
 # Если клиент соглашается — пошагово ведём через настройку.
 # Можно отложить — клиент получит точную команду для запуска позже.
-
-# Считаем сколько реально установилось (не пропущенных)
-INSTALLED_COUNT=0
-INSTALLED_LIST=()
-for agent in "${AGENTS_TO_INSTALL[@]}"; do
-  [[ -z "$agent" ]] && continue
-  target_id="${agent}${SUFFIX:+-$SUFFIX}"
-  if agent_exists "$target_id"; then
-    INSTALLED_COUNT=$((INSTALLED_COUNT + 1))
-    INSTALLED_LIST+=("$target_id")
-  fi
-done
 
 if [[ $INSTALLED_COUNT -ge 2 && -z "$CONFIG_FILE" && "$VPS_MODE" != true ]]; then
   step_header "R5b" "ОБЩАЯ TG-ГРУППА (опционально)"

@@ -95,6 +95,33 @@ preflight_openclaw() {
     print_windows_hints "$env_name"
   fi
 
+  # ─── wave 9 BUG-01: hard preflight базовых утилит ────────────
+  # Без bash/python3/curl установщик всё равно сломается дальше —
+  # лучше упасть тут с понятным сообщением чем висеть в R0
+  # с непонятной ошибкой.
+  local missing_tools=()
+  for _tool in bash python3 curl; do
+    command -v "$_tool" >/dev/null 2>&1 || missing_tools+=("$_tool")
+  done
+  if [[ ${#missing_tools[@]} -gt 0 ]]; then
+    warn "Не найдены базовые утилиты: ${missing_tools[*]}"
+    echo -e "   ${DIM}Установщик использует их на каждом шаге — без них дальше нет смысла.${NC}"
+    echo ""
+    if [[ "$env_name" == "windows-bash" ]]; then
+      echo -e "   ${BOLD}На Windows эти утилиты идут в Git Bash:${NC}"
+      echo -e "      Скачай Git for Windows: ${CYAN}https://git-scm.com/download/win${NC}"
+      echo -e "      Запусти заново через Git Bash (НЕ PowerShell)"
+    elif [[ "$env_name" == "macos" ]]; then
+      echo -e "   ${BOLD}На macOS:${NC}"
+      echo -e "      ${GREEN}brew install ${missing_tools[*]}${NC}"
+    elif [[ "$env_name" == "wsl" || "$env_name" == "linux" ]]; then
+      echo -e "   ${BOLD}На Linux/WSL:${NC}"
+      echo -e "      ${GREEN}apt-get install -y ${missing_tools[*]}${NC} ${DIM}(или dnf/apk в зависимости от дистрибутива)${NC}"
+    fi
+    echo ""
+    return 1
+  fi
+
   if ! command -v openclaw &>/dev/null; then
     echo ""
     warn "OpenClaw не найден в PATH."
@@ -149,16 +176,69 @@ preflight_openclaw() {
     return 2
   fi
 
-  # auth-profiles главного агента — нужен чтобы копировать в новых
+  # auth-profiles главного агента — нужен чтобы копировать в новых.
+  #
+  # ─── wave 9 BUG-05: hard JSON validation ─────────────────────
+  # Из техотчёта 2026-04-26: частый кейс ложного фикса — клиент
+  # сам создаёт пустой `{}` чтобы «обойти» отсутствие файла, потом
+  # все новые агенты падают в HTTP 401. Теперь:
+  #   1. файл должен существовать
+  #   2. файл не должен быть пустым (0 байт или {})
+  #   3. JSON должен быть валидным
+  #   4. это должен быть непустой объект
+  # При любом нарушении — hard-stop с прямой инструкцией перезапустить
+  # первый установщик. Не лечим вручную.
+  #
+  # Skip в --refresh-templates режиме (этот режим обновляет только
+  # шаблоны, не использует main/auth-profile для копирования).
   local main_auth="$HOME/.openclaw/agents/main/agent/auth-profiles.json"
+
+  if [[ "${SKIP_AUTH_PROFILE_CHECK:-false}" == true ]]; then
+    # --refresh-templates режим — пропускаем deep-check, делаем только
+    # информативный warn если файл битый (но не падаем).
+    if [[ -f "$main_auth" && -s "$main_auth" ]]; then
+      echo -e "   ${GREEN}✓${NC} auth-profile основного агента найден (deep-check skipped в refresh-mode)"
+    else
+      warn "auth-profile основного агента отсутствует или пустой — refresh продолжится, но новые агенты могут падать в 401"
+    fi
+    return 0
+  fi
+
   if [[ ! -f "$main_auth" ]]; then
     warn "Не найден auth-profile основного агента (${main_auth})"
-    echo -e "   ${DIM}Это значит, у вас ещё нет настроенного opencode.ai ключа.${NC}"
-    echo -e "   ${DIM}Сначала пройдите реальную установку в первом установщике.${NC}"
+    echo -e "   ${DIM}Это значит, у вас ещё нет настроенного API-ключа модели.${NC}"
+    echo -e "   ${DIM}Сначала пройдите реальную установку в первом установщике:${NC}"
+    echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
     return 1
   fi
-  echo -e "   ${GREEN}✓${NC} auth-profile основного агента найден"
 
+  if [[ ! -s "$main_auth" ]]; then
+    warn "auth-profile основного агента ПУСТОЙ (${main_auth})"
+    echo -e "   ${DIM}Это значит первый установщик не довёл main до конца.${NC}"
+    echo -e "   ${BOLD}${YELLOW}Не лечите файл вручную${NC} ${DIM}— это приведёт к 401 у новых агентов.${NC}"
+    echo -e "   ${BOLD}Перезапустите первый установщик и доведите до момента когда main отвечает в Telegram:${NC}"
+    echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
+    return 1
+  fi
+
+  if ! python3 -c "
+import json, sys
+try:
+    with open('$main_auth') as f:
+        d = json.load(f)
+    if not isinstance(d, dict) or len(d) == 0:
+        sys.exit(1)
+except Exception:
+    sys.exit(1)
+" 2>/dev/null; then
+    warn "auth-profile невалидный (битый JSON или пустой объект {})"
+    echo -e "   ${DIM}Кто-то редактировал файл вручную, или установщик упал на половине.${NC}"
+    echo -e "   ${BOLD}${YELLOW}Не лечите вручную${NC} ${DIM}— перезапустите первый установщик начисто:${NC}"
+    echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
+    return 1
+  fi
+
+  echo -e "   ${GREEN}✓${NC} auth-profile основного агента валидный"
   return 0
 }
 

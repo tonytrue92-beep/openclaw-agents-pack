@@ -213,6 +213,30 @@ pass "wave 8.3: docs/windows-install-guide.md + detect_environment + Windows hin
   || fail "docs/curator-cheatsheet.md отсутствует (wave 8.5 — шпаргалка для куратора)"
 pass "wave 8.5: docs/curator-cheatsheet.md на месте"
 
+# ─── Test 6.12: wave 9 system hardening (BUG-01 / 03 / 05 / 06) ───
+# BUG-01: hard preflight bash/python3/curl
+grep -q 'missing_tools' scripts/lib/preflight.sh \
+  || fail "preflight.sh не проверяет наличие bash/python3/curl (wave 9 BUG-01)"
+# BUG-05: JSON validation main/auth-profiles
+grep -q 'json.load' scripts/lib/preflight.sh \
+  || fail "preflight.sh не валидирует JSON в main/auth-profiles.json (wave 9 BUG-05)"
+grep -q 'SKIP_AUTH_PROFILE_CHECK' scripts/lib/preflight.sh \
+  || fail "preflight.sh не имеет SKIP_AUTH_PROFILE_CHECK guard для refresh-templates (wave 9 BUG-05)"
+grep -q 'SKIP_AUTH_PROFILE_CHECK=true' scripts/install-agents.sh \
+  || fail "--refresh-templates entry не выставляет SKIP_AUTH_PROFILE_CHECK=true (wave 9 BUG-05 guard)"
+# BUG-06: git clone fallback message
+grep -q 'git clone https://github.com/tonytrue92-beep/openclaw-agents-pack' scripts/install-agents.sh \
+  || fail "install-agents.sh не показывает git clone fallback при curl-сбое (wave 9 BUG-06)"
+# BUG-03: Telegram self-test после R5
+grep -q 'telegram_channel_self_test' scripts/lib/agents.sh \
+  || fail "telegram_channel_self_test не объявлена (wave 9 BUG-03)"
+grep -q 'telegram_channel_self_test' scripts/install-agents.sh \
+  || fail "telegram_channel_self_test не вызывается в R5 (wave 9 BUG-03)"
+# Эскалация в curator-cheatsheet.md
+grep -q 'Эскалация на технаря (вне нашей зоны)' docs/curator-cheatsheet.md \
+  || fail "curator-cheatsheet.md не содержит секцию эскалации BUG-02/04/07 (wave 9)"
+pass "wave 9: BUG-01/03/05/06 + эскалация на технаря — все на месте"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
