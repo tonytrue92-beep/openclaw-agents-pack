@@ -1,0 +1,87 @@
+# GitHub Release workflow для openclaw-agents-pack (wave 10).
+#
+# Триггер: push тега вида v2026.* или v2027.*
+#
+# Что делает:
+#   1. Проверяет что тег и INSTALLER_VERSION в скрипте совпадают
+#   2. Подменяет __COMMIT_PLACEHOLDER__ на реальный коммит-хэш
+#   3. Запускает scripts/build-bundle.sh
+#   4. Регенерирует SHA256SUMS для bundled-файла
+#   5. Публикует GitHub Release с install-agents-bundled.sh как asset
+#
+# После релиза клиент может использовать стабильный URL:
+#   https://github.com/<owner>/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh
+#
+# Который перенаправляется на конкретный релизный asset — обходит
+# raw.githubusercontent rate-limit / firewall (BUG-06 из техотчёта).
+#
+# Security: все user-controlled inputs (если бы такие были) идут через
+# env: с экранированием. github.ref_name = название тега, безопасно.
+
+name: Release bundled installer
+
+on:
+  push:
+    tags:
+      - 'v2026.*'
+      - 'v2027.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TAG_NAME: ${{ github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag matches INSTALLER_VERSION
+        run: |
+          tag_version="${TAG_NAME#v}"
+          installer_version=$(grep -E '^INSTALLER_VERSION=' scripts/install-agents.sh \
+            | sed -E 's/.*"(.*)"/\1/')
+          if [[ "$tag_version" != "$installer_version" ]]; then
+            echo "ERROR: tag '$tag_version' не совпадает с INSTALLER_VERSION='$installer_version'"
+            echo "       Обнови INSTALLER_VERSION в scripts/install-agents.sh перед тегом."
+            exit 1
+          fi
+          echo "OK: tag ${tag_version} совпадает с INSTALLER_VERSION"
+
+      - name: Substitute commit hash into INSTALLER_COMMIT
+        run: |
+          commit_short=$(git rev-parse --short HEAD)
+          sed -i.bak "s/__COMMIT_PLACEHOLDER__/${commit_short}/" scripts/install-agents.sh
+          rm -f scripts/install-agents.sh.bak
+          echo "OK: INSTALLER_COMMIT = ${commit_short}"
+
+      - name: Build self-contained bundle
+        run: bash scripts/build-bundle.sh
+
+      - name: Verify bundle is well-formed
+        run: |
+          bash -n dist/install-agents-bundled.sh
+          bash dist/install-agents-bundled.sh --version
+          bash dist/install-agents-bundled.sh --help > /dev/null
+          echo "OK: bundled --version и --help отвечают"
+
+      - name: Generate SHA256 checksum for bundle
+        run: |
+          cd dist
+          sha256sum install-agents-bundled.sh > install-agents-bundled.sh.sha256
+          cat install-agents-bundled.sh.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: .github/release-body-template.md
+          files: |
+            dist/install-agents-bundled.sh
+            dist/install-agents-bundled.sh.sha256
+          draft: false
+          prerelease: false

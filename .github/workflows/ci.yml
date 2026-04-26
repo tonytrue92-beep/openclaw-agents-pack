@@ -116,3 +116,34 @@ jobs:
         env:
           VARIANT: ${{ matrix.variant }}
         run: docker run --rm "openclaw-agents-pack-test:${VARIANT}"
+
+  build-bundle:
+    name: Build self-contained bundle (wave 10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run build-bundle
+        run: bash scripts/build-bundle.sh
+      - name: Verify bundle is well-formed
+        run: |
+          bash -n dist/install-agents-bundled.sh
+          bash dist/install-agents-bundled.sh --version
+          bash dist/install-agents-bundled.sh --help > /dev/null
+          echo "OK: bundled --version и --help отвечают"
+      - name: Bundle should not contain BUNDLE_LIB_BEGIN markers
+        run: |
+          # После build markers должны быть только в исходном install-agents.sh,
+          # но не в bundled-выходе (там source-блок заменён на inline).
+          # Проверяем что в bundled-файле есть оба маркера (мы их сохраняем
+          # для защиты от повторной сборки), но между ними должно быть
+          # inline-содержимое lib/*, а не source-команды.
+          if grep -q 'source "${SCRIPT_DIR}/lib/' dist/install-agents-bundled.sh; then
+            echo "ERROR: bundled-файл содержит source команды — bundle не собрался корректно"
+            exit 1
+          fi
+          # Должны быть inline-маркеры
+          if ! grep -q 'BUNDLED lib/\* (wave 10 self-contained)' dist/install-agents-bundled.sh; then
+            echo "ERROR: bundled-файл не содержит inline-блок"
+            exit 1
+          fi
+          echo "OK: bundle содержит inline lib/*, не source"

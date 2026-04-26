@@ -237,6 +237,26 @@ grep -q 'Эскалация на технаря (вне нашей зоны)' do
   || fail "curator-cheatsheet.md не содержит секцию эскалации BUG-02/04/07 (wave 9)"
 pass "wave 9: BUG-01/03/05/06 + эскалация на технаря — все на месте"
 
+# ─── Test 6.13: wave 10 build-bundle (self-contained installer) ───
+[[ -f "scripts/build-bundle.sh" ]] \
+  || fail "scripts/build-bundle.sh отсутствует (wave 10)"
+[[ -x "scripts/build-bundle.sh" ]] \
+  || fail "scripts/build-bundle.sh не executable"
+# Маркеры для bundle-сборки в install-agents.sh
+grep -q '=== BUNDLE_LIB_BEGIN ===' scripts/install-agents.sh \
+  || fail "install-agents.sh не содержит маркер BUNDLE_LIB_BEGIN (wave 10)"
+grep -q '=== BUNDLE_LIB_END ===' scripts/install-agents.sh \
+  || fail "install-agents.sh не содержит маркер BUNDLE_LIB_END (wave 10)"
+# Release workflow для авто-публикации bundled при теге
+[[ -f ".github/workflows/release.yml" ]] \
+  || fail ".github/workflows/release.yml отсутствует (wave 10 — auto-release при теге)"
+[[ -f ".github/release-body-template.md" ]] \
+  || fail ".github/release-body-template.md отсутствует (wave 10)"
+# Сообщение об ошибке curl должно теперь упоминать bundled-URL
+grep -q 'install-agents-bundled.sh' scripts/install-agents.sh \
+  || fail "install-agents.sh не упоминает bundled-URL в curl-error сообщении (wave 10)"
+pass "wave 10: build-bundle.sh + release workflow + bundle-маркеры на месте"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.

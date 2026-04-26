@@ -6,6 +6,95 @@
 
 ---
 
+## 2026-04-30 — Wave 10 (self-contained bundle для VPS / корп. сетей)
+
+Wave 9 BUG-06 показал в сообщении ошибки `git clone` как fallback при
+сбое `raw.githubusercontent.com`. Wave 10 идёт дальше — даёт **второй
+канал доставки** установщика через GitHub Release CDN, минуя
+`raw.githubusercontent.com` полностью.
+
+Зачем: на VPS / корпоративных сетях / медленном интернете nested curl
+к raw.githubusercontent.com часто падает с timeout (=BUG-06). Bundled
+подход — один файл, никаких nested curl-ов после первого скачивания.
+
+### Added
+
+- **`scripts/build-bundle.sh`** — локальная утилита-сборщик. Берёт
+  `scripts/install-agents.sh` + все `scripts/lib/*.sh` (6 модулей)
+  и склеивает в один self-contained `dist/install-agents-bundled.sh`
+  (~150 KB, ~3000 строк):
+  - Использует sentinel-маркеры `=== BUNDLE_LIB_BEGIN ===` /
+    `=== BUNDLE_LIB_END ===` в `install-agents.sh` чтобы найти где
+    заменять `source/curl` блок на inline-контент.
+  - Удаляет дубликаты `#!/usr/bin/env bash` и `set -euo pipefail`
+    из lib-файлов (они уже есть в начале install-agents.sh).
+  - Прогоняет `bash -n` на bundled-выходе, проверяет что валидный.
+  - Печатает sanity-команды (`--version` / `--help`) для проверки.
+- **`.github/workflows/release.yml`** — авто-публикация bundled-релиза:
+  - Триггер: push тега `v2026.*` или `v2027.*`.
+  - Sanity-check что тег совпадает с `INSTALLER_VERSION` в скрипте.
+  - Подмена `__COMMIT_PLACEHOLDER__` на реальный short commit hash.
+  - Запуск `scripts/build-bundle.sh`.
+  - Sanity bundled `--version` / `--help`.
+  - Генерация `install-agents-bundled.sh.sha256`.
+  - GitHub Release с двумя assets и body из
+    `.github/release-body-template.md`.
+- **`.github/release-body-template.md`** — шаблон body для релизов
+  (зачем bundle, две команды установки).
+- **CI job `build-bundle`** в `.github/workflows/ci.yml` — на каждом
+  PR проверяет что `scripts/build-bundle.sh` собирает валидный bundle
+  и что в нём нет остатков `source ${SCRIPT_DIR}/lib/...` (защита от
+  битой сборки).
+
+### Changed
+
+- **`scripts/install-agents.sh`** — добавлены sentinel-маркеры вокруг
+  блока подключения lib/* (для build-bundle.sh).
+- **`scripts/install-agents.sh`** — сообщение об ошибке curl при
+  сбое `raw.githubusercontent.com` (wave 9 BUG-06) теперь указывает
+  **bundled-URL как первое решение**, потом `git clone` как второе:
+  ```
+  Рабочее решение №1 — self-contained bundle (один файл, без nested curl):
+      bash <(curl -fsSL https://github.com/.../releases/latest/download/install-agents-bundled.sh)
+  Рабочее решение №2 — git clone репозитория и запустить локально: ...
+  ```
+- **`README.md`**: новый блок про bundled путь как fallback.
+- **`docs/vip-install-guide.md`**: команда установки теперь имеет
+  два варианта — обычный curl и bundle.
+- **`docs/windows-install-guide.md`**: bundle стал Вариант B
+  (рекомендуется), git clone сдвинут в Вариант C.
+- **`docs/curator-cheatsheet.md`**: новый блок «Self-contained bundle»
+  в команды-памятке + СЦЕНАРИЙ 6 переписан с приоритетом bundle.
+- **`.gitignore`**: добавлено `/dist/` (build-артефакты не коммитим).
+- **INSTALLER_VERSION** 2026.04.29 → 2026.04.30.
+
+### Команда для клиента (новая)
+
+```bash
+bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)
+```
+
+URL стабильный — `releases/latest/download/...` редиректится на
+конкретный последний релиз.
+
+### Verification
+
+- `bash -n` всех скриптов: OK
+- `scripts/smoke-test.sh`: 21/21 pass (+1 wave-10 ассерт-блок)
+- `scripts/security-audit.sh`: 6/6 pass
+- `bash scripts/build-bundle.sh` локально: собирает bundle ~150 KB,
+  bundle проходит `--version` / `--help` / `--diagnose-only`.
+- CI build-bundle job: будет проверен после merge.
+
+### Что осталось (out of scope)
+
+- Релиз `v2026.04.30` с bundled-asset — будет создан после merge
+  через `git tag v2026.04.30 && git push --tags`. Workflow сам
+  опубликует.
+- Пост в чат VIP про bundled-команду — отдельно после релиза.
+
+---
+
 ## 2026-04-29 — Wave 9 (system hardening: BUG-01/03/05/06 из техотчёта)
 
 Куратор-агент собрал по реальным кейсам клиентов из чата ИИ Team

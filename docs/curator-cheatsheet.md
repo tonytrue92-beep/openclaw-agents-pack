@@ -56,6 +56,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-fac
 bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh)
 ```
 
+### Self-contained bundle (если raw.githubusercontent тупит)
+
+Когда клиент жалуется на `exit=28` / curl-timeout / VPN режет
+GitHub raw — давай **bundled-версию**. Один файл, никаких nested
+curl. Особенно нужно на VPS / корпоративных сетях.
+
+```bash
+bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)
+```
+
+Версия совпадает с последним релизным тегом репозитория. SHA256 —
+в файле `install-agents-bundled.sh.sha256` рядом с asset'ом.
+
 ### Обновление БЕЗ потери MEMORY
 
 ```bash
@@ -202,9 +215,17 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-fac
 
 См. правило #4 в Windows guide.
 
-### СЦЕНАРИЙ 6: «Скачивание зависает / raw.githubusercontent тупит»
+### СЦЕНАРИЙ 6: «Скачивание зависает / raw.githubusercontent тупит / exit=28»
 
-Особенно на Windows. **Не долбим curl-bash по кругу.** Рабочий путь:
+Особенно на Windows и VPS. **Не долбим curl-bash по кругу.**
+
+**Сначала — self-contained bundle** (один файл, без nested curl):
+
+```bash
+bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)
+```
+
+**Если bundle тоже не качается** — `git clone`:
 
 ```bash
 git clone https://github.com/tonytrue92-beep/openclaw-agents-pack
@@ -212,7 +233,8 @@ cd openclaw-agents-pack
 bash scripts/install-agents.sh
 ```
 
-См. правило #5 в Windows guide.
+См. правило #5 в Windows guide и сообщение wave 9 BUG-06 которое
+установщик сам печатает при сбое.
 
 ### СЦЕНАРИЙ 7: «Хочу чтобы агенты тегали друг друга в общем чате»
 
