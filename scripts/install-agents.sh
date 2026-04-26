@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.04.30.1"
+INSTALLER_VERSION="2026.04.30.2"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -171,6 +171,16 @@ VIP_TOKEN=""
 ONLY_AGENT=""
 SUFFIX=""
 CONFIG_FILE=""
+
+# ─── wave 11 P1 fix: stale-token cleanup ────────────────────────
+# Если клиент прервал предыдущий запуск (Ctrl+C в R2 после ввода
+# 1-3 токенов из 6) и сразу же запустил установщик снова в той же
+# shell-сессии — переменные BOT_TOKEN_<agent> остаются в env.
+# В R2 они подберутся как preset_token и попытаются использоваться
+# с уже отозванными токенами / другими ботами. Защищаемся: на старте
+# чистим все BOT_TOKEN_* которые могут остаться от прошлой сессии.
+unset BOT_TOKEN_TECH BOT_TOKEN_MARKETER BOT_TOKEN_PRODUCER \
+      BOT_TOKEN_DESIGNER BOT_TOKEN_COORDINATOR BOT_TOKEN_COPYWRITER 2>/dev/null || true
 
 # ─── EXIT trap — не даём тихо уйти в шелл без подсказки ───────
 #
@@ -396,7 +406,12 @@ if [[ "$REFRESH_TEMPLATES_ONLY" == true ]]; then
   SKIP_AUTH_PROFILE_CHECK=true preflight_openclaw || exit 1
 
   # Ищем какие агенты уже стоят
-  mapfile -t FOUND_AGENTS < <(find_installed_agents)
+  # wave 11: portable replacement для mapfile (bash 3.2 compat если
+  # shebang-gate почему-то не сработал)
+  FOUND_AGENTS=()
+  while IFS= read -r _agent_id; do
+    [[ -n "$_agent_id" ]] && FOUND_AGENTS+=("$_agent_id")
+  done < <(find_installed_agents)
 
   if [[ ${#FOUND_AGENTS[@]} -eq 0 ]]; then
     warn "Не нашёл ни одного установленного агента."
@@ -461,7 +476,12 @@ if [[ -n "$ENABLE_GROUP_MODE_CHAT_ID" ]]; then
 
   preflight_openclaw || exit 1
 
-  mapfile -t FOUND_AGENTS < <(find_installed_agents)
+  # wave 11: portable replacement для mapfile (bash 3.2 compat если
+  # shebang-gate почему-то не сработал)
+  FOUND_AGENTS=()
+  while IFS= read -r _agent_id; do
+    [[ -n "$_agent_id" ]] && FOUND_AGENTS+=("$_agent_id")
+  done < <(find_installed_agents)
 
   if [[ ${#FOUND_AGENTS[@]} -eq 0 ]]; then
     warn "Не нашёл ни одного установленного агента."
@@ -525,7 +545,11 @@ preflight_network_check || true
 # ~45 сек, цикличный рестарт Gateway, бот не отвечает в Telegram.
 # В --vps режиме отключаем плагин превентивно (он бесполезен на VPS,
 # нужен только для авто-обнаружения Gateway iOS/Mac-приложением).
-if [[ "$VPS_MODE" == true ]]; then
+#
+# wave 11 fix: добавлен guard на наличие openclaw — если preflight
+# выше не сработал (например, openclaw действительно нет в PATH на
+# свежей VPS), не пытаемся вызывать `openclaw config`.
+if [[ "$VPS_MODE" == true ]] && command -v openclaw &>/dev/null; then
   echo ""
   echo -e "${DIM}--vps режим: проверяю bonjour-плагин (известная проблема на VPS)...${NC}"
   disable_bonjour_for_vps
@@ -1110,9 +1134,15 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
       echo ""
     fi
 
-    if [[ -z "$token" ]]; then
-      warn "Токен пустой."
-      [[ -n "$CONFIG_FILE" ]] && exit 1
+    # Считаем "пустой" в т.ч. строку из пробелов — клиент в config мог
+    # написать BOT_TOKEN_TECH=" " что технически не пусто но бесполезно.
+    if [[ -z "$(echo "$token" | tr -d '[:space:]')" ]]; then
+      warn "Токен для ${label} пустой."
+      if [[ -n "$CONFIG_FILE" ]]; then
+        echo -e "   ${DIM}В --config режиме: проверь что ${BOLD}${env_var}${NC}${DIM} в config-файле${NC}"
+        echo -e "   ${DIM}не пустой и не содержит только пробелы. Останавливаю установку.${NC}"
+        exit 1
+      fi
       continue
     fi
 
@@ -1220,7 +1250,18 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
 
   # 4.1 Скачиваем templates (IDENTITY/AGENTS/MEMORY/USER) в workspace
   echo -e "   ${DIM}Скачиваю шаблоны из репы...${NC}"
-  prepare_workspace_from_templates "$agent" "$workspace_dir"
+  if ! prepare_workspace_from_templates "$agent" "$workspace_dir"; then
+    # wave 11 P1: при сбое сети (curl упал) останавливаем установку
+    # текущего агента вместо тихого продолжения. Иначе workspace
+    # будет частично заполнен и агент будет работать криво.
+    warn "Не получилось загрузить шаблоны для ${agent}."
+    echo -e "   ${DIM}Возможно raw.githubusercontent.com временно недоступен.${NC}"
+    echo -e "   ${DIM}Пропущенные файлы можно дозалить вручную через --refresh-templates.${NC}"
+    record_telemetry "R4_template_fetch_failed" "${target_id}"
+    # Не делаем `exit 1` — даём установщику попытаться продолжить
+    # с этим агентом (возможно у него уже есть workspace от прошлого
+    # запуска). А если нет — agent'у не дадут стартовать.
+  fi
 
   # 4.2 Добавляем Telegram-канал с правильным accountId
   # indirect expansion чтения токена (см. bash 3.2 комментарий выше)
@@ -1299,6 +1340,9 @@ if [[ ${#INSTALLED_LIST[@]} -gt 0 ]]; then
   echo ""
   echo -e "   ${DIM}Проверяю что каждый бот отвечает в Telegram (5-10 сек)...${NC}"
   TG_FAILED=()
+  # wave 11 P1: small delay между getMe-вызовами против rate-limit
+  # api.telegram.org. 6 быстрых getMe могут ловить 429 и давать
+  # ложные fail'ы. 0.5 сек между запросами достаточно.
   for _aid in "${INSTALLED_LIST[@]}"; do
     if telegram_channel_self_test "$_aid"; then
       echo -e "   ${GREEN}✓${NC} ${_aid}: бот отвечает"
@@ -1306,6 +1350,7 @@ if [[ ${#INSTALLED_LIST[@]} -gt 0 ]]; then
       echo -e "   ${YELLOW}○${NC} ${_aid}: бот НЕ отвечает (gateway running, но Telegram-канал лежит)"
       TG_FAILED+=("$_aid")
     fi
+    sleep 0.5  # rate-limit protection
   done
   unset _aid
   if [[ ${#TG_FAILED[@]} -gt 0 ]]; then

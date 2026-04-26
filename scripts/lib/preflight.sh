@@ -221,16 +221,19 @@ preflight_openclaw() {
     return 1
   fi
 
-  if ! python3 -c "
+  # wave 11 P0 fix: путь передаётся через sys.argv, не через heredoc-
+  # interpolation. Это защита от path-injection если HOME содержит
+  # `'` или `"` (rare на серверах, но возможно).
+  if ! python3 -c '
 import json, sys
 try:
-    with open('$main_auth') as f:
+    with open(sys.argv[1]) as f:
         d = json.load(f)
     if not isinstance(d, dict) or len(d) == 0:
         sys.exit(1)
 except Exception:
     sys.exit(1)
-" 2>/dev/null; then
+' "$main_auth" 2>/dev/null; then
     warn "auth-profile невалидный (битый JSON или пустой объект {})"
     echo -e "   ${DIM}Кто-то редактировал файл вручную, или установщик упал на половине.${NC}"
     echo -e "   ${BOLD}${YELLOW}Не лечите вручную${NC} ${DIM}— перезапустите первый установщик начисто:${NC}"

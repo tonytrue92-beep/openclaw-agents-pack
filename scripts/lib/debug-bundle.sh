@@ -2,6 +2,11 @@
 # debug-bundle.sh — redact_secrets + collect_debug_bundle + on_installer_error.
 # Vendored из openclaw-factory. Дополнительно собирает templates-папки агентов
 # для диагностики (IDENTITY/AGENTS/MEMORY/USER у всех трёх).
+#
+# wave 11 P1: umask 077 для всех temp-файлов этого модуля. Защищает
+# содержимое (логи, debug-bundle до redact) от чтения другими user'ами
+# в /tmp на shared-серверах.
+umask 077
 
 # ─── redact_secrets ──────────────────────────────────────────────
 #
