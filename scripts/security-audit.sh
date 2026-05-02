@@ -111,6 +111,42 @@ else
 fi
 echo ""
 
+# ─── Check 7 (wave 12): docs/ не содержат личных TG ID / email ──
+# Эта проверка отделена от check #6 чтобы не падать на легитимных
+# упоминаниях имён в docs (например, "Антон Поляков" в README — это
+# нормально). Тут точечно ловим:
+#   • TG user ID Антона (975494053) — должен быть placeholder 123456789
+#   • Чужие TG chat_id (1167075209) — должны быть в Markdown URL
+#     рефералки, не как голое число
+#   • API-ключи с конкретными префиксами (ntn_ / cpk_ / pat_FL) — никогда
+#     не должны быть в docs
+echo "─── Check 7 (wave 12): docs/ не содержат личных TG ID и API-ключей ───"
+if [[ -d docs ]]; then
+  # 975494053 — реальный TG ID Антона. В docs должен быть только 123456789
+  # (стандартный placeholder).
+  forbidden_docs=$(grep -rnE '\b975494053\b' docs/ 2>/dev/null || true)
+  # API prefix ключи — никогда не должны попадать в публичные docs
+  forbidden_keys=$(grep -rnE 'ntn_[A-Za-z0-9]{20,}|cpk_[A-Za-z0-9]{20,}|pat_FL[A-Za-z0-9]{20,}' docs/ 2>/dev/null || true)
+  # 1167075209 разрешён ТОЛЬКО в URL вида ?start=ref_1167075209 (это
+  # рефералка). Все остальные упоминания — fail.
+  forbidden_chat=$(grep -rnE '\b1167075209\b' docs/ 2>/dev/null \
+    | grep -vE 'WantToPayBot|WhisperSummaryAI|start=ref_1167075209' || true)
+
+  combined="$forbidden_docs"
+  [[ -n "$forbidden_keys" ]] && combined="${combined}${combined:+$'\n'}${forbidden_keys}"
+  [[ -n "$forbidden_chat" ]] && combined="${combined}${combined:+$'\n'}${forbidden_chat}"
+
+  if [[ -n "$combined" ]]; then
+    fail "docs/ содержат личные данные:"
+    echo "$combined" | head -10
+  else
+    pass "docs/ чистые от личных TG ID и API-ключей"
+  fi
+else
+  pass "docs/ отсутствует — проверка пропущена"
+fi
+echo ""
+
 # ─── Summary ───
 if [[ $fail_count -eq 0 ]]; then
   echo "=== Security audit passed ==="
