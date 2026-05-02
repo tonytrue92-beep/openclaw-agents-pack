@@ -39,11 +39,23 @@ EOF
 VIP_ACTIVATION_ENDPOINT="${VIP_ACTIVATION_ENDPOINT:-https://aiteam-vip.openclaw.ai/log/activation}"
 
 # ─── Определить версию токена по его форме ─────────────────────
-# stdout: "v2" | "v1" | "unknown"
+# stdout: "v3-vip" | "v3-std" | "v2" | "v1" | "unknown"
+#
+# wave 12: добавлен v3 формат с явным tier-префиксом для course-token.
+# v3 синтаксис: <TIER>-<email_hash16>-<tg_user_id>-<signature>
+#   где TIER ∈ {VIP, STD}
+# Payload подписывается: "<TIER>|<email_hash16>|<tg_user_id>"
+#
+# v2 (легаси VIP-токены) продолжают работать как раньше.
 vip_token_version() {
   local token="$1"
   if [[ "$token" =~ ^VIP-[A-F0-9]{16}-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
+    # v2 и v3-vip имеют одинаковую форму. Различаем по payload (см. _verify_v3).
+    # Чтобы не ломать backward-compat, считаем форму v2 — _verify_v2 fallback'ом
+    # попробует v3-vip если v2 не пройдёт.
     printf 'v2'
+  elif [[ "$token" =~ ^STD-[A-F0-9]{16}-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
+    printf 'v3-std'
   elif [[ "$token" =~ ^VIP-[A-F0-9]{16}-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf 'v1'
   else
@@ -51,12 +63,12 @@ vip_token_version() {
   fi
 }
 
-# ─── Извлечь ожидаемый tg_user_id из v2-токена ──────────────────
+# ─── Извлечь ожидаемый tg_user_id из v2/v3-токена ──────────────
 # Возвращает пусто для v1-токена (там нет TG).
 vip_token_get_expected_tg() {
   local token="$1"
-  if [[ "$token" =~ ^VIP-[A-F0-9]{16}-([0-9]{5,15})-[A-Za-z0-9_-]{80,100}$ ]]; then
-    printf '%s' "${BASH_REMATCH[1]}"
+  if [[ "$token" =~ ^(VIP|STD)-[A-F0-9]{16}-([0-9]{5,15})-[A-Za-z0-9_-]{80,100}$ ]]; then
+    printf '%s' "${BASH_REMATCH[2]}"
     return 0
   fi
   return 1
@@ -65,13 +77,25 @@ vip_token_get_expected_tg() {
 # ─── Извлечь email_hash16 (для fire-and-forget логирования) ─────
 vip_token_get_hash() {
   local token="$1"
-  # v2: VIP-<hash>-<tg>-<sig>
-  if [[ "$token" =~ ^VIP-([A-F0-9]{16})-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
-    printf '%s' "${BASH_REMATCH[1]}"
+  # v2 / v3: <TIER>-<hash>-<tg>-<sig>
+  if [[ "$token" =~ ^(VIP|STD)-([A-F0-9]{16})-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
+    printf '%s' "${BASH_REMATCH[2]}"
     return 0
   fi
   # v1: VIP-<hash>-<sig>
   if [[ "$token" =~ ^VIP-([A-F0-9]{16})-[A-Za-z0-9_-]{80,100}$ ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  return 1
+}
+
+# ─── Извлечь tier из токена ─────────────────────────────────────
+# stdout: "VIP" | "STD" | "" (пусто для v1)
+# Используется установщиком чтобы понять — Standard 3 агента или VIP 6.
+course_token_get_tier() {
+  local token="$1"
+  if [[ "$token" =~ ^(VIP|STD)- ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
     return 0
   fi
@@ -99,7 +123,20 @@ verify_vip_token() {
 
   case "$version" in
     v2)
+      # wave 12: v2-форма используется и для legacy VIP-токенов (payload "<hash>|<tg>"),
+      # и для v3-VIP (payload "VIP|<hash>|<tg>"). Сначала пробуем v3-VIP, если
+      # подпись не сходится — fallback на legacy v2. Это backward-compat.
+      _verify_v3 "$token" "$machine_tg_id" "VIP"
+      local rc=$?
+      if [[ $rc -eq 0 ]]; then
+        return 0
+      fi
+      # Если v3 fail — возможно это старый v2-токен; пробуем legacy
       _verify_v2 "$token" "$machine_tg_id"
+      return $?
+      ;;
+    v3-std)
+      _verify_v3 "$token" "$machine_tg_id" "STD"
       return $?
       ;;
     v1)
@@ -162,7 +199,7 @@ JS
   return 5
 }
 
-# ─── v2 проверка ───────────────────────────────────────────────
+# ─── v2 проверка (legacy VIP) ──────────────────────────────────
 _verify_v2() {
   local token="$1"
   local machine_tg_id="$2"
@@ -177,6 +214,45 @@ _verify_v2() {
   fi
 
   _verify_ed25519_signature "${hash_part}|${tg_part}" "$sig_part"
+  local rc=$?
+  [[ $rc -eq 4 ]] && return 4
+  [[ $rc -eq 0 ]] && return 0
+  return 5
+}
+
+# ─── v3 проверка (course-token, wave 12) ───────────────────────
+#
+# v3-payload формат: "<TIER>|<email_hash16>|<tg_user_id>"
+# Где TIER явно подписан в payload — нельзя «переделать» STD-токен в VIP
+# подменой префикса в строке.
+#
+# Args:
+#   $1 = token (VIP-... или STD-...)
+#   $2 = machine_tg_id (для anti-share проверки)
+#   $3 = expected_tier ("VIP" или "STD") — caller знает какой prefix он видел
+_verify_v3() {
+  local token="$1"
+  local machine_tg_id="$2"
+  local expected_tier="$3"
+
+  local prefix hash_part tg_part sig_part
+  prefix=$(printf '%s' "$token" | cut -d'-' -f1)
+  hash_part=$(printf '%s' "$token" | cut -d'-' -f2)
+  tg_part=$(printf '%s' "$token" | cut -d'-' -f3)
+  sig_part=$(printf '%s' "$token" | cut -d'-' -f4-)
+
+  # Префикс должен совпасть с expected (защита от чтения payload c
+  # подменой prefix в строке)
+  if [[ "$prefix" != "$expected_tier" ]]; then
+    return 5
+  fi
+
+  if [[ -n "$machine_tg_id" && "$tg_part" != "$machine_tg_id" ]]; then
+    return 3
+  fi
+
+  # v3 payload включает tier явно
+  _verify_ed25519_signature "${expected_tier}|${hash_part}|${tg_part}" "$sig_part"
   local rc=$?
   [[ $rc -eq 4 ]] && return 4
   [[ $rc -eq 0 ]] && return 0

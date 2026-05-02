@@ -1,26 +1,27 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-04-26 09:11:59 UTC
-# Commit: 846f76a
+# Generated: 2026-05-02 07:00:15 UTC
+# Commit: 582a9c9
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
 #   (or on Linux: sha256sum <file>)
 #
 
-dc6ab54b124369e887116a080ff5402ba7a9e5fb6337bcabe4e0082ca8ac6977  scripts/build-bundle.sh
+f358401c1ea1c9ab484e0ce199c2d073a5bf963d1e8701d151e98e9df69c799b  scripts/build-bundle.sh
 fdd5ee13a75d067198914a57d57ece71e70806bd616288cfdef4e81374a74909  scripts/demo-simulate.sh
 57f0ac432d277dfdcf6c3d805ec94af096769728632cd8ebe337cb13e5d4f519  scripts/diagnose-agents.sh
-f96b806b467703591aba6254548c9be56c0849d0910a6ab13d676d72fb18fedc  scripts/install-agents.sh
+4bca71a8dc90adc8defb6c1a0d9e76f9890de495a8fe19b47637e4ae0d376717  scripts/install-agents.sh
 c58d722a490b4af6cc2140107a11fed107434ef89c6af9c5daf0e8e6ad916e34  scripts/install-git-hooks.sh
 8033ab6e22a2bba9d03ebce745f66e2985b0173a4ed787d0c27a3beecf4cbd95  scripts/security-audit.sh
-53cdfcd71d132d33e241e46c7740fb516c40cbd1364763edd8c683021aee344f  scripts/smoke-test.sh
+b20b1a0f8b7bb8cb7b37f5bf9a45237470b9d08cdb42be2f3fa577522419ccc4  scripts/smoke-test.sh
 e5d674feca33e389ce3970f9aec8839439ba9fbf2fab989cdab1c32b6b842f11  scripts/update-checksums.sh
 d53b4e42cc3d6a728c9ff86cd0892e80343b71533aab9cbd4efa7f05e3a534bd  scripts/lib/agents.sh
+d99f3ba6a0c74cd5d8fbafdfd355fa538cd6975410a3bc8912fe394169009a3d  scripts/lib/course-token.sh
 54e09d420d70c8c7ae16c07a5c46670c1388ac121eff4a94e80be8bf7d01b67b  scripts/lib/debug-bundle.sh
 ac415a7b62aabe0f90b627eb1ab46eae7b9161e13222f4d0c1db3db8816f54d7  scripts/lib/preflight.sh
 254823d67596058a74884c7a932ed61d83216828993368e1909ae7f29a99e63b  scripts/lib/telemetry.sh
 7d14dc9f88e0af7ae47c7b91279c5e3eae4266d79145d5fb725a0900d5639a36  scripts/lib/ui.sh
-d9c551b5552f520d8ae206d14b522bb7405d7a719c9b8950ea6cc770b7c276fe  scripts/lib/vip.sh
+7c478446728217d4eb21e8a926e304965a2435a562ce4f8f5e743c7027a387f5  scripts/lib/vip.sh
 840213ff19a41a02606848ec8470d0c098b2c846cf10d5e5e7bc752c7dea2b67  templates/coordinator/AGENTS.md
 c217674723b535f555fe46e02ec2f7bbe6dd0b8e26ee305fcc4a0687a38e2860  templates/coordinator/IDENTITY.md
 e3d7487b5d83f9ff47c01cfa7ab14ad8a9fa4076d731f62a572adcab055ed886  templates/coordinator/LEARNING.md

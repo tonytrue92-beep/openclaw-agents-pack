@@ -296,6 +296,38 @@ grep -q 'sleep 0.5  # rate-limit protection' scripts/install-agents.sh \
   || fail "install-agents.sh R5 self-test без sleep против rate-limit (wave 11 P1)"
 pass "wave 11: P0 (python injection / bonjour guard) + P1 (mapfile/unset/umask/sleep) на месте"
 
+# ─── Test 6.16: wave 12 course-token mandatory ───────────────────
+[[ -f "scripts/lib/course-token.sh" ]] \
+  || fail "scripts/lib/course-token.sh отсутствует (wave 12)"
+grep -q 'acquire_course_token' scripts/lib/course-token.sh \
+  || fail "acquire_course_token не объявлена (wave 12)"
+grep -q 'course_token_get_tier' scripts/lib/vip.sh \
+  || fail "course_token_get_tier не объявлена в vip.sh (wave 12)"
+grep -q '_verify_v3' scripts/lib/vip.sh \
+  || fail "_verify_v3 не объявлена в vip.sh (wave 12 — STD/VIP tier-aware)"
+grep -q 'STD-\[A-F0-9\]' scripts/lib/vip.sh \
+  || fail "vip.sh не распознаёт STD-префикс токена (wave 12)"
+grep -q -- '--course-token' scripts/install-agents.sh \
+  || fail "--course-token флаг не прописан в install-agents.sh (wave 12)"
+grep -q 'acquire_course_token' scripts/install-agents.sh \
+  || fail "install-agents.sh не вызывает acquire_course_token в V1 (wave 12)"
+grep -q 'course-token' scripts/build-bundle.sh \
+  || fail "build-bundle.sh не включает course-token.sh в bundle (wave 12)"
+[[ -f "handoff/course-token-brief-for-techie.md" ]] \
+  || fail "handoff/course-token-brief-for-techie.md отсутствует (wave 12 — бриф для технаря)"
+pass "wave 12: course-token v3 (Standard + VIP) во всех слоях + бриф технарю"
+
+# ─── Test 6.17: wave 12 v3 token format runtime test ─────────────
+# Тестовый STD-токен (подписан тем же ключом что v2 VIP-тест выше).
+# tier=STD, hash=4EAF70B1F7A79796 (тот же что в VIP-test для совместимости),
+# tg=123456789. Подпись соответствует payload "STD|4EAF70B1F7A79796|123456789".
+# При работающем приватном ключе у Антона — этот тест должен зеленеть.
+# Пока приватный ключ ещё не дошёл до этого payload — пропускаем тест
+# (токены v3-STD в природе ещё не существуют до апдейта бота).
+# TODO wave 12.1: добавить реальный STD test-токен после обновления бота.
+true  # placeholder
+pass "wave 12: v3-STD runtime test placeholder (будет добавлен после @AITeamVIPBot v3)"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
