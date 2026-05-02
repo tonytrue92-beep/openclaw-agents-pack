@@ -313,8 +313,12 @@ grep -q 'acquire_course_token' scripts/install-agents.sh \
   || fail "install-agents.sh не вызывает acquire_course_token в V1 (wave 12)"
 grep -q 'course-token' scripts/build-bundle.sh \
   || fail "build-bundle.sh не включает course-token.sh в bundle (wave 12)"
-[[ -f "handoff/course-token-brief-for-techie.md" ]] \
-  || fail "handoff/course-token-brief-for-techie.md отсутствует (wave 12 — бриф для технаря)"
+# Бриф технарю проверяем только если handoff/ присутствует (Docker
+# smoke не копирует handoff/ — это OK, бриф нужен только в host-репо)
+if [[ -d "handoff" ]]; then
+  [[ -f "handoff/course-token-brief-for-techie.md" ]] \
+    || fail "handoff/course-token-brief-for-techie.md отсутствует (wave 12 — бриф для технаря)"
+fi
 pass "wave 12: course-token v3 (Standard + VIP) во всех слоях + бриф технарю"
 
 # ─── Test 6.17: wave 12 v3 token format runtime test ─────────────
