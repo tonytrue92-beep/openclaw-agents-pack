@@ -321,16 +321,53 @@ if [[ -d "handoff" ]]; then
 fi
 pass "wave 12: course-token v3 (Standard + VIP) во всех слоях + бриф технарю"
 
-# ─── Test 6.17: wave 12 v3 token format runtime test ─────────────
-# Тестовый STD-токен (подписан тем же ключом что v2 VIP-тест выше).
-# tier=STD, hash=4EAF70B1F7A79796 (тот же что в VIP-test для совместимости),
-# tg=123456789. Подпись соответствует payload "STD|4EAF70B1F7A79796|123456789".
-# При работающем приватном ключе у Антона — этот тест должен зеленеть.
-# Пока приватный ключ ещё не дошёл до этого payload — пропускаем тест
-# (токены v3-STD в природе ещё не существуют до апдейта бота).
-# TODO wave 12.1: добавить реальный STD test-токен после обновления бота.
-true  # placeholder
-pass "wave 12: v3-STD runtime test placeholder (будет добавлен после @AITeamVIPBot v3)"
+# ─── Test 6.17: wave 12.1 v3 token runtime tests (after @AITeamVIPBot v3) ─
+# Технарь обновил бот до v3 (commit fbb8443) и прислал тестовые
+# токены, подписанные тем же приватным ключом что v2-VIP-тест выше.
+# Оба для TG=123456789 (тестовый, токены бесполезны злоумышленнику).
+TEST_STD_TOKEN_V3="STD-83E4E94BC01F3E0E-123456789-c9H1UYJVjqbu5MCuw0Dwq5rWhqxl4cZRtSCXud3IeBBoG4pnVy4N7iJud6c5oo1fgGKaxSE4JXH_OwIOwSPvDQ"
+TEST_VIP_TOKEN_V3="VIP-377D8277E363B9B3-123456789-B1VpzqPSalsWOzpm-lPX1E6JR8wYTDvNi6THaF2eAkXafCmbaTbPOKf7mk1NPt6gdINAszG7IlIARf0a2dRZDA"
+
+# 12.1a. v3-STD формат распознаётся правильно
+[[ "$(vip_token_version "$TEST_STD_TOKEN_V3")" == "v3-std" ]] \
+  || fail "v3-STD токен не распознан как v3-std"
+pass "wave 12.1: v3-STD форма распознаётся"
+
+# 12.1b. v3-VIP имеет ту же форму что v2 (различается по payload)
+[[ "$(vip_token_version "$TEST_VIP_TOKEN_V3")" == "v2" ]] \
+  || fail "v3-VIP должен иметь форму v2 (различается через payload)"
+pass "wave 12.1: v3-VIP имеет правильную v2-совместимую форму"
+
+# 12.1c. STD-токен с правильным TG → rc=0
+set +e
+verify_vip_token "$TEST_STD_TOKEN_V3" "123456789"
+rc=$?
+set -e
+[[ "$rc" == "0" ]] || fail "v3-STD с правильным TG: ожидался rc=0, получен rc=$rc"
+pass "wave 12.1: v3-STD валидация с правильным TG: rc=0"
+
+# 12.1d. VIP-токен v3 с правильным TG → rc=0
+set +e
+verify_vip_token "$TEST_VIP_TOKEN_V3" "123456789"
+rc=$?
+set -e
+[[ "$rc" == "0" ]] || fail "v3-VIP с правильным TG: ожидался rc=0, получен rc=$rc"
+pass "wave 12.1: v3-VIP валидация с правильным TG: rc=0"
+
+# 12.1e. STD-токен с чужим TG → rc=3 (anti-share)
+set +e
+verify_vip_token "$TEST_STD_TOKEN_V3" "999999999"
+rc=$?
+set -e
+[[ "$rc" == "3" ]] || fail "v3-STD anti-share: ожидался rc=3, получен rc=$rc"
+pass "wave 12.1: v3-STD anti-share с чужим TG: rc=3"
+
+# 12.1f. course_token_get_tier правильно извлекает tier
+[[ "$(course_token_get_tier "$TEST_STD_TOKEN_V3")" == "STD" ]] \
+  || fail "course_token_get_tier для STD-токена должна вернуть STD"
+[[ "$(course_token_get_tier "$TEST_VIP_TOKEN_V3")" == "VIP" ]] \
+  || fail "course_token_get_tier для VIP-токена должна вернуть VIP"
+pass "wave 12.1: course_token_get_tier корректно извлекает STD/VIP"
 
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку

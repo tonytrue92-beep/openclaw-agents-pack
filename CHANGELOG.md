@@ -6,6 +6,74 @@
 
 ---
 
+## 2026-05-02 — Wave 12.1 (real v3 token tests + end-to-end готов)
+
+Технарь сделал свою часть wave 12 (см. `handoff/course-token-brief-for-techie.md`):
+
+- **`@AITeamVIPBot`** обновлён до v3:
+  - Таблица `standard_clients`
+  - Команда `/admin_upload_std` для загрузки CSV Standard-клиентов
+  - Поиск: VIP → Standard, выдаёт соответствующий токен
+  - v3 payload: `TIER|email_hash16|tg_user_id`
+  - Старые VIP-токены остались совместимыми
+  - 21 pytest passed
+  - Коммит технаря: `fbb8443 Add standard course tokens`
+  - **Деплой и push в GitHub** не сделаны — в очереди
+
+- **`openclaw-factory/scripts/demo-install.sh`** обновлён:
+  - Course-token валидация ДО реальной установки
+  - Поддержка STD-... и VIP-...
+  - Общий кэш `~/.openclaw/course-token` с нашим установщиком
+  - Поддержка `--course-token`, `--vip-token`, env `COURSE_TOKEN`
+  - Обновлены обе копии (git-репо + локальная)
+  - Коммит технаря: `1ae70e9 Require course token in installer`
+
+### Added
+
+- **6 новых runtime-тестов в `scripts/smoke-test.sh`** для v3-токенов:
+  - `v3-STD` форма распознаётся как `v3-std`
+  - `v3-VIP` имеет v2-совместимую форму (различается по payload)
+  - `verify_vip_token` принимает оба тип-токена с правильным TG
+  - Anti-share: чужой TG → rc=3
+  - `course_token_get_tier` корректно извлекает `STD` / `VIP`
+
+- **2 публичных тестовых токена** (для CI, бесполезны злоумышленнику —
+  привязаны к несуществующему TG=`123456789`):
+  ```
+  STD-83E4E94BC01F3E0E-123456789-c9H1UYJVjqbu5MCuw0Dwq5rWhqxl4cZRtSCXud3IeBBoG4pnVy4N7iJud6c5oo1fgGKaxSE4JXH_OwIOwSPvDQ
+  VIP-377D8277E363B9B3-123456789-B1VpzqPSalsWOzpm-lPX1E6JR8wYTDvNi6THaF2eAkXafCmbaTbPOKf7mk1NPt6gdINAszG7IlIARf0a2dRZDA
+  ```
+
+### Status — wave 12 end-to-end теперь работает
+
+| Layer | Status |
+|---|---|
+| `@AITeamVIPBot` v3 (выдаёт STD/VIP) | ✅ Технарь готово (не задеплоено) |
+| `openclaw-factory/demo-install.sh` (требует токен) | ✅ Технарь готово (не запушено) |
+| `openclaw-agents-pack` (требует токен через V1) | ✅ Wave 12 в main (v2026.05.02) |
+| Локальный smoke-test для v3-STD/VIP | ✅ Wave 12.1 (этот PR) |
+| Общий кэш `~/.openclaw/course-token` | ✅ Согласован |
+
+### Что ещё надо от технаря
+
+- **Задеплоить** обновлённый `@AITeamVIPBot` v3 на VPS
+- **Запушить** обновлённый `openclaw-factory` в GitHub (чтобы `bash <(curl)` команда первого установщика тянула новую версию)
+
+После этих 2 действий wave 12 полностью live для клиентов.
+
+### Changed
+
+- INSTALLER_VERSION `2026.05.02` → `2026.05.02.1`
+- `scripts/smoke-test.sh`: 6 новых runtime-ассертов (всего 31 тест)
+
+### Verification
+
+- bash -n: OK
+- smoke-test: 31/31 pass (+6 wave-12.1 runtime-тестов)
+- security-audit: 7/7 pass (включая новый Check 7)
+
+---
+
 ## 2026-05-02 — Wave 12 (course-token mandatory + защита от утечки команд)
 
 Стратегическая задача: защитить установщик от использования теми кто
