@@ -27,8 +27,9 @@ OUT_FILE="${OUT_DIR}/install-agents-bundled.sh"
 SRC="scripts/install-agents.sh"
 LIB_DIR="scripts/lib"
 
-# Порядок lib/*.sh важен — он повторяет порядок source-вызовов в install-agents.sh
-LIB_ORDER=(ui preflight telemetry debug-bundle agents vip)
+# Порядок lib/*.sh важен — он повторяет порядок source-вызовов в install-agents.sh.
+# wave 12: добавлен course-token (требует vip.sh выше — для verify_vip_token).
+LIB_ORDER=(ui preflight telemetry debug-bundle agents vip course-token)
 
 # ─── Sanity-checks ─────────────────────────────────────────────
 if [[ ! -f "$SRC" ]]; then

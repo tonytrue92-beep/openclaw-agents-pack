@@ -6,6 +6,106 @@
 
 ---
 
+## 2026-05-02 — Wave 12 (course-token mandatory + защита от утечки команд)
+
+Стратегическая задача: защитить установщик от использования теми кто
+не платил за курс. До wave 12 команда `bash <(curl)` могла быть
+скопирована из чата / поста / гайда и поставлена бесплатно.
+
+С wave 12 любая свежая установка требует **course-token** — выдаётся
+ботом `@AITeamVIPBot` на основе email/phone оплаты. Token bound to
+TG user ID, не работает у других людей.
+
+### Added
+
+- **`scripts/lib/course-token.sh`** (~150 строк) — единая система
+  токенов для Standard и VIP:
+  - `acquire_course_token()` — main entry point: preset / cache / prompt
+  - `_course_token_load_cache()` / `_save_cache()` — кэш в
+    `~/.openclaw/course-token` с проверкой `chmod 600`
+  - `_course_token_validate_and_set()` — Ed25519-валидация + установка
+    `COURSE_TOKEN`, `COURSE_TIER`
+  - `_course_token_prompt_loop()` — 3 попытки + подсказка про
+    `--refresh-templates` для уже-установленных
+  - `course_token_required_for_mode()` — helper для решения
+    «нужен ли токен в этом сценарии»
+
+- **v3-формат токена** в `scripts/lib/vip.sh`:
+  ```
+  TIER-<email_hash16>-<tg_user_id>-<signature_b64url>
+  ```
+  где `TIER ∈ {VIP, STD}`. Payload подписывается с tier явно:
+  `<TIER>|<email_hash16>|<tg_user_id>` — нельзя «переделать»
+  STD-токен в VIP подменой prefix.
+
+- **Backward-compat:** v2 (legacy VIP без tier в payload)
+  продолжает работать через fallback в `verify_vip_token`. Старые
+  VIP-токены клиентов не отзываются.
+
+- **Новый CLI флаг `--course-token <token>`** — алиас для `--vip-token`
+  с tier-detection по prefix. `--vip-token` сохранён для backward-compat.
+
+- **`handoff/course-token-brief-for-techie.md`** — полный бриф для
+  технаря по обновлению `@AITeamVIPBot` (Standard-таблица, выдача
+  STD-токенов) и `openclaw-factory/scripts/demo-install.sh` (та же
+  course-token валидация в первом установщике).
+
+### Changed
+
+- **V1 step переименован** «ПРОВЕРКА VIP-ТОКЕНА» → «ПРОВЕРКА COURSE-ТОКЕНА»
+  и теперь применяется **ко всем установкам** (Standard + VIP), не
+  только VIP.
+- **Standard-mode без токена больше не возможен** для свежих
+  установок. Уже-установленные клиенты с wave 11 и раньше — могут
+  использовать `--refresh-templates` (без токена) для обновления.
+- `scripts/build-bundle.sh` — добавлен `course-token` в `LIB_ORDER`.
+- INSTALLER_VERSION `2026.04.30.2` → `2026.05.02`.
+
+### Что нужно от технаря (вне нашей зоны)
+
+См. `handoff/course-token-brief-for-techie.md`. Краткое резюме:
+
+1. **`@AITeamVIPBot` v3:** добавить выдачу STD-токенов для Standard-
+   клиентов. Та же подпись (Ed25519 same key), новый payload-формат
+   `TIER|hash|tg`. Антон зальёт CSV Standard-клиентов.
+2. **`openclaw-factory/scripts/demo-install.sh`:** добавить такую же
+   course-token валидацию в начало (либо source `vip.sh` +
+   `course-token.sh` из `agents-pack`).
+3. **Кэш `~/.openclaw/course-token`** — общий для обоих установщиков.
+   Первый пишет → второй читает (и наоборот при `--refresh-templates`).
+
+### Backward-compat матрица
+
+| Сценарий | Что происходит wave 12+ |
+|---|---|
+| Свежая установка с VIP-токеном (--vip-token) | ✅ Как раньше + tier=VIP в кэш |
+| Свежая установка с STD-токеном | ✅ Standard 3 агента, tier=STD |
+| Свежая установка без токена | ❌ Prompt просит токен (3 попытки) |
+| `--refresh-templates` (уже установленные) | ✅ Без токена, как было |
+| `--diagnose-only` / `--collect-debug` | ✅ Без токена |
+| `--enable-group-mode <id>` | ✅ Без токена |
+| `--config <file>` без COURSE_TOKEN env | ❌ exit 1 |
+| Legacy v2 VIP-токен | ✅ Принимается (fallback в `_verify_v3`) |
+
+### Этап 2 (через 2 недели после готовности технаря)
+
+После того как @AITeamVIPBot выдаёт токены всем оплатившим:
+
+- Переименовать `scripts/install-agents.sh` → `scripts/install-agents-v2.sh`
+- На старом URL оставить stub: `echo "Получи новую команду в @AITeamVIPBot"; exit 1`
+- Это окончательно убьёт «утёкшие» команды в постах / чатах / гайдах
+  даже если кто-то знал старый URL
+
+### Verification
+
+- `bash -n` всех скриптов: OK
+- `scripts/smoke-test.sh`: 25/25 pass (+2 wave-12 ассертов)
+- `scripts/security-audit.sh`: 6/6 pass
+- `bash scripts/build-bundle.sh`: bundle собирается с course-token.sh
+- Bundle `--version`: показывает v2026.05.02
+
+---
+
 ## 2026-04-26 — Wave 11 (system audit fixes: P0 + P1)
 
 Полный системный аудит установщика по 3 направлениям (security,

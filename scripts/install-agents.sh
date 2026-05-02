@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.04.30.2"
+INSTALLER_VERSION="2026.05.02"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -97,7 +97,9 @@ Usage: bash install-agents.sh [OPTIONS]
 
 Options:
   --install              Пропустить меню, поставить Standard-набор (3 агента)
-  --vip-token <token>    Включить VIP-режим (5 агентов) и валидировать токен локально
+  --course-token <token> Course-token из @AITeamVIPBot. Mandatory для свежей установки.
+                         Формат VIP-... → VIP-режим (6 агентов), STD-... → Standard (3).
+  --vip-token <token>    Backward-compat алиас для --course-token.
   --vps, --headless      VPS-режим (skip GUI, SSH-tunnel-инструкция для dashboard)
   --only <agent>         Поставить только одного: tech | marketer | producer | designer | coordinator | copywriter
   --suffix <str>         Суффикс к id при коллизии (tech-2, marketer-2, …)
@@ -171,6 +173,9 @@ VIP_TOKEN=""
 ONLY_AGENT=""
 SUFFIX=""
 CONFIG_FILE=""
+# wave 12: course-token (общий для Standard и VIP). VIP_TOKEN — backward-compat alias.
+COURSE_TOKEN=""
+COURSE_TIER=""
 
 # ─── wave 11 P1 fix: stale-token cleanup ────────────────────────
 # Если клиент прервал предыдущий запуск (Ctrl+C в R2 после ввода
@@ -225,10 +230,22 @@ while [[ $# -gt 0 ]]; do
       [[ ! "$ENABLE_GROUP_MODE_CHAT_ID" =~ ^-?[0-9]+$ ]] && { echo "ERROR: --enable-group-mode chat_id должен быть числом (может быть отрицательным для групп)"; exit 1; }
       shift 2
       ;;
-    --vip-token)
-      VIP_TOKEN="${2:-}"
-      [[ -z "$VIP_TOKEN" ]] && { echo "ERROR: --vip-token требует значение"; exit 1; }
-      VIP_MODE=true
+    --vip-token|--course-token)
+      # wave 12: --course-token — новый предпочитаемый флаг,
+      # --vip-token остаётся как алиас для backward-compat (старые скрипты).
+      COURSE_TOKEN="${2:-}"
+      [[ -z "$COURSE_TOKEN" ]] && { echo "ERROR: $1 требует значение"; exit 1; }
+      VIP_TOKEN="$COURSE_TOKEN"  # старая переменная — для существующего кода
+      # Tier определяется по prefix
+      case "$COURSE_TOKEN" in
+        VIP-*) VIP_MODE=true ;;
+        STD-*) VIP_MODE=false ;;
+        *)
+          echo "ERROR: токен должен начинаться с VIP- или STD-"
+          echo "Получи актуальный в @AITeamVIPBot → /start → email/phone"
+          exit 1
+          ;;
+      esac
       SKIP_MENU=true
       shift 2
       ;;
@@ -275,6 +292,8 @@ if [[ -d "${SCRIPT_DIR}/lib" ]]; then
   source "${SCRIPT_DIR}/lib/agents.sh"
   # shellcheck disable=SC1091
   source "${SCRIPT_DIR}/lib/vip.sh"
+  # shellcheck disable=SC1091
+  source "${SCRIPT_DIR}/lib/course-token.sh"
 else
   # Скачиваем lib/ во временную папку
   _LIB_TMP=$(mktemp -d -t openclaw-agents-lib.XXXXXX)
@@ -283,7 +302,7 @@ else
     _LIB_COMMIT="main"
   fi
   _LIB_BASE="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/${_LIB_COMMIT}/scripts/lib"
-  for _mod in ui preflight telemetry debug-bundle agents vip; do
+  for _mod in ui preflight telemetry debug-bundle agents vip course-token; do
     if ! curl -fsSL --max-time 10 "${_LIB_BASE}/${_mod}.sh" -o "${_LIB_TMP}/${_mod}.sh"; then
       # wave 9 BUG-06: localized curl-error message с хост-разделением
       # и подсказкой про git clone fallback. До этой точки ui.sh ещё
@@ -621,99 +640,75 @@ if [[ "$ONLY_AGENT" == "designer" || "$ONLY_AGENT" == "coordinator" || "$ONLY_AG
   VIP_MODE=true
 fi
 
-if [[ "$VIP_MODE" == true ]]; then
-  step_header "V1" "ПРОВЕРКА VIP-ТОКЕНА"
+# ═══════════════════════════════════════════════════════════════
+#  V1. COURSE-ТОКЕН (wave 12: единая авторизация для Standard + VIP)
+# ═══════════════════════════════════════════════════════════════
+#
+# До wave 12 токен требовался ТОЛЬКО для VIP. Standard-клиенты ставили
+# без авторизации — команду можно было просто скопировать из чата и
+# поставить себе бесплатно. Теперь любая свежая установка требует
+# course-token из @AITeamVIPBot:
+#   - VIP-... → VIP-режим (6 агентов)
+#   - STD-... → Standard (3 агента)
+#
+# Кэш в ~/.openclaw/course-token (chmod 600) — на следующих запусках
+# не просим снова. При неудачной валидации (отзыв / смена TG) — кэш
+# сбрасывается автоматически.
+#
+# Backward-compat: --refresh-templates / --diagnose-only /
+# --collect-debug / --enable-group-mode early-exit ДО этого блока,
+# поэтому уже-установленные клиенты не страдают.
+step_header "V1" "ПРОВЕРКА COURSE-ТОКЕНА"
 
-  # Автоматически берём TG ID клиента из настроек первого установщика.
-  # Если не нашли — попросим ввести руками.
-  MACHINE_TG_ID=$(vip_detect_owner_tg_id)
+# Автоматически берём TG ID клиента из настроек первого установщика.
+# Если не нашли — попросим ввести руками.
+MACHINE_TG_ID=$(vip_detect_owner_tg_id)
 
-  if [[ -z "$MACHINE_TG_ID" ]]; then
-    explain "Не нашёл ваш Telegram ID в настройках OpenClaw." \
-      "Возможно вы ещё не настраивали Telegram-канал в первом установщике." \
-      "Узнать свой TG ID: напишите @userinfobot в Telegram."
-    echo -e "   ${BOLD}${WHITE}Введите ваш Telegram user ID:${NC}"
-    read -r MACHINE_TG_ID
-    [[ ! "$MACHINE_TG_ID" =~ ^[0-9]+$ ]] && { warn "TG ID должен быть числом."; exit 1; }
-  else
-    echo -e "   ${GREEN}✓${NC} Ваш Telegram ID (из настроек первого установщика): ${BOLD}${MACHINE_TG_ID}${NC}"
-  fi
-
-  # Запрос токена (в цикле — если клиент ввёл не тот, не выходим по exit)
-  while true; do
-    if [[ -z "${VIP_TOKEN:-}" ]]; then
-      explain "Нужен VIP-токен из @AITeamVIPBot." \
-        "" \
-        "Важно: получайте токен в боте с ТОГО ЖЕ Telegram-аккаунта," \
-        "куда подключите агентов. Иначе проверка не пройдёт." \
-        "" \
-        "Токен привязан к вашему TG ID — шаринг с друзьями не работает."
-      echo -e "   ${BOLD}${WHITE}Вставьте VIP-токен:${NC}"
-      read -r VIP_TOKEN
-    fi
-
-    # Раздельная валидация для точного диагноза
-    verify_vip_token "$VIP_TOKEN" "$MACHINE_TG_ID"
-    rc=$?
-
-    case $rc in
-      0)
-        ok "VIP-токен подтверждён для TG ID ${MACHINE_TG_ID}. Открываю установку 6 агентов."
-        # Fire-and-forget сообщение боту — если бот увидит что этот токен
-        # активируется с 4+ разных IP за неделю, пришлёт админу алерт.
-        vip_log_activation "$(vip_token_get_hash "$VIP_TOKEN")" "$MACHINE_TG_ID" || true
-        break
-        ;;
-      6)
-        # v1-токен: подпись валидна, но без TG-binding. Это легаси-формат
-        # от бота, который ещё не обновился до v2. Продолжаем установку,
-        # но предупреждаем клиента что защита от шаринга не активна.
-        warn "Ваш VIP-токен в старом формате (без TG-привязки)."
-        echo -e "   ${DIM}Подпись валидна — токен настоящий.${NC}"
-        echo -e "   ${DIM}Но защита от расшаривания пока не активна для этого токена.${NC}"
-        echo -e "   ${DIM}Когда администратор обновит бота, вы сможете получить${NC}"
-        echo -e "   ${DIM}свежий v2-токен в @AITeamVIPBot — он будет с защитой.${NC}"
-        echo ""
-        echo -e "   ${GREEN}Продолжаю установку 6 агентов...${NC}"
-        vip_log_activation "$(vip_token_get_hash "$VIP_TOKEN")" "${MACHINE_TG_ID:-0}" || true
-        break
-        ;;
-      2)
-        warn "Формат токена не распознан."
-        echo -e "   ${DIM}Ожидается одна из структур:${NC}"
-        echo -e "   ${DIM}  • v2: VIP-XXXXXXXXXXXXXXXX-123456789-<длинная-подпись>${NC}"
-        echo -e "   ${DIM}  • v1: VIP-XXXXXXXXXXXXXXXX-<длинная-подпись>${NC}"
-        echo -e "   ${DIM}Скопируйте токен из @AITeamVIPBot целиком (без пробелов в конце).${NC}"
-        ;;
-      3)
-        expected_tg=$(vip_token_get_expected_tg "$VIP_TOKEN" || echo "?")
-        warn "Этот токен выдан для TG ID ${expected_tg}, а вы на ${MACHINE_TG_ID}."
-        echo -e "   ${DIM}Это анти-шаринг защита: токен работает только на том TG-аккаунте,${NC}"
-        echo -e "   ${DIM}с которого вы писали боту @AITeamVIPBot при получении.${NC}"
-        echo -e "   ${DIM}Если это ваш токен — получите новый в боте, пишите с ТОГО ЖЕ TG.${NC}"
-        echo -e "   ${DIM}Если не ваш — попросите владельца получить свой.${NC}"
-        ;;
-      4|5)
-        warn "Криптографическая проверка подписи провалилась."
-        echo -e "   ${DIM}Возможные причины:${NC}"
-        echo -e "   ${DIM}  • токен повреждён при копировании (обрезан, лишние символы)${NC}"
-        echo -e "   ${DIM}  • бот администратора обновил ключ подписи — нужен свежий токен${NC}"
-        echo -e "   ${DIM}Получите свежий в @AITeamVIPBot (/start → email/phone).${NC}"
-        ;;
-    esac
-
-    [[ -n "$CONFIG_FILE" ]] && exit 1  # в non-interactive не даём retry
-
-    echo ""
-    echo -e "   ${BOLD}${WHITE}Попробовать другой токен? [Y/n]:${NC}"
-    read -r retry
-    if [[ "$retry" == "n" || "$retry" == "N" ]]; then
-      echo -e "   ${DIM}Прервано. Получите новый токен в @AITeamVIPBot с правильного TG-аккаунта.${NC}"
-      exit 1
-    fi
-    VIP_TOKEN=""  # сбрасываем чтобы в следующей итерации снова запросить
-  done
+if [[ -z "$MACHINE_TG_ID" ]]; then
+  explain "Не нашёл ваш Telegram ID в настройках OpenClaw." \
+    "Возможно вы ещё не настраивали Telegram-канал в первом установщике." \
+    "Узнать свой TG ID: напишите @userinfobot в Telegram."
+  echo -e "   ${BOLD}${WHITE}Введите ваш Telegram user ID:${NC}"
+  read -r MACHINE_TG_ID
+  [[ ! "$MACHINE_TG_ID" =~ ^[0-9]+$ ]] && { warn "TG ID должен быть числом."; exit 1; }
+else
+  echo -e "   ${GREEN}✓${NC} Ваш Telegram ID (из настроек первого установщика): ${BOLD}${MACHINE_TG_ID}${NC}"
 fi
+
+# Mode: non-interactive если есть --config (acquire_course_token не пытается prompt)
+_token_mode="interactive"
+[[ -n "$CONFIG_FILE" ]] && _token_mode="non-interactive"
+
+if ! acquire_course_token "$COURSE_TOKEN" "$MACHINE_TG_ID" "$_token_mode"; then
+  warn "Course-token не получен. Установка прервана."
+  echo -e "   ${DIM}Получи токен: ${BOLD}@AITeamVIPBot${NC}${DIM} → /start → email/phone оплаты.${NC}"
+  exit 1
+fi
+unset _token_mode
+
+# Tier определяет тип установки. Если клиент через меню выбрал VIP
+# но прислал STD-токен — отказ.
+if [[ "$VIP_MODE" == true && "$COURSE_TIER" != "VIP" ]]; then
+  warn "Ты выбрал VIP-набор (6 агентов), но прислал ${COURSE_TIER}-токен."
+  echo -e "   ${DIM}STD-токен даёт доступ только к Standard (3 агента).${NC}"
+  echo -e "   ${DIM}Если ты оплатил VIP — получи VIP-токен в @AITeamVIPBot.${NC}"
+  exit 1
+fi
+
+# Если флаг --vip-token не использовался, но токен в кэше — VIP-tier
+# может автоматически включить VIP_MODE для удобства (клиент в меню
+# ничего не выбирал, мы сами знаем что у него VIP).
+if [[ "$COURSE_TIER" == "VIP" && "$SKIP_MENU" != true ]]; then
+  VIP_MODE=true
+fi
+
+# Backward-compat: VIP_TOKEN используется в остальном коде
+VIP_TOKEN="$COURSE_TOKEN"
+
+# Fire-and-forget activation log (anti-share alerting)
+vip_log_activation "$(vip_token_get_hash "$COURSE_TOKEN")" "$MACHINE_TG_ID" || true
+
+ok "Course-token подтверждён (${BOLD}${COURSE_TIER}${NC}-тариф). TG ID: ${MACHINE_TG_ID}"
 
 # ─── Определяем список агентов для установки ────────────────────
 AGENTS_TO_INSTALL=()
