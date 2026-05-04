@@ -13,6 +13,8 @@ COPY templates /opt/openclaw-agents-pack/templates
 COPY tests /opt/openclaw-agents-pack/tests
 # wave 8: smoke-test проверяет существование docs/group-mode.md
 COPY docs /opt/openclaw-agents-pack/docs
+# wave 13: smoke-test проверяет dmg-template/ (DMG-установщик для macOS)
+COPY dmg-template /opt/openclaw-agents-pack/dmg-template
 
 RUN chmod +x /opt/openclaw-agents-pack/scripts/*.sh \
   && chmod +x /opt/openclaw-agents-pack/scripts/lib/*.sh \

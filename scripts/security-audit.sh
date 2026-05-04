@@ -111,6 +111,44 @@ else
 fi
 echo ""
 
+# ─── Check 6b (wave 13): dmg-template/ без секретов и личных данных ──
+# DMG-шаблоны — публичные .command файлы которые попадут к клиентам.
+# В отличие от templates/ они **легитимно содержат**:
+#   • Публичные GitHub URL'ы (tonytrue92-beep/openclaw-factory,
+#     openclaw-agents-pack) — это путь к нашим репо, не утечка
+#   • Ссылки на @AITeamVIPBot, @BotFather, @userinfobot — публичные боты
+#
+# Поэтому Check 6b строже только на:
+#   • Реальные секреты (sk-, Telegram bot tokens)
+#   • Личные данные автора (TG ID 975494053, email, имя)
+#   • Прошитые API-prefix-ы (ntn_/cpk_/pat_FL)
+#
+# Если папки нет (репо клонирован без wave 13) — пропускаем.
+echo "─── Check 6b (wave 13): dmg-template/ чистый от секретов ───"
+if [[ -d dmg-template ]]; then
+  # Real secrets + личные TG IDs (НЕ публичные GitHub URL'ы)
+  forbidden_dmg=$(grep -rniE \
+    'antonpolakov|@tonytruee\b|975494053|/Users/[a-z]+|Антон\s+Поляков|serditov|instapol2136|TRUE AI AGENCY|ntn_[A-Za-z0-9]{20,}|cpk_[A-Za-z0-9]{20,}|pat_FL[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{30,}' \
+    dmg-template/ 2>/dev/null || true)
+  # Telegram tokens (формат цифры:AA…) — никогда не в DMG-шаблонах
+  forbidden_tg=$(grep -rnE '[0-9]{8,12}:AA[A-Za-z0-9_-]{30,}' \
+    dmg-template/ 2>/dev/null \
+    | grep -vE '7123456789' || true)
+
+  combined="$forbidden_dmg"
+  [[ -n "$forbidden_tg" ]] && combined="${combined}${combined:+$'\n'}${forbidden_tg}"
+
+  if [[ -n "$combined" ]]; then
+    fail "dmg-template/ содержит секреты или личные данные:"
+    echo "$combined" | head -10
+  else
+    pass "dmg-template/ чистый от секретов и личных маркеров"
+  fi
+else
+  pass "dmg-template/ отсутствует — проверка пропущена"
+fi
+echo ""
+
 # ─── Check 7 (wave 12): docs/ не содержат личных TG ID / email ──
 # Эта проверка отделена от check #6 чтобы не падать на легитимных
 # упоминаниях имён в docs (например, "Антон Поляков" в README — это

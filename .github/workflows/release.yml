@@ -85,3 +85,49 @@ jobs:
             dist/install-agents-bundled.sh.sha256
           draft: false
           prerelease: false
+
+  # ─── Wave 13: macOS DMG installer ──────────────────────────────
+  # Параллельно с release-job. Собирает DMG только на macOS-runner
+  # (нужен hdiutil). Прикрепляет DMG к тому же GitHub Release —
+  # softprops/action-gh-release@v2 умеет append'ить assets к
+  # существующему релизу с тем же name+tag.
+  build-dmg:
+    name: Build macOS DMG installer
+    runs-on: macos-latest
+    env:
+      TAG_NAME: ${{ github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build DMG
+        run: bash scripts/build-dmg.sh
+
+      - name: Verify DMG mounts cleanly (final integrity check)
+        run: |
+          # build-dmg.sh уже делает internal mount/detach test, но
+          # повторим явно в CI для прозрачности логов.
+          mount_info=$(hdiutil attach -nobrowse -noverify -readonly \
+            dist/OpenClaw-Setup.dmg 2>&1)
+          mount_point=$(echo "$mount_info" | tail -1 | awk '{$1=$2=""; sub(/^[ \t]+/, ""); print}')
+          if [[ -z "$mount_point" || ! -d "$mount_point" ]]; then
+            echo "ERROR: DMG не смонтировался"
+            echo "$mount_info"
+            exit 1
+          fi
+          echo "DMG mounted at: $mount_point"
+          ls -la "$mount_point"
+          hdiutil detach "$mount_point"
+          echo "OK: DMG смонтировался, файлы видны, размонтировался"
+
+      - name: Attach DMG to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          # body_path не указываем — release уже создан release-job'ом
+          # с body. Этот step просто добавляет файлы к существующему.
+          files: |
+            dist/OpenClaw-Setup.dmg
+            dist/OpenClaw-Setup.dmg.sha256
+          draft: false
+          prerelease: false

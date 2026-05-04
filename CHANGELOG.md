@@ -6,6 +6,125 @@
 
 ---
 
+## 2026-05-04 — Wave 13 (DMG-установщик для macOS — двойной клик)
+
+После wave 12 (course-token mandatory) система стабильна, но барьер
+входа всё ещё «открой Терминал → вставь команду». Для не-технических
+клиентов (продюсеры, маркетологи, бизнес-аудитория) это пугает.
+
+Wave 13 даёт **параллельный канал доставки** для macOS: DMG-файл с
+двумя `.command`-обёртками. Двойной клик → запускается Terminal с
+уже вставленной командой → клиент только видит вывод и вводит токены.
+
+**Старый путь (curl-bash команды) продолжает работать без изменений.**
+DMG — это **дополнение**, не замена.
+
+### Added
+
+- **`dmg-template/`** — шаблон содержимого DMG (3 файла):
+  - `1-Установить-OpenClaw.command` — обёртка над первым установщиком
+    (`bash <(curl ... openclaw-factory/.../demo-install.sh)`)
+  - `2-Установить-AI-команду.command` — обёртка над bundled-installer
+    (wave 10) с `releases/latest/download/install-agents-bundled.sh`
+  - `README.txt` — инструкция для клиента, ВКЛЮЧАЯ объяснение
+    Gatekeeper-warning при первом запуске и как его обойти
+    (правый клик → Открыть → Open — один раз)
+
+- **`scripts/build-dmg.sh`** (~140 строк) — локальный сборщик DMG:
+  - macOS-only guard (`uname -s != Darwin` → exit с понятным сообщением)
+  - Sanity-check на наличие dmg-template/ и всех 3 файлов
+  - Копирование в mktemp + `chmod +x` на .command файлы
+  - `hdiutil create` (UDZO compressed)
+  - `hdiutil verify` + тестовый mount/detach + проверка содержимого
+    DMG (что 3 файла на месте и .command'ы executable)
+  - SHA256 рядом с DMG
+  - Локальный тест: 24 KB DMG, монтируется чисто
+
+- **`.github/workflows/release.yml`** расширен новым **отдельным job
+  `build-dmg`** на `runs-on: macos-latest`:
+  - Параллельно с release-job (на ubuntu-latest)
+  - Build → integrity verify (mount/detach) → attach к существующему
+    GitHub Release через `softprops/action-gh-release@v2`
+  - Один Release с 4 assets: bundled.sh, bundled.sh.sha256,
+    OpenClaw-Setup.dmg, OpenClaw-Setup.dmg.sha256
+
+- **`docs/mac-install-guide.md`** (~250 строк) — гайд для клиентов:
+  - 5 шагов установки со скриншот-метками
+  - Подробный раздел про Gatekeeper-warning (что это, почему,
+    как обойти)
+  - Решения типичных проблем (двойной клик не работает,
+    quarantine на Apple Silicon, `bash <(curl)` падает)
+  - FAQ из 7 вопросов
+
+- **`.github/release-body-template.md`** переписан:
+  - macOS DMG — первой секцией (рекомендуется не-техническим клиентам)
+  - Bundled — для VPS / корп. сетей
+  - Стандартная команда — для технических
+  - Windows — отдельная ссылка на гайд
+
+- **Smoke-test ассерты (10 шт)** для wave 13: build-dmg.sh executable,
+  dmg-template/ содержит 3 файла, .command файлы executable и проходят
+  bash -n, build-dmg.sh имеет macOS-only guard.
+
+- **Security-audit Check 6b** для `dmg-template/`: real-secret patterns
+  (sk-, Telegram tokens) + личные TG IDs (975494053, email).
+  **НЕ ловит** легитимные публичные URL'ы (`tonytrue92-beep/openclaw-factory`)
+  — это публичный GitHub-путь, не утечка.
+
+### Changed
+
+- **`README.md`**: добавлен блок «🍎 На macOS — двойной клик вместо
+  терминала» в начало Quickstart с прямой ссылкой на DMG.
+- **`docs/vip-install-guide.md`** Шаг 2: новая секция «🍎 На macOS — DMG
+  (рекомендуется для не-технических клиентов)» перед обычными
+  bash-командами.
+- **`docs/curator-cheatsheet.md`** СЦЕНАРИЙ 1: для macOS-клиентов
+  куратор теперь **по умолчанию даёт DMG**, bash-команды — fallback
+  для тех кто хочет/умеет в терминал.
+- **INSTALLER_VERSION** `2026.05.02.1` → `2026.05.03`
+- **`.gitignore`** — `/dist/` уже исключён (wave 10), DMG туда выходит
+  но не коммитится. Релизный artifact только в GitHub Releases.
+
+### Что НЕ делали (намеренно — out of scope)
+
+- **Apple Developer Program signing** ($99/год) — Gatekeeper-warning
+  один раз при первом запуске. Если будет реальная проблема в проде —
+  Wave 13.1.
+- **Полноценное `.app` GUI** — это 2-4 недели, дублирует bash-логику.
+  Можем сделать когда будет реальный спрос.
+- **Windows `.bat` / Linux `.AppImage`** — Антон зафиксировал: только
+  macOS на этой итерации.
+- **Embedded bundled-installer внутри DMG** (offline-режим) — сейчас
+  `.command` тянет с GitHub Releases; интернет нужен. Wave 13.1 если
+  будут VPS-клиенты с резанием.
+- **Брендированный фон DMG** с логотипом — нужен дизайнер. Wave 13.1.
+- **Notarization через Apple** — без Apple Developer Program не
+  делается.
+
+### Верификация
+
+- `bash -n` всех модифицированных скриптов и `.command` файлов: OK
+- `bash scripts/build-dmg.sh` локально на macOS: 24 KB DMG, mount/detach
+  тест проходит, все 3 файла внутри executable (для .command)
+- `scripts/smoke-test.sh`: 32/32 pass (+10 wave-13 ассертов)
+- `scripts/security-audit.sh`: 8/8 pass (Check 6, 6b, 7 + предыдущие)
+
+### Новая команда установки для клиентов macOS
+
+```
+1. https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest
+2. Скачать OpenClaw-Setup.dmg
+3. Открыть DMG → двойной клик на «1. Установить OpenClaw.command»
+4. Дождаться пока бот ответит в Telegram (~10 минут)
+5. Двойной клик на «2. Установить AI-команду.command»
+6. Готово
+```
+
+При **первом** запуске .command — Gatekeeper-warning, обходится один
+раз через правый клик → Открыть. Подробно в `docs/mac-install-guide.md`.
+
+---
+
 ## 2026-05-02 — Wave 12.1 (real v3 token tests + end-to-end готов)
 
 Технарь сделал свою часть wave 12 (см. `handoff/course-token-brief-for-techie.md`):
