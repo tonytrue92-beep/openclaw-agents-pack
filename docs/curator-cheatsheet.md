@@ -143,11 +143,20 @@ bash <(curl -fsSL .../install-agents.sh) --version
 
 **Действия куратора:**
 1. Уточни ОС
-2. Macбук/Linux → дай команды установки с нуля (см. выше)
-3. Windows → дай ссылку на `docs/windows-install-guide.md` и **попроси
+2. **macOS → дай ссылку на DMG как основной путь** (двойной клик
+   вместо терминала, не пугает не-технических клиентов):
+   - https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest
+   - Скачать `OpenClaw-Setup.dmg`, открыть, запустить 2 файла по
+     порядку двойным кликом
+   - Полный гайд: `docs/mac-install-guide.md`
+   - Если клиент хочет/умеет в терминал — fallback на bash-команды
+     (см. выше) и `docs/vip-install-guide.md`
+3. Linux/VPS → bash-команды установки (см. выше) или bundled через
+   `releases/latest/download/install-agents-bundled.sh` для VPS
+4. Windows → ссылка на `docs/windows-install-guide.md` и **попроси
    обязательно прочитать 7 правил вверху** перед началом
-4. Сообщи что **сначала ставится OpenClaw**, потом **второй установщик**
-   для агентов — это **2 разные команды**
+5. Сообщи что **сначала ставится OpenClaw**, потом **второй установщик**
+   для агентов — это **2 разные команды** (или 2 файла .command в DMG)
 
 ### СЦЕНАРИЙ 2: «Уже стоит, как обновиться?»
 

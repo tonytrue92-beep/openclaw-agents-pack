@@ -12,6 +12,11 @@
 
 ## 🚀 Быстрый старт
 
+> 🍎 **На macOS — двойной клик вместо терминала**
+> Скачай **`OpenClaw-Setup.dmg`** с [последнего релиза](https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest)
+> → открой → запусти 2 файла по очереди двойным кликом.
+> Полный гайд: [`docs/mac-install-guide.md`](./docs/mac-install-guide.md). Без bash-команд.
+
 **Шаг 1 — убедись, что OpenClaw уже установлен:**
 
 ```bash

@@ -369,6 +369,36 @@ pass "wave 12.1: v3-STD anti-share с чужим TG: rc=3"
   || fail "course_token_get_tier для VIP-токена должна вернуть VIP"
 pass "wave 12.1: course_token_get_tier корректно извлекает STD/VIP"
 
+# ─── Test 6.18: wave 13 DMG installer для macOS ──────────────────
+[[ -f "scripts/build-dmg.sh" ]] \
+  || fail "scripts/build-dmg.sh отсутствует (wave 13)"
+[[ -x "scripts/build-dmg.sh" ]] \
+  || fail "scripts/build-dmg.sh не executable (wave 13)"
+[[ -d "dmg-template" ]] \
+  || fail "dmg-template/ директория отсутствует (wave 13)"
+[[ -f "dmg-template/1-Установить-OpenClaw.command" ]] \
+  || fail "dmg-template/1-Установить-OpenClaw.command отсутствует (wave 13)"
+[[ -f "dmg-template/2-Установить-AI-команду.command" ]] \
+  || fail "dmg-template/2-Установить-AI-команду.command отсутствует (wave 13)"
+[[ -f "dmg-template/README.txt" ]] \
+  || fail "dmg-template/README.txt отсутствует (wave 13)"
+[[ -x "dmg-template/1-Установить-OpenClaw.command" ]] \
+  || fail ".command файлы должны быть executable иначе двойной клик не работает (wave 13)"
+[[ -x "dmg-template/2-Установить-AI-команду.command" ]] \
+  || fail ".command файлы должны быть executable иначе двойной клик не работает (wave 13)"
+[[ -f "docs/mac-install-guide.md" ]] \
+  || fail "docs/mac-install-guide.md отсутствует (wave 13)"
+# bash-syntax внутри .command файлов
+bash -n "dmg-template/1-Установить-OpenClaw.command" \
+  || fail "1-Установить-OpenClaw.command не проходит bash -n (wave 13)"
+bash -n "dmg-template/2-Установить-AI-команду.command" \
+  || fail "2-Установить-AI-команду.command не проходит bash -n (wave 13)"
+# build-dmg.sh должен явно проверять что мы на macOS (не падать тихо
+# на Linux в CI смешанных runner'ах)
+grep -q 'uname -s.*Darwin\|uname -s.*!= "Darwin"' scripts/build-dmg.sh \
+  || fail "build-dmg.sh не имеет macOS-only guard (wave 13)"
+pass "wave 13: DMG installer (build-dmg.sh + dmg-template/ + mac-install-guide) на месте"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
