@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.03"
+INSTALLER_VERSION="2026.05.04"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -578,78 +578,26 @@ fi
 ensure_telemetry_consent
 record_telemetry "agents_pack_start" "ok"
 
-# ─── Главное меню (если не SKIP_MENU) ──────────────────────────
-if [[ "$SKIP_MENU" != true ]]; then
-  explain "Какой набор агентов устанавливаем?"
-  echo -e "   ${BOLD}${GREEN}  1)${NC}  ${BOLD}Стандарт — 3 агента${NC}  ${DIM}(тариф «Стандарт» курса)${NC}"
-  echo -e "       🔧 Технарь   📈 Маркетолог   🎬 Продюсер"
-  echo -e "       ${DIM}Токен НЕ нужен — просто выбирайте и ставьте.${NC}"
-  echo ""
-  echo -e "   ${BOLD}${YELLOW}  2)${NC}  ${BOLD}VIP — 6 агентов${NC}  ${DIM}(тариф «VIP» курса)${NC}"
-  echo -e "       🔧 Технарь   📈 Маркетолог   🎬 Продюсер"
-  echo -e "       🎨 Дизайнер  🧭 Координатор  ✍️  Копирайтер"
-  echo -e "       ${DIM}Понадобится VIP-токен — получить в ${BOLD}@AITeamVIPBot${NC}${DIM} по вашему email или телефону.${NC}"
-  echo ""
-  echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}Установить только одного${NC}"
-  echo -e "       ${DIM}Выберите: tech, marketer, producer, designer, coordinator или copywriter.${NC}"
-  echo ""
-  echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Диагностика${NC} — проверить уже установленных"
-  echo -e "       ${DIM}Ничего не меняет, только показывает состояние.${NC}"
-  echo ""
-  echo -e "   ${BOLD}${WHITE}  5)${NC}  ${BOLD}Debug-bundle${NC} для саппорта"
-  echo ""
-  divider
-  echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4/5]:${NC}"
-  echo ""
-  read -r MENU_CHOICE
-  case "$MENU_CHOICE" in
-    2) VIP_MODE=true ;;
-    3)
-      echo -e "   ${BOLD}${WHITE}Какого агента поставить? [tech/marketer/producer/designer/coordinator/copywriter]:${NC}"
-      read -r ONLY_AGENT
-      ;;
-    4)
-      # ВАЖНО: НЕ делать `exec bash "$0" ...` — при запуске через
-      # `bash <(curl -fsSL ...)` переменная $0 указывает на уже закрытый
-      # file descriptor (/dev/fd/N), exec падает с ошибкой
-      # «No such file or directory» и тихо выкидывает клиента в шелл
-      # без объяснений. Вместо exec — качаем свежую копию через curl
-      # и запускаем с флагом. Это работает и при curl-pipe, и при
-      # локальном запуске из clone'а.
-      echo ""
-      echo -e "   ${DIM}Запускаю диагностику...${NC}"
-      bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --diagnose-only
-      _last_exit_reason="manual_diagnose"
-      exit 0
-      ;;
-    5)
-      collect_debug_bundle "manual from menu"
-      _last_exit_reason="manual_debug_bundle"
-      exit 0
-      ;;
-    1|"") : ;;
-    *)
-      echo "Не распознал выбор «$MENU_CHOICE». Выход."
-      _last_exit_reason="invalid_menu_choice"
-      exit 0
-      ;;
-  esac
-fi
-
-if [[ "$ONLY_AGENT" == "designer" || "$ONLY_AGENT" == "coordinator" || "$ONLY_AGENT" == "copywriter" ]]; then
-  VIP_MODE=true
-fi
-
 # ═══════════════════════════════════════════════════════════════
-#  V1. COURSE-ТОКЕН (wave 12: единая авторизация для Standard + VIP)
+#  V0. COURSE-ТОКЕН — самое первое действие после preflight
 # ═══════════════════════════════════════════════════════════════
 #
-# До wave 12 токен требовался ТОЛЬКО для VIP. Standard-клиенты ставили
-# без авторизации — команду можно было просто скопировать из чата и
-# поставить себе бесплатно. Теперь любая свежая установка требует
-# course-token из @AITeamVIPBot:
-#   - VIP-... → VIP-режим (6 агентов)
-#   - STD-... → Standard (3 агента)
+# Wave 14: запрос токена ДО меню. Раньше клиент сначала видел меню
+# Standard/VIP, выбирал, и только потом ему говорили «вставь токен».
+# Это создавало конфликт: клиент мог выбрать VIP в меню, а у него на
+# руках STD-токен → переустанавливать. Теперь:
+#
+#   1. Сразу спрашиваем токен (или берём из кэша от первого установщика)
+#   2. Распознаём tier из payload (STD-... или VIP-...)
+#   3. Дальше:
+#      - STD-токен → автоматически Standard (3 агента), без меню
+#      - VIP-токен → меню «VIP-набор (6) [рекомендуется] / Только Standard (3) /
+#                    Только один агент / Диагностика / Debug»
+#
+# Wave 12 background: до wave 12 токен требовался только для VIP. С wave
+# 12 любая свежая установка нуждается в course-token из @AITeamVIPBot:
+#   - VIP-... → VIP-режим
+#   - STD-... → Standard
 #
 # Кэш в ~/.openclaw/course-token (chmod 600) — на следующих запусках
 # не просим снова. При неудачной валидации (отзыв / смена TG) — кэш
@@ -658,7 +606,7 @@ fi
 # Backward-compat: --refresh-templates / --diagnose-only /
 # --collect-debug / --enable-group-mode early-exit ДО этого блока,
 # поэтому уже-установленные клиенты не страдают.
-step_header "V1" "ПРОВЕРКА COURSE-ТОКЕНА"
+step_header "V0" "ПРОВЕРКА КУРС-ТОКЕНА"
 
 # Автоматически берём TG ID клиента из настроек первого установщика.
 # Если не нашли — попросим ввести руками.
@@ -686,29 +634,127 @@ if ! acquire_course_token "$COURSE_TOKEN" "$MACHINE_TG_ID" "$_token_mode"; then
 fi
 unset _token_mode
 
-# Tier определяет тип установки. Если клиент через меню выбрал VIP
-# но прислал STD-токен — отказ.
-if [[ "$VIP_MODE" == true && "$COURSE_TIER" != "VIP" ]]; then
-  warn "Ты выбрал VIP-набор (6 агентов), но прислал ${COURSE_TIER}-токен."
-  echo -e "   ${DIM}STD-токен даёт доступ только к Standard (3 агента).${NC}"
-  echo -e "   ${DIM}Если ты оплатил VIP — получи VIP-токен в @AITeamVIPBot.${NC}"
-  exit 1
-fi
-
-# Если флаг --vip-token не использовался, но токен в кэше — VIP-tier
-# может автоматически включить VIP_MODE для удобства (клиент в меню
-# ничего не выбирал, мы сами знаем что у него VIP).
-if [[ "$COURSE_TIER" == "VIP" && "$SKIP_MENU" != true ]]; then
-  VIP_MODE=true
-fi
-
 # Backward-compat: VIP_TOKEN используется в остальном коде
 VIP_TOKEN="$COURSE_TOKEN"
 
 # Fire-and-forget activation log (anti-share alerting)
 vip_log_activation "$(vip_token_get_hash "$COURSE_TOKEN")" "$MACHINE_TG_ID" || true
 
-ok "Course-token подтверждён (${BOLD}${COURSE_TIER}${NC}-тариф). TG ID: ${MACHINE_TG_ID}"
+ok "Курс-токен подтверждён: ${BOLD}${COURSE_TIER}${NC}-тариф. TG ID: ${MACHINE_TG_ID}"
+
+# ═══════════════════════════════════════════════════════════════
+#  V0b. Tier-based меню (wave 14)
+# ═══════════════════════════════════════════════════════════════
+#
+# Логика:
+#   - STD-tier: автоматически Standard (3 агента), без меню. Опции
+#     diagnostic/debug всё равно доступны через CLI-флаги.
+#   - VIP-tier: показываем меню. Default = VIP-набор (это и так есть
+#     у клиента по тарифу). Опции:
+#       1) VIP — 6 агентов  ← рекомендуется
+#       2) Только Standard (3) — если клиент не хочет ставить всё
+#       3) Только один агент — для диагностики/тестов
+#       4) Диагностика — без изменений
+#       5) Debug-bundle — собрать для саппорта
+#   - SKIP_MENU=true (флаги --install / --vps / --vip-token прямо в CLI):
+#     меню пропускаем, tier определяется автоматически (или через
+#     --vip-token override для назад-совместимости).
+#
+# Если клиент пришёл с VIP-tier, но передал --install (без меню), и
+# не указал --only — ставим VIP-набор (это его право по тарифу).
+
+if [[ "$SKIP_MENU" != true && -z "$ONLY_AGENT" ]]; then
+  if [[ "$COURSE_TIER" == "STD" ]]; then
+    # STD: без меню. Сообщение для прозрачности.
+    echo ""
+    echo -e "   ${GREEN}✓${NC} Тариф ${BOLD}Standard${NC} — установлю 3 агента: 🔧 Технарь, 📈 Маркетолог, 🎬 Продюсер."
+    echo -e "   ${DIM}Если нужна диагностика или debug-bundle — запусти с флагом${NC}"
+    echo -e "   ${DIM}  --diagnose-only  (проверить уже установленных)${NC}"
+    echo -e "   ${DIM}  --collect-debug  (собрать архив для саппорта)${NC}"
+    VIP_MODE=false
+    record_telemetry "menu_skipped_std_tier" "ok"
+  else
+    # VIP: меню с подтверждением + опциями
+    explain "У тебя ${BOLD}VIP${NC}-тариф — можешь поставить полный набор или урезанный."
+    echo -e "   ${BOLD}${YELLOW}  1)${NC}  ${BOLD}VIP — 6 агентов${NC}  ${GREEN}← рекомендуется (по тарифу)${NC}"
+    echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
+    echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
+    echo ""
+    echo -e "   ${BOLD}${GREEN}  2)${NC}  ${BOLD}Только Standard — 3 агента${NC}"
+    echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
+    echo -e "       ${DIM}(если хочешь начать с базового набора, VIP-агентов добавишь позже)${NC}"
+    echo ""
+    echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}Установить только одного${NC}"
+    echo -e "       ${DIM}Выбери: tech, marketer, producer, designer, coordinator, copywriter.${NC}"
+    echo ""
+    echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Диагностика${NC} — проверить уже установленных"
+    echo ""
+    echo -e "   ${BOLD}${WHITE}  5)${NC}  ${BOLD}Debug-bundle${NC} для саппорта"
+    echo ""
+    divider
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4/5, Enter = 1]:${NC}"
+    echo ""
+    read -r MENU_CHOICE
+    case "${MENU_CHOICE:-1}" in
+      1|"")
+        VIP_MODE=true
+        record_telemetry "menu_vip_full" "ok"
+        ;;
+      2)
+        VIP_MODE=false
+        record_telemetry "menu_vip_chose_std" "ok"
+        ;;
+      3)
+        echo -e "   ${BOLD}${WHITE}Какого агента поставить? [tech/marketer/producer/designer/coordinator/copywriter]:${NC}"
+        read -r ONLY_AGENT
+        record_telemetry "menu_only_one" "${ONLY_AGENT}"
+        ;;
+      4)
+        # См. предыдущую версию: НЕ exec — там curl-bash проблема.
+        echo ""
+        echo -e "   ${DIM}Запускаю диагностику...${NC}"
+        bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --diagnose-only
+        _last_exit_reason="manual_diagnose"
+        exit 0
+        ;;
+      5)
+        collect_debug_bundle "manual from menu (VIP tier)"
+        _last_exit_reason="manual_debug_bundle"
+        exit 0
+        ;;
+      *)
+        echo "Не распознал выбор «$MENU_CHOICE». Выход."
+        _last_exit_reason="invalid_menu_choice"
+        exit 0
+        ;;
+    esac
+  fi
+elif [[ "$SKIP_MENU" == true && -z "$ONLY_AGENT" ]]; then
+  # Non-interactive: tier определяет VIP_MODE автоматически
+  if [[ "$COURSE_TIER" == "VIP" ]]; then
+    VIP_MODE=true
+  else
+    VIP_MODE=false
+  fi
+fi
+
+# Если клиент через меню выбрал «только один агент» и это VIP-агент —
+# включаем VIP_MODE для корректной работы prepare_workspace_from_templates
+# (SOUL/LEARNING/skills качаются только для VIP-ролей).
+if [[ "$ONLY_AGENT" == "designer" || "$ONLY_AGENT" == "coordinator" || "$ONLY_AGENT" == "copywriter" ]]; then
+  VIP_MODE=true
+fi
+
+# Защита от попытки поставить VIP-набор имея STD-токен. Возможный путь
+# сюда: --install через CLI с STD-токеном в кэше (SKIP_MENU=true) +
+# --vip-token override (но wave 12 переименовал в --course-token, так
+# что override-сценарий редок). Защищаемся всё равно.
+if [[ "$VIP_MODE" == true && "$COURSE_TIER" != "VIP" ]]; then
+  warn "Запрошен VIP-набор (6 агентов), но токен ${COURSE_TIER}-тарифа."
+  echo -e "   ${DIM}STD-токен даёт доступ только к Standard (3 агента).${NC}"
+  echo -e "   ${DIM}Если ты оплатил VIP — получи VIP-токен в @AITeamVIPBot.${NC}"
+  exit 1
+fi
 
 # ─── Определяем список агентов для установки ────────────────────
 AGENTS_TO_INSTALL=()

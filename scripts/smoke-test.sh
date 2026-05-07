@@ -399,6 +399,32 @@ grep -q 'uname -s.*Darwin\|uname -s.*!= "Darwin"' scripts/build-dmg.sh \
   || fail "build-dmg.sh не имеет macOS-only guard (wave 13)"
 pass "wave 13: DMG installer (build-dmg.sh + dmg-template/ + mac-install-guide) на месте"
 
+# ─── Test 6.19: wave 14 token-first flow ─────────────────────────
+# Проверяем что V0 (токен) идёт ДО R0 (анализ состояния), а старое
+# меню Standard/VIP убрано (раньше шло до V1).
+# Верифицируется через line-numbers — нумерация steps в скрипте.
+v0_line=$(grep -n 'step_header "V0"' scripts/install-agents.sh | head -1 | cut -d: -f1)
+r0_line=$(grep -n 'step_header "R0"' scripts/install-agents.sh | head -1 | cut -d: -f1)
+[[ -n "$v0_line" && -n "$r0_line" && "$v0_line" -lt "$r0_line" ]] \
+  || fail "wave 14: V0 (токен) должен идти ДО R0 (line v0=$v0_line < r0=$r0_line)"
+
+# Старое меню «Установить только одного» убрано — этот текст теперь
+# только в новом VIP-меню после V0.
+old_menu_match=$(grep -c 'Какой набор агентов устанавливаем' scripts/install-agents.sh || true)
+[[ "$old_menu_match" == "0" ]] \
+  || fail "wave 14: старое меню (\"Какой набор\") не удалено (matches: $old_menu_match)"
+
+# Новое сообщение про авто-Standard для STD-tier
+grep -q 'Тариф.*Standard.*установлю 3 агента' scripts/install-agents.sh \
+  || fail "wave 14: STD-tier auto-install message отсутствует"
+
+# Новое сообщение про tier=VIP меню «VIP-набор / Только Standard»
+grep -q 'У тебя.*VIP.*-тариф' scripts/install-agents.sh \
+  || fail "wave 14: VIP-tier меню заголовок отсутствует"
+grep -q 'Только Standard' scripts/install-agents.sh \
+  || fail "wave 14: VIP-меню опция «Только Standard» отсутствует"
+pass "wave 14: V0 (токен) до R0 + tier-based menu (STD авто / VIP подтверждение)"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
