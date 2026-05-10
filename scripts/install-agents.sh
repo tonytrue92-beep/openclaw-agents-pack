@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.04"
+INSTALLER_VERSION="2026.05.07"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -1520,6 +1520,26 @@ done
 echo -e "   ${CYAN}3.${NC} Сменить модель у всех: ${GREEN}openclaw-switch-model${NC}"
 echo -e "   ${CYAN}4.${NC} Проверить здоровье: ${GREEN}bash <(curl ...) --diagnose-only${NC}"
 echo ""
+
+# ─── wave 15: Bot-to-Bot Communication hint для VIP ──────────────
+# Telegram (май 2026) добавил Bot-to-Bot Communication Mode —
+# боты могут отвечать другим ботам напрямую без общей группы.
+# Для VIP-команды (6 агентов) это полезно: Координатор может
+# делегировать Маркетологу без посредника-группы.
+#
+# Настройка только ручная (через @BotFather), мы не можем
+# автоматизировать. Просто упоминаем тем у кого VIP-набор.
+if [[ "$VIP_MODE" == true && ${#INSTALLED_LIST[@]} -ge 4 ]]; then
+  echo -e "   ${BOLD}${YELLOW}🤖↔🤖 Опционально: Bot-to-Bot Communication${NC}"
+  echo -e "   ${DIM}Telegram (май 2026) добавил режим прямой связи между ботами.${NC}"
+  echo -e "   ${DIM}Это даёт Координатору возможность делегировать задачи${NC}"
+  echo -e "   ${DIM}Маркетологу/Копирайтеру без общей группы — цепочки идут${NC}"
+  echo -e "   ${DIM}«за кулисами», тебе приходит только финальный результат.${NC}"
+  echo -e "   ${DIM}Включи в @BotFather → /mybots → Bot Settings → Bot-to-Bot Mode${NC}"
+  echo -e "   ${DIM}для каждого из ${#INSTALLED_LIST[@]} ботов. Полный гайд:${NC}"
+  echo -e "   ${CYAN}docs/bot-to-bot-setup.md${NC}"
+  echo ""
+fi
 
 if [[ "$VPS_MODE" == true ]]; then
   echo -e "   ${BOLD}${WHITE}Dashboard на VPS через SSH-tunnel:${NC}"
