@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.07"
+INSTALLER_VERSION="2026.05.07.1"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -347,6 +347,7 @@ if [[ "$COLLECT_DEBUG_ONLY" == true ]]; then
   echo ""
   echo -e "${BOLD}${CYAN}📦 Сбор debug-bundle для саппорта${NC}"
   echo -e "${DIM}   agents-pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
+  echo -e "${DIM}   ℹ️  Курс-токен не запрашивается — read-only режим.${NC}"
   collect_debug_bundle "manual (user ran --collect-debug)"
   exit 0
 fi
@@ -379,6 +380,9 @@ echo ""
 
 # ─── --diagnose-only: быстрая проверка без изменений ────────────
 if [[ "$DIAGNOSE_ONLY" == true ]]; then
+  echo -e "${DIM}   ℹ️  Курс-токен не запрашивается — read-only режим.${NC}"
+  echo -e "${DIM}   Если хочешь установить новых агентов — запусти команду без флагов.${NC}"
+  echo ""
   # scripts/diagnose-agents.sh делает всю работу; если его нет — fallback
   DIAG_SCRIPT="${SCRIPT_DIR}/diagnose-agents.sh"
   if [[ -f "$DIAG_SCRIPT" ]]; then
@@ -416,6 +420,9 @@ if [[ "$REFRESH_TEMPLATES_ONLY" == true ]]; then
   echo ""
   echo -e "${BOLD}${CYAN}♻️  Обновление шаблонов уже установленных агентов${NC}"
   echo -e "${DIM}   agents-pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
+  echo -e "${DIM}   ℹ️  Курс-токен не запрашивается — обновление существующих,${NC}"
+  echo -e "${DIM}      MEMORY.md и USER.md не тронутся. Если хочешь установить${NC}"
+  echo -e "${DIM}      новых агентов — запусти команду без флага --refresh-templates.${NC}"
   echo ""
 
   # wave 9 BUG-05 guard: refresh-templates не использует main/auth-profile
@@ -491,6 +498,7 @@ if [[ -n "$ENABLE_GROUP_MODE_CHAT_ID" ]]; then
   echo ""
   echo -e "${BOLD}${CYAN}👥 Настройка group-mode (TG-группа c командой агентов)${NC}"
   echo -e "${DIM}   agents-pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
+  echo -e "${DIM}   ℹ️  Курс-токен не запрашивается — конфигурируем уже установленных.${NC}"
   echo ""
 
   preflight_openclaw || exit 1
@@ -628,8 +636,34 @@ _token_mode="interactive"
 [[ -n "$CONFIG_FILE" ]] && _token_mode="non-interactive"
 
 if ! acquire_course_token "$COURSE_TOKEN" "$MACHINE_TG_ID" "$_token_mode"; then
-  warn "Course-token не получен. Установка прервана."
-  echo -e "   ${DIM}Получи токен: ${BOLD}@AITeamVIPBot${NC}${DIM} → /start → email/phone оплаты.${NC}"
+  echo ""
+  echo -e "${BOLD}${RED}╔════════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}${RED}║                                                                ║${NC}"
+  echo -e "${BOLD}${RED}║   ✗  УСТАНОВКА ОТКЛОНЕНА — курс-токен не валиден              ║${NC}"
+  echo -e "${BOLD}${RED}║                                                                ║${NC}"
+  echo -e "${BOLD}${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Что произошло:${NC}"
+  echo -e "   ${DIM}• Ты не ввёл токен (или ввёл пустую строку), либо${NC}"
+  echo -e "   ${DIM}• Токен не прошёл проверку (отозван / битая подпись / другой TG)${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Что делать:${NC}"
+  echo -e "   ${CYAN}1.${NC} Открой ${BOLD}@AITeamVIPBot${NC} в Telegram"
+  echo -e "   ${CYAN}2.${NC} Напиши ${BOLD}/start${NC}"
+  echo -e "   ${CYAN}3.${NC} Введи ${BOLD}email${NC} или ${BOLD}телефон${NC} которыми оплачивал курс"
+  echo -e "   ${CYAN}4.${NC} Бот пришлёт токен вида ${BOLD}STD-...${NC} или ${BOLD}VIP-...${NC}"
+  echo -e "   ${CYAN}5.${NC} Скопируй ВЕСЬ токен (часто длинная строка) и запусти установщик снова"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Если бот говорит «email не найден»:${NC}"
+  echo -e "   ${DIM}• Проверь что вводишь email с которого реально оплачивал${NC}"
+  echo -e "   ${DIM}• Возможно оплата ещё не дошла до базы (до 30 минут)${NC}"
+  echo -e "   ${DIM}• Если уверен что оплачивал — пиши в саппорт-чат курса${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Если используешь токен с другого Telegram-аккаунта:${NC}"
+  echo -e "   ${DIM}• Токены привязаны к TG (анти-шаринг). С чужим TG не работают.${NC}"
+  echo -e "   ${DIM}• Открой @AITeamVIPBot с ТОГО ЖЕ аккаунта что используешь сейчас.${NC}"
+  echo ""
+  _last_exit_reason="token_rejected"
   exit 1
 fi
 unset _token_mode
@@ -750,9 +784,22 @@ fi
 # --vip-token override (но wave 12 переименовал в --course-token, так
 # что override-сценарий редок). Защищаемся всё равно.
 if [[ "$VIP_MODE" == true && "$COURSE_TIER" != "VIP" ]]; then
-  warn "Запрошен VIP-набор (6 агентов), но токен ${COURSE_TIER}-тарифа."
-  echo -e "   ${DIM}STD-токен даёт доступ только к Standard (3 агента).${NC}"
-  echo -e "   ${DIM}Если ты оплатил VIP — получи VIP-токен в @AITeamVIPBot.${NC}"
+  echo ""
+  echo -e "${BOLD}${RED}╔════════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}${RED}║   ✗  УСТАНОВКА ОТКЛОНЕНА — несоответствие тарифа              ║${NC}"
+  echo -e "${BOLD}${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Что произошло:${NC}"
+  echo -e "   Запрошен VIP-набор (6 агентов), но твой токен — ${BOLD}${COURSE_TIER}${NC}-тарифа."
+  echo -e "   ${COURSE_TIER}-токен даёт доступ только к Standard-набору (3 агента)."
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Что делать:${NC}"
+  echo -e "   ${CYAN}•${NC} Если ты оплатил ${BOLD}VIP${NC} — получи новый токен:"
+  echo -e "     ${BOLD}@AITeamVIPBot${NC} → /start → email/phone оплаты"
+  echo -e "   ${CYAN}•${NC} Если оплачивал ${BOLD}Standard${NC} — запусти без флагов VIP-режима:"
+  echo -e "     ${GREEN}bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh) --install${NC}"
+  echo ""
+  _last_exit_reason="tier_mismatch"
   exit 1
 fi
 

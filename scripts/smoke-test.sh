@@ -439,6 +439,21 @@ grep -q 'Bot-to-Bot Communication\|bot-to-bot-setup.md' scripts/install-agents.s
   || fail "install-agents.sh не упоминает Bot-to-Bot в финальном экране (wave 15)"
 pass "wave 15: docs/bot-to-bot-setup.md + group-mode/curator-cheatsheet/installer обновлены"
 
+# ─── Test 6.21: wave 15.1 token UX clarity ──────────────────────
+# Info-сообщения в early-exit режимах что токен не запрашивается
+grep -q 'Курс-токен не запрашивается.*read-only' scripts/install-agents.sh \
+  || fail "wave 15.1: --collect-debug / --diagnose-only без info про токен"
+grep -q 'Курс-токен не запрашивается.*обновление существующих' scripts/install-agents.sh \
+  || fail "wave 15.1: --refresh-templates без info про токен"
+grep -q 'Курс-токен не запрашивается.*конфигурируем уже установленных' scripts/install-agents.sh \
+  || fail "wave 15.1: --enable-group-mode без info про токен"
+# Усиленный отказ при невалидном токене — должен быть явный «УСТАНОВКА ОТКЛОНЕНА»
+grep -q 'УСТАНОВКА ОТКЛОНЕНА.*курс-токен не валиден' scripts/install-agents.sh \
+  || fail "wave 15.1: невалидный токен без явного «УСТАНОВКА ОТКЛОНЕНА»"
+grep -q 'УСТАНОВКА ОТКЛОНЕНА.*несоответствие тарифа' scripts/install-agents.sh \
+  || fail "wave 15.1: tier-mismatch без явного «УСТАНОВКА ОТКЛОНЕНА»"
+pass "wave 15.1: info про токен в early-exits + усиленный отказ при невалидном токене"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
