@@ -425,6 +425,20 @@ grep -q 'Только Standard' scripts/install-agents.sh \
   || fail "wave 14: VIP-меню опция «Только Standard» отсутствует"
 pass "wave 14: V0 (токен) до R0 + tier-based menu (STD авто / VIP подтверждение)"
 
+# ─── Test 6.20: wave 15 Bot-to-Bot Communication docs ────────────
+[[ -f "docs/bot-to-bot-setup.md" ]] \
+  || fail "docs/bot-to-bot-setup.md отсутствует (wave 15)"
+# group-mode.md должен ссылаться на bot-to-bot-setup.md как альтернативу
+grep -q 'bot-to-bot-setup.md' docs/group-mode.md \
+  || fail "docs/group-mode.md не упоминает bot-to-bot-setup.md (wave 15)"
+# curator-cheatsheet должен иметь сценарий «Боты зациклились»
+grep -q 'СЦЕНАРИЙ 7а\|Боты зациклились' docs/curator-cheatsheet.md \
+  || fail "curator-cheatsheet.md не содержит сценарий «боты зациклились» (wave 15)"
+# Установщик в финале для VIP должен упоминать Bot-to-Bot
+grep -q 'Bot-to-Bot Communication\|bot-to-bot-setup.md' scripts/install-agents.sh \
+  || fail "install-agents.sh не упоминает Bot-to-Bot в финальном экране (wave 15)"
+pass "wave 15: docs/bot-to-bot-setup.md + group-mode/curator-cheatsheet/installer обновлены"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
