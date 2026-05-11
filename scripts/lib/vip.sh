@@ -43,10 +43,13 @@ VIP_ACTIVATION_ENDPOINT="${VIP_ACTIVATION_ENDPOINT:-https://aiteam-vip.openclaw.
 #
 # wave 12: добавлен v3 формат с явным tier-префиксом для course-token.
 # v3 синтаксис: <TIER>-<email_hash16>-<tg_user_id>-<signature>
-#   где TIER ∈ {VIP, STD}
+#   где TIER ∈ {VIP, STD, SUB}
 # Payload подписывается: "<TIER>|<email_hash16>|<tg_user_id>"
 #
 # v2 (легаси VIP-токены) продолжают работать как раньше.
+#
+# wave 16: добавлен SUB-tier для подписчиков (только базовая установка
+# OpenClaw + main-агент). SUB-токены имеют ту же форму что VIP/STD v3.
 vip_token_version() {
   local token="$1"
   if [[ "$token" =~ ^VIP-[A-F0-9]{16}-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
@@ -56,6 +59,8 @@ vip_token_version() {
     printf 'v2'
   elif [[ "$token" =~ ^STD-[A-F0-9]{16}-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf 'v3-std'
+  elif [[ "$token" =~ ^SUB-[A-F0-9]{16}-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
+    printf 'v3-sub'
   elif [[ "$token" =~ ^VIP-[A-F0-9]{16}-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf 'v1'
   else
@@ -67,7 +72,7 @@ vip_token_version() {
 # Возвращает пусто для v1-токена (там нет TG).
 vip_token_get_expected_tg() {
   local token="$1"
-  if [[ "$token" =~ ^(VIP|STD)-[A-F0-9]{16}-([0-9]{5,15})-[A-Za-z0-9_-]{80,100}$ ]]; then
+  if [[ "$token" =~ ^(VIP|STD|SUB)-[A-F0-9]{16}-([0-9]{5,15})-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf '%s' "${BASH_REMATCH[2]}"
     return 0
   fi
@@ -78,7 +83,7 @@ vip_token_get_expected_tg() {
 vip_token_get_hash() {
   local token="$1"
   # v2 / v3: <TIER>-<hash>-<tg>-<sig>
-  if [[ "$token" =~ ^(VIP|STD)-([A-F0-9]{16})-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
+  if [[ "$token" =~ ^(VIP|STD|SUB)-([A-F0-9]{16})-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf '%s' "${BASH_REMATCH[2]}"
     return 0
   fi
@@ -91,11 +96,14 @@ vip_token_get_hash() {
 }
 
 # ─── Извлечь tier из токена ─────────────────────────────────────
-# stdout: "VIP" | "STD" | "" (пусто для v1)
-# Используется установщиком чтобы понять — Standard 3 агента или VIP 6.
+# stdout: "VIP" | "STD" | "SUB" | "" (пусто для v1)
+# Используется установщиком чтобы понять что у клиента:
+#   • VIP — 6 агентов
+#   • STD — Standard 3 агента
+#   • SUB — подписка, только base OpenClaw+main (через первый установщик)
 course_token_get_tier() {
   local token="$1"
-  if [[ "$token" =~ ^(VIP|STD)- ]]; then
+  if [[ "$token" =~ ^(VIP|STD|SUB)- ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
     return 0
   fi
@@ -137,6 +145,15 @@ verify_vip_token() {
       ;;
     v3-std)
       _verify_v3 "$token" "$machine_tg_id" "STD"
+      return $?
+      ;;
+    v3-sub)
+      # wave 16: SUB-tier (subscription). Та же подпись и тот же payload-
+      # формат "<TIER>|<hash>|<tg>", только TIER=SUB. Установщик распознаёт
+      # tier=SUB и завершается с info «дополнительные агенты только для
+      # Standard/VIP» — без агентов не ставит (это работа первого
+      # установщика factory).
+      _verify_v3 "$token" "$machine_tg_id" "SUB"
       return $?
       ;;
     v1)

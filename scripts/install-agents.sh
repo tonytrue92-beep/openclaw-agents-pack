@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.07.1"
+INSTALLER_VERSION="2026.05.11"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -675,6 +675,48 @@ VIP_TOKEN="$COURSE_TOKEN"
 vip_log_activation "$(vip_token_get_hash "$COURSE_TOKEN")" "$MACHINE_TG_ID" || true
 
 ok "Курс-токен подтверждён: ${BOLD}${COURSE_TIER}${NC}-тариф. TG ID: ${MACHINE_TG_ID}"
+
+# ═══════════════════════════════════════════════════════════════
+#  V0c. SUB-tier — graceful exit (wave 16)
+# ═══════════════════════════════════════════════════════════════
+#
+# SUB (subscription) = подписка на базовую установку. У клиента уже
+# должен быть установлен OpenClaw + main-агент через первый установщик
+# (factory). Дополнительных агентов в этом тарифе НЕТ — для них нужен
+# Standard или VIP.
+#
+# Наш установщик (agents-pack) ставит ДОПОЛНИТЕЛЬНЫХ агентов, поэтому
+# для SUB-tier — graceful exit с info-сообщением что делать.
+
+if [[ "$COURSE_TIER" == "SUB" ]]; then
+  echo ""
+  echo -e "${BOLD}${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}${YELLOW}║                                                                ║${NC}"
+  echo -e "${BOLD}${YELLOW}║   ℹ️   SUB-тариф (подписка) — базовая установка              ║${NC}"
+  echo -e "${BOLD}${YELLOW}║                                                                ║${NC}"
+  echo -e "${BOLD}${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Твой тариф включает:${NC}"
+  echo -e "   ${GREEN}✓${NC} OpenClaw движок + main-агент (ставится первым установщиком)"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Что это значит:${NC}"
+  echo -e "   ${DIM}Этот установщик (agents-pack) добавляет ${BOLD}дополнительных${NC}${DIM} агентов${NC}"
+  echo -e "   ${DIM}(Технаря / Маркетолога / Продюсера / Дизайнера / Координатора /${NC}"
+  echo -e "   ${DIM}Копирайтера). В SUB-тарифе они недоступны — это для Standard / VIP.${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Что у тебя уже работает:${NC}"
+  echo -e "   ${CYAN}•${NC} Открой Telegram, найди бота которого настраивал в первом установщике"
+  echo -e "   ${CYAN}•${NC} Напиши ему ${BOLD}/start${NC} или просто сообщение — main-агент ответит"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Хочешь больше агентов?${NC}"
+  echo -e "   ${DIM}Апгрейд на Standard (3 агента) или VIP (6 агентов) — пиши в саппорт-чат курса.${NC}"
+  echo -e "   ${DIM}После апгрейда получишь новый токен в @AITeamVIPBot и запустишь этот${NC}"
+  echo -e "   ${DIM}установщик снова — он распознает новый тариф и поставит агентов.${NC}"
+  echo ""
+  record_telemetry "sub_tier_graceful_exit" "ok"
+  _last_exit_reason="sub_tier_no_agents"
+  exit 0
+fi
 
 # ═══════════════════════════════════════════════════════════════
 #  V0b. Tier-based меню (wave 14)

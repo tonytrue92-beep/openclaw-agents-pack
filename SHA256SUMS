@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-05-10 14:17:27 UTC
-# Commit: 869859c
+# Generated: 2026-05-11 16:12:01 UTC
+# Commit: 988b0bc
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
@@ -11,10 +11,10 @@ f358401c1ea1c9ab484e0ce199c2d073a5bf963d1e8701d151e98e9df69c799b  scripts/build-
 62e3670b11f270e6e32a6b00e26860307aa9169ec50e92f9f3e5a7dc8b8ebbf1  scripts/build-dmg.sh
 fdd5ee13a75d067198914a57d57ece71e70806bd616288cfdef4e81374a74909  scripts/demo-simulate.sh
 57f0ac432d277dfdcf6c3d805ec94af096769728632cd8ebe337cb13e5d4f519  scripts/diagnose-agents.sh
-ab9e6931d5d1ad2c9185078af167b7dae25bbfd9ad662dab4be6b8981414d037  scripts/install-agents.sh
+af8926d09bcac5debe55a0b98971ae743cd830eacd33edbed3dcfd3038cfca7a  scripts/install-agents.sh
 c58d722a490b4af6cc2140107a11fed107434ef89c6af9c5daf0e8e6ad916e34  scripts/install-git-hooks.sh
 759667c7af2824d32117f6e5a1ea398c92afac365d427ccb3bdc2586536f0825  scripts/security-audit.sh
-9fa2d441aab36b58aa11224f7b7755d333edce1377d2b08c6e20a7ba0ffe0bda  scripts/smoke-test.sh
+94c7412c31e855e53fd3f070572abbfe28be5a169efabb4b82f21d27df373e5b  scripts/smoke-test.sh
 e5d674feca33e389ce3970f9aec8839439ba9fbf2fab989cdab1c32b6b842f11  scripts/update-checksums.sh
 d53b4e42cc3d6a728c9ff86cd0892e80343b71533aab9cbd4efa7f05e3a534bd  scripts/lib/agents.sh
 d99f3ba6a0c74cd5d8fbafdfd355fa538cd6975410a3bc8912fe394169009a3d  scripts/lib/course-token.sh
@@ -22,7 +22,7 @@ d99f3ba6a0c74cd5d8fbafdfd355fa538cd6975410a3bc8912fe394169009a3d  scripts/lib/co
 ac415a7b62aabe0f90b627eb1ab46eae7b9161e13222f4d0c1db3db8816f54d7  scripts/lib/preflight.sh
 254823d67596058a74884c7a932ed61d83216828993368e1909ae7f29a99e63b  scripts/lib/telemetry.sh
 7d14dc9f88e0af7ae47c7b91279c5e3eae4266d79145d5fb725a0900d5639a36  scripts/lib/ui.sh
-7c478446728217d4eb21e8a926e304965a2435a562ce4f8f5e743c7027a387f5  scripts/lib/vip.sh
+9e5e0c74fa51ae0ae4cc03ecd756078e567c60254521c57ec92e1e7cdd0f491a  scripts/lib/vip.sh
 840213ff19a41a02606848ec8470d0c098b2c846cf10d5e5e7bc752c7dea2b67  templates/coordinator/AGENTS.md
 c217674723b535f555fe46e02ec2f7bbe6dd0b8e26ee305fcc4a0687a38e2860  templates/coordinator/IDENTITY.md
 e3d7487b5d83f9ff47c01cfa7ab14ad8a9fa4076d731f62a572adcab055ed886  templates/coordinator/LEARNING.md
