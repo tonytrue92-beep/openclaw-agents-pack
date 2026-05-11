@@ -475,12 +475,15 @@ grep -q 'V0c.*SUB-tier\|COURSE_TIER == "SUB"' scripts/install-agents.sh \
   || fail "wave 16: install-agents не имеет SUB graceful-exit (V0c)"
 grep -q 'SUB-тариф.*подписка' scripts/install-agents.sh \
   || fail "wave 16: install-agents не имеет info-сообщения «SUB-тариф подписка»"
-# Бриф для технаря на месте
-[[ -f "handoff/subscription-tier-brief-for-techie.md" ]] \
-  || fail "wave 16: handoff/subscription-tier-brief-for-techie.md отсутствует"
-# CSV первой партии прикреплён
-[[ -f "handoff/active_subscribers-2026-05-11.csv" ]] \
-  || fail "wave 16: handoff/active_subscribers-2026-05-11.csv отсутствует"
+# Бриф для технаря и CSV проверяем только если handoff/ присутствует.
+# Docker smoke не копирует handoff/ (это внутренний документ для разработки,
+# не входит в bundle для клиентов).
+if [[ -d "handoff" ]]; then
+  [[ -f "handoff/subscription-tier-brief-for-techie.md" ]] \
+    || fail "wave 16: handoff/subscription-tier-brief-for-techie.md отсутствует"
+  [[ -f "handoff/active_subscribers-2026-05-11.csv" ]] \
+    || fail "wave 16: handoff/active_subscribers-2026-05-11.csv отсутствует"
+fi
 # curator-cheatsheet с новыми сценариями
 grep -q 'СЦЕНАРИЙ 13.*SUB\|СЦЕНАРИЙ 14.*[Пп]одписка' docs/curator-cheatsheet.md \
   || fail "wave 16: curator-cheatsheet не содержит сценариев SUB / истёкшая подписка"
