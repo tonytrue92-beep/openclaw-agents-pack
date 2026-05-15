@@ -489,6 +489,33 @@ grep -q 'СЦЕНАРИЙ 13.*SUB\|СЦЕНАРИЙ 14.*[Пп]одписка' do
   || fail "wave 16: curator-cheatsheet не содержит сценариев SUB / истёкшая подписка"
 pass "wave 16: SUB-tier распознаётся + graceful exit + бриф технарю + CSV + curator-cheatsheet"
 
+# ─── Test 6.23: wave 17 token input sanitization ─────────────────
+# Кейс Надежды (15.05.2026): валидный VIP-токен отклонялся с кодом 5
+# из-за trailing whitespace при копировании из Telegram. Wave 17
+# добавляет автоочистку токена от пробелов / юникод-тире / кавычек.
+grep -q 'Wave 17: санитизация ввода' scripts/lib/course-token.sh \
+  || fail "wave 17: санитизация ввода не помечена в course-token.sh"
+grep -q "tr -d '\[:space:\]'" scripts/lib/course-token.sh \
+  || fail "wave 17: санитизация whitespace отсутствует в _course_token_validate_and_set"
+grep -q 'EM DASH\|U+2014' scripts/lib/course-token.sh \
+  || fail "wave 17: замена длинного тире не реализована"
+grep -q 'EN DASH\|U+2013' scripts/lib/course-token.sh \
+  || fail "wave 17: замена среднего тире не реализована"
+grep -q 'Очистил токен от лишних символов' scripts/lib/course-token.sh \
+  || fail "wave 17: info-сообщение о санитизации отсутствует"
+# Runtime-проверка: токен с trailing-space должен пройти валидацию формата
+test_token_dirty="  STD-AAAAAAAAAAAAAAAA-12345  "
+test_token_clean="STD-AAAAAAAAAAAAAAAA-12345"
+test_token_dashes="STD—AAAAAAAAAAAAAAAA—12345"  # с длинными тире
+# Проверяем только что регекс tier-prefix отрабатывает после санитизации
+(
+  source scripts/lib/vip.sh 2>/dev/null
+  source scripts/lib/course-token.sh 2>/dev/null
+  result=$(course_token_get_tier "$test_token_clean" 2>/dev/null)
+  [[ "$result" == "STD" ]] || exit 1
+) || fail "wave 17: course_token_get_tier не распознаёт чистый STD-токен"
+pass "wave 17: санитизация токена (whitespace / unicode-тире / кавычки) на месте"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
