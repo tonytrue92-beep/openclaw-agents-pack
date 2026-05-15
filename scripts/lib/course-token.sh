@@ -183,11 +183,29 @@ _course_token_validate_and_set() {
   local token="$1"
   local machine_tg_id="$2"
 
-  # Префикс должен быть VIP- или STD-
+  # Wave 17: санитизация ввода — типичные ошибки копипасты.
+  # Реальный кейс (Надежда Sagitova, 15.05.2026): валидный VIP-токен
+  # отклонялся с кодом 5 из-за trailing-whitespace при копировании
+  # из Telegram-десктопа. На мобильных встречается замена дефиса (-)
+  # на длинное тире (—) — Apple-автокоррекция.
+  local original_token="$token"
+  token=$(printf '%s' "$token" | tr -d '[:space:]')
+  token="${token//—/-}"   # U+2014 EM DASH (длинное тире)
+  token="${token//–/-}"   # U+2013 EN DASH (среднее тире)
+  token="${token//‐/-}"   # U+2010 HYPHEN (юникод-дефис)
+  token="${token//‑/-}"   # U+2011 NON-BREAKING HYPHEN (неразрывный дефис)
+  token="${token//\"/}"   # обрамляющие кавычки если клиент скопировал "TOKEN"
+  token="${token//\'/}"   # обрамляющие одинарные кавычки
+
+  if [[ "$token" != "$original_token" ]]; then
+    echo -e "   ${DIM}ℹ️  Очистил токен от лишних символов (пробелы / тире-юникод / кавычки).${NC}" >&2
+  fi
+
+  # Префикс должен быть VIP- / STD- / SUB-
   local tier
   tier=$(course_token_get_tier "$token" 2>/dev/null)
   if [[ -z "$tier" ]]; then
-    warn "Формат токена не распознан. Ожидается VIP-... или STD-..."
+    warn "Формат токена не распознан. Ожидается VIP-... / STD-... / SUB-..."
     return 1
   fi
 
