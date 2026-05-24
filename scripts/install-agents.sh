@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.15"
+INSTALLER_VERSION="2026.05.17"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -1014,25 +1014,19 @@ DEFAULT_MODEL="openai-codex/gpt-5.4"
 AGENT_MODEL="${AGENT_MODEL:-}"  # из --config если задан
 
 if [[ -z "$AGENT_MODEL" ]]; then
-  explain "Какую модель использовать для выбранных агентов?" \
-    "" \
-    "Модель можно сменить в любой момент через ${BOLD}openclaw-switch-model${NC}" \
-    "или напрямую: ${BOLD}openclaw config set agents.defaults.model.primary <id>${NC}"
   echo ""
-  echo -e "   ${BOLD}${GREEN}  1)${NC} ${GREEN}openai-codex/gpt-5.4${NC}        ${DIM}(рекомендуется: умная, нужен OpenCode auth)${NC}"
-  echo -e "   ${BOLD}${GREEN}  2)${NC} ${GREEN}opencode/claude-sonnet-4-5${NC}  ${DIM}(премиум, платная)${NC}"
-  echo -e "   ${BOLD}${GREEN}  3)${NC} ${GREEN}opencode/minimax-m2.5-free${NC}  ${DIM}(бесплатная, для старта)${NC}"
-  echo -e "   ${BOLD}${GREEN}  4)${NC} ${GREEN}opencode/gpt-5-mini${NC}         ${DIM}(компромисс OpenAI)${NC}"
-  echo -e "   ${BOLD}${GREEN}  5)${NC} ${DIM}Ввести свою (например: openrouter/...)${NC}"
+  echo -e "   ${BOLD}${WHITE}Выбери модель для агентов:${NC}"
   echo ""
-  echo -e "   ${BOLD}${WHITE}Выбор [1-5, Enter = 1]:${NC}"
+  echo -e "   ${BOLD}${GREEN}  1)${NC} ${GREEN}GPT-5.4 codex${NC}    ${DIM}(рекомендуется)${NC}"
+  echo -e "   ${BOLD}${GREEN}  2)${NC} ${GREEN}minimax${NC}          ${DIM}(бесплатная)${NC}"
+  echo -e "   ${BOLD}${GREEN}  3)${NC} ${DIM}Своя${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Выбор [1-3, Enter = 1]:${NC}"
   read -r MODEL_CHOICE
   case "${MODEL_CHOICE:-1}" in
     1|"") AGENT_MODEL="openai-codex/gpt-5.4" ;;
-    2)    AGENT_MODEL="opencode/claude-sonnet-4-5" ;;
-    3)    AGENT_MODEL="opencode/minimax-m2.5-free" ;;
-    4)    AGENT_MODEL="opencode/gpt-5-mini" ;;
-    5)
+    2)    AGENT_MODEL="opencode/minimax-m2.5-free" ;;
+    3)
       echo -e "   ${BOLD}${WHITE}Введите id модели:${NC}"
       read -r AGENT_MODEL
       [[ -z "$AGENT_MODEL" ]] && AGENT_MODEL="$DEFAULT_MODEL"
@@ -1096,30 +1090,21 @@ elif [[ -n "$CONFIG_FILE" ]]; then
     fi
   fi
 else
-  # Интерактивный путь: объяснение + меню
-  explain "Без embedding агент перечитывает память (MEMORY.md) целиком при каждом ответе." \
-    "Через 2-3 месяца там будет 50+ КБ — бот станет медленнее и дороже." \
+  # Интерактивный путь: короткое объяснение + меню
+  explain "Подключить ${BOLD}умную память${NC}? С ней агенты становятся ${BOLD}гораздо умнее${NC} —" \
+    "помнят всё что ты им говорил, накапливают опыт работы с тобой." \
     "" \
-    "С embedding он ищет в памяти ${BOLD}семантически${NC} — находит \"ты говорил" \
-    "про лендинг неделю назад\" даже если ты сейчас спрашиваешь иначе." \
+    "Без памяти каждый разговор начинается с нуля." \
     "" \
-    "Стоимость ≈\$0.13 за 1M токенов = ${BOLD}копейки в месяц${NC} для одного клиента." \
-    "Нужен OpenAI API-ключ — можно тот же что для модели, можно отдельный." \
+    "Стоит в среднем ${BOLD}\$15/месяц${NC} (платишь напрямую OpenAI)." \
+    "Нужна ${BOLD}иностранная карта${NC} — российские не работают." \
     "" \
-    "${BOLD}Где взять ключ:${NC} ${CYAN}https://platform.openai.com/api-keys${NC}" \
-    "${DIM}(войти → Create new secret key → скопировать sk-... → положить \$5 на счёт${NC}" \
-    "${DIM} в Settings → Billing — этого хватит на годы embedding для одного клиента)${NC}" \
-    "" \
-    "${BOLD}${YELLOW}⚠️  Российская карта в OpenAI НЕ пройдёт${NC} ${DIM}(санкции, обхода нет).${NC}" \
-    "${DIM}Самый быстрый способ выпустить виртуальную зарубежную карту:${NC}" \
-    "   ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}" \
-    "${DIM}Или используй уже имеющуюся карту KZ/AM/GE/TR/ОАЭ/EU/US.${NC}" \
-    "" \
-    "${DIM}Полный гайд со скриншотами: docs/openai-key-setup.md в репо${NC}"
+    "Виртуальная зарубежная карта за 5 минут:" \
+    "   ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
 
-  echo -e "   ${BOLD}${WHITE}Подключить embedding-память?${NC}"
-  echo -e "   ${CYAN}1)${NC} ${BOLD}Включить${NC} ${DIM}(рекомендуется)${NC}  ${GREEN}← по умолчанию${NC}"
-  echo -e "   ${CYAN}2)${NC} Без embedding ${DIM}(по старому, MEMORY.md читается целиком)${NC}"
+  echo -e "   ${BOLD}${WHITE}Подключить умную память?${NC}"
+  echo -e "   ${CYAN}1)${NC} ${BOLD}Да${NC} ${DIM}(рекомендуется)${NC}  ${GREEN}← по умолчанию${NC}"
+  echo -e "   ${CYAN}2)${NC} Нет"
   echo ""
   echo -e "   ${BOLD}${WHITE}Выбор [1/2, Enter = 1]:${NC}"
   read -r EMB_CHOICE
@@ -1140,20 +1125,18 @@ else
           existing_key=$(openclaw config get 'env.vars.OPENAI_API_KEY' 2>/dev/null | tr -d '"' | tr -d ' ')
           if [[ -n "$existing_key" && "$existing_key" != "null" ]]; then
             EMBEDDING_KEY="$existing_key"
-            echo -e "   ${GREEN}✓${NC} Использую существующий OPENAI_API_KEY"
+            echo -e "   ${GREEN}✓${NC} Использую существующий ключ"
           else
-            warn "Не нашёл OPENAI_API_KEY в конфиге. Введите ключ вручную."
-            echo -e "   ${DIM}Где взять: ${CYAN}https://platform.openai.com/api-keys${NC} ${DIM}→ Create new secret key${NC}"
-            echo -e "   ${DIM}РФ-карта НЕ пройдёт. Виртуальная зарубежная: ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
+            echo -e "   ${DIM}Где взять ключ: ${CYAN}https://platform.openai.com/api-keys${NC}"
+            echo -e "   ${DIM}Карта зарубежная: ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
             echo -e "   ${BOLD}${WHITE}OpenAI API-ключ (sk-...):${NC}"
             read -rs EMBEDDING_KEY
             echo ""
           fi
           ;;
         2)
-          echo -e "   ${DIM}Где взять: ${CYAN}https://platform.openai.com/api-keys${NC} ${DIM}→ Create new secret key${NC}"
-          echo -e "   ${DIM}На счёт нужно положить минимум \$5 в Settings → Billing.${NC}"
-          echo -e "   ${DIM}РФ-карта НЕ пройдёт. Виртуальная зарубежная: ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
+          echo -e "   ${DIM}Где взять ключ: ${CYAN}https://platform.openai.com/api-keys${NC}"
+          echo -e "   ${DIM}Карта зарубежная: ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
           echo -e "   ${BOLD}${WHITE}OpenAI API-ключ для embedding (sk-...):${NC}"
           read -rs EMBEDDING_KEY
           echo ""
@@ -1213,12 +1196,7 @@ fi
 # ═══════════════════════════════════════════════════════════════
 step_header "R2" "TELEGRAM BOT TOKENS"
 
-explain "Нужны отдельные Telegram-боты — по одному на каждого агента." \
-  "" \
-  "Создайте их через ${BOLD}@BotFather${NC} в Telegram (для каждого — ${BOLD}/newbot${NC})." \
-  "Названия на ваш вкус, например: 'Мой Технарь', 'Мой Маркетолог', 'Мой Продюсер'." \
-  "" \
-  "Подробный гайд: ${CYAN}https://github.com/tonytrue92-beep/openclaw-agents-pack/blob/main/docs/telegram-setup.md${NC}"
+explain "Создай по боту для каждого агента через ${BOLD}@BotFather${NC} в Telegram (${BOLD}/newbot${NC})."
 
 # NB: не используем `declare -A` (ассоциативные массивы) — они появились
 # в bash 4.0, а macOS поставляет с /bin/bash 3.2 (Apple не обновляет
