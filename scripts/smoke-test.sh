@@ -196,8 +196,18 @@ pass "wave 8.1: docs/openai-key-setup.md + ссылка в R1.5 на месте"
 # «зарубежная карта» — суть в том что клиент должен быть предупреждён).
 grep -q "WantToPayBot" scripts/install-agents.sh \
   || fail "scripts/install-agents.sh не содержит ссылку на @WantToPayBot для виртуальной зарубежной карты (wave 8.2)"
-grep -qiE "иностранн[а-я]+\\s+карт|зарубежн[а-я]+\\s+карт|Российская\\s+карта.*НЕ|российск[а-я]+\\s+(не|нЕ)\\s+работа" scripts/install-agents.sh \
-  || fail "scripts/install-agents.sh не содержит предупреждение про карту (wave 8.2)"
+# Принимаем любой из вариантов формулировки — суть в том что клиент
+# должен быть предупреждён про карту. Без posix-character-ranges
+# с кириллицей (Ubuntu grep ругается «Invalid collation character»).
+if ! grep -q "иностранная карта" scripts/install-agents.sh \
+   && ! grep -q "иностранную карту" scripts/install-agents.sh \
+   && ! grep -q "зарубежная карта" scripts/install-agents.sh \
+   && ! grep -q "зарубежную карту" scripts/install-agents.sh \
+   && ! grep -q "Российская карта" scripts/install-agents.sh \
+   && ! grep -q "РФ-карта" scripts/install-agents.sh \
+   && ! grep -q "российские не работают" scripts/install-agents.sh; then
+  fail "scripts/install-agents.sh не содержит предупреждение про карту (wave 8.2)"
+fi
 pass "wave 8.2: карта-warning + ссылка на @WantToPayBot в R1.5"
 
 # ─── Test 6.10: wave 8.3 docs/windows-install-guide.md + Windows detector ───
