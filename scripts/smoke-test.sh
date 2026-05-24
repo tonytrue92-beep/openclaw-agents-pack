@@ -190,12 +190,15 @@ grep -q "platform.openai.com/api-keys" scripts/install-agents.sh \
   || fail "scripts/install-agents.sh не содержит ссылку на platform.openai.com/api-keys (wave 8.1)"
 pass "wave 8.1: docs/openai-key-setup.md + ссылка в R1.5 на месте"
 
-# В R1.5 предупреждение про РФ-карту + ссылка на бот для виртуальной зарубежной
+# В R1.5 предупреждение про карту (РФ-карта не работает / нужна иностранная)
+# + ссылка на бот для виртуальной зарубежной (wave 18: смягчили regex,
+# принимаем любой вариант — «Российская карта в OpenAI НЕ» / «иностранная карта» /
+# «зарубежная карта» — суть в том что клиент должен быть предупреждён).
 grep -q "WantToPayBot" scripts/install-agents.sh \
   || fail "scripts/install-agents.sh не содержит ссылку на @WantToPayBot для виртуальной зарубежной карты (wave 8.2)"
-grep -qiE "Российская\\s+карта\\s+в\\s+OpenAI\\s+НЕ" scripts/install-agents.sh \
-  || fail "scripts/install-agents.sh не содержит явное предупреждение «РФ карта не пройдёт» (wave 8.2)"
-pass "wave 8.2: РФ-карта warning + ссылка на @WantToPayBot в R1.5"
+grep -qiE "иностранн[а-я]+\\s+карт|зарубежн[а-я]+\\s+карт|Российская\\s+карта.*НЕ|российск[а-я]+\\s+(не|нЕ)\\s+работа" scripts/install-agents.sh \
+  || fail "scripts/install-agents.sh не содержит предупреждение про карту (wave 8.2)"
+pass "wave 8.2: карта-warning + ссылка на @WantToPayBot в R1.5"
 
 # ─── Test 6.10: wave 8.3 docs/windows-install-guide.md + Windows detector ───
 [[ -f "docs/windows-install-guide.md" ]] \
