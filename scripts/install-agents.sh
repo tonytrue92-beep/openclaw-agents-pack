@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.17"
+INSTALLER_VERSION="2026.05.17.1"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -1630,5 +1630,26 @@ fi
 
 record_telemetry "agents_pack_complete" "ok"
 echo ""
+
+# ─── wave 19: платформо-специфичная ссылка в финале ──────────────
+# Авто-детект окружения + ОДНА целевая ссылка вместо списка из 4.
+# Принцип wave 18 — «тупо не показываем то что неприменимо». Клиент
+# на macOS видит только Mac-гайд, на Windows — Windows-гайд, и т.д.
+# VPS-подсказка уже показана выше в VPS_MODE-блоке — здесь не дублируем.
+_env_name=$(detect_environment 2>/dev/null || echo "unknown")
+case "$_env_name" in
+  macos)
+    echo -e "   ${DIM}🍎 На Mac есть DMG-установщик (двойной клик):${NC}"
+    echo -e "   ${DIM}   ${CYAN}docs/mac-install-guide.md${NC}"
+    echo ""
+    ;;
+  windows-bash|wsl)
+    _label="Git Bash / MSYS"
+    [[ "$_env_name" == "wsl" ]] && _label="WSL"
+    echo -e "   ${DIM}🪟 Гайд для ${_label}: ${CYAN}docs/windows-install-guide.md${NC}"
+    echo ""
+    ;;
+esac
+
 echo -e "   ${DIM}📖 Подробнее: https://github.com/tonytrue92-beep/openclaw-agents-pack${NC}"
 echo ""
