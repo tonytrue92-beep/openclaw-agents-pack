@@ -529,6 +529,20 @@ test_token_dashes="STD—AAAAAAAAAAAAAAAA—12345"  # с длинными тир
 ) || fail "wave 17: course_token_get_tier не распознаёт чистый STD-токен"
 pass "wave 17: санитизация токена (whitespace / unicode-тире / кавычки) на месте"
 
+# ─── Test 6.24: wave 19 платформо-aware финальный экран ──────────
+# Авто-детект окружения + одна целевая ссылка на платформо-гайд
+# в финале install-agents.sh. macOS → mac-install-guide, Windows/WSL
+# → windows-install-guide. Покрывает 3 главных канала доставки.
+grep -q 'wave 19: платформо-специфичная ссылка' scripts/install-agents.sh \
+  || fail "wave 19: финальный платформо-блок не помечен"
+grep -q 'detect_environment' scripts/install-agents.sh \
+  || fail "wave 19: install-agents не вызывает detect_environment в финале"
+grep -q 'docs/mac-install-guide.md' scripts/install-agents.sh \
+  || fail "wave 19: ссылка на mac-install-guide в финале отсутствует"
+grep -q 'docs/windows-install-guide.md' scripts/install-agents.sh \
+  || fail "wave 19: ссылка на windows-install-guide в финале отсутствует"
+pass "wave 19: платформо-aware финальный экран (macOS/Windows/WSL)"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
