@@ -427,16 +427,18 @@ old_menu_match=$(grep -c 'Какой набор агентов устанавл�
 [[ "$old_menu_match" == "0" ]] \
   || fail "wave 14: старое меню (\"Какой набор\") не удалено (matches: $old_menu_match)"
 
-# Новое сообщение про авто-Standard для STD-tier
-grep -q 'Тариф.*Standard.*установлю 3 агента' scripts/install-agents.sh \
-  || fail "wave 14: STD-tier auto-install message отсутствует"
+# Сообщение про авто-установку для STD-tier (wave 20 переименовал Standard → Base).
+# Допускаем ANSI/bash-variables (${BOLD}/${NC}) между «Тариф» и именем тарифа.
+grep -qE 'Тариф.*(Standard|Base).*установлю 3 агента' scripts/install-agents.sh \
+  || fail "wave 14/20: STD-tier auto-install message (Base) отсутствует"
 
-# Новое сообщение про tier=VIP меню «VIP-набор / Только Standard»
-grep -q 'У тебя.*VIP.*-тариф' scripts/install-agents.sh \
-  || fail "wave 14: VIP-tier меню заголовок отсутствует"
-grep -q 'Только Standard' scripts/install-agents.sh \
-  || fail "wave 14: VIP-меню опция «Только Standard» отсутствует"
-pass "wave 14: V0 (токен) до R0 + tier-based menu (STD авто / VIP подтверждение)"
+# Сообщение про tier=VIP меню (wave 20 переименовал VIP → Pro)
+grep -qE 'Выбери что поставить|У тебя.*VIP.*-тариф' scripts/install-agents.sh \
+  || fail "wave 14/20: VIP-tier меню заголовок отсутствует"
+# Опция «Base» (бывший Только Standard) в Pro-меню
+grep -qE 'Base — 3 агента|Только Standard' scripts/install-agents.sh \
+  || fail "wave 14/20: Pro-меню опция «Base — 3 агента» отсутствует"
+pass "wave 14/20: V0 (токен) до R0 + tier-based menu (STD авто / VIP=Pro меню)"
 
 # ─── Test 6.20: wave 15 Bot-to-Bot Communication docs ────────────
 [[ -f "docs/bot-to-bot-setup.md" ]] \
@@ -486,8 +488,10 @@ TEST_SUB_TOKEN_FORMAT="SUB-83E4E94BC01F3E0E-123456789-XXXXXXXXXXXXXXXXXXXXXXXXXX
 # install-agents: V0c (SUB graceful exit) на месте
 grep -q 'V0c.*SUB-tier\|COURSE_TIER == "SUB"' scripts/install-agents.sh \
   || fail "wave 16: install-agents не имеет SUB graceful-exit (V0c)"
-grep -q 'SUB-тариф.*подписка' scripts/install-agents.sh \
-  || fail "wave 16: install-agents не имеет info-сообщения «SUB-тариф подписка»"
+# Wave 20 переименовал «SUB-тариф (подписка)» → «Тариф OpenClaw (подписка)».
+# Принимаем оба варианта (старый/новый брендинг).
+grep -qE 'SUB-тариф.*подписка|Тариф OpenClaw.*подписка' scripts/install-agents.sh \
+  || fail "wave 16/20: install-agents не имеет info-сообщения про подписочный тариф"
 # Бриф для технаря и CSV проверяем только если handoff/ присутствует.
 # Docker smoke не копирует handoff/ (это внутренний документ для разработки,
 # не входит в bundle для клиентов).
@@ -542,6 +546,27 @@ grep -q 'docs/mac-install-guide.md' scripts/install-agents.sh \
 grep -q 'docs/windows-install-guide.md' scripts/install-agents.sh \
   || fail "wave 19: ссылка на windows-install-guide в финале отсутствует"
 pass "wave 19: платформо-aware финальный экран (macOS/Windows/WSL)"
+
+# ─── Test 6.25: wave 20 публичный нейминг тарифов (Base/Pro/OpenClaw) ─
+# Banner и меню используют новые публичные названия Base (бывший Standard)
+# и Pro (бывший VIP). Внутренние COURSE_TIER (STD/VIP/SUB) и token-формат
+# не меняются — backwards-compat с токенами полная.
+grep -q 'Base: Технарь' scripts/install-agents.sh \
+  || fail "wave 20: banner не содержит «Base:» (бывший Standard)"
+grep -q 'Pro: + Дизайнер' scripts/install-agents.sh \
+  || fail "wave 20: banner не содержит «Pro:» (бывший VIP)"
+grep -q 'Pro — 6 агентов' scripts/install-agents.sh \
+  || fail "wave 20: меню не содержит опцию «Pro — 6 агентов»"
+grep -q 'Base — 3 агента' scripts/install-agents.sh \
+  || fail "wave 20: меню не содержит опцию «Base — 3 агента»"
+grep -q 'Только OpenClaw' scripts/install-agents.sh \
+  || fail "wave 20: меню не содержит опцию «Только OpenClaw» (3-й пункт)"
+# Меню теперь 3 пункта вместо 5 — проверяем что нет старого «[1/2/3/4/5,]»
+grep -q '\[1/2/3, Enter = 1\]' scripts/install-agents.sh \
+  || fail "wave 20: меню не сужено до 3 опций (ожидаем [1/2/3, Enter = 1])"
+grep -q '\[1/2/3/4/5' scripts/install-agents.sh \
+  && fail "wave 20: старое 5-опционное меню всё ещё на месте"
+pass "wave 20: публичные тарифы Base/Pro/OpenClaw + меню 3 пункта"
 
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку

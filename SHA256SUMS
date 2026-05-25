@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-05-24 16:44:55 UTC
-# Commit: a2df139
+# Generated: 2026-05-25 16:04:25 UTC
+# Commit: 78baedb
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
@@ -11,10 +11,10 @@ f358401c1ea1c9ab484e0ce199c2d073a5bf963d1e8701d151e98e9df69c799b  scripts/build-
 62e3670b11f270e6e32a6b00e26860307aa9169ec50e92f9f3e5a7dc8b8ebbf1  scripts/build-dmg.sh
 fdd5ee13a75d067198914a57d57ece71e70806bd616288cfdef4e81374a74909  scripts/demo-simulate.sh
 57f0ac432d277dfdcf6c3d805ec94af096769728632cd8ebe337cb13e5d4f519  scripts/diagnose-agents.sh
-a52145cbd56a883ab3178416c5dcd6aae0b4aa8c8a2c011c9d28e918c087906a  scripts/install-agents.sh
+1824701ae9e8669de76f0340548305841ce30fb3cbf16a7dd8f2314bcc210c07  scripts/install-agents.sh
 c58d722a490b4af6cc2140107a11fed107434ef89c6af9c5daf0e8e6ad916e34  scripts/install-git-hooks.sh
 759667c7af2824d32117f6e5a1ea398c92afac365d427ccb3bdc2586536f0825  scripts/security-audit.sh
-41cdea0bb66bb64d7ad9a4c2afa6bd0751e49995a9a089c79a67f481ed2bc57f  scripts/smoke-test.sh
+56896c0997ccfd764d0f03bcedc6eeecbe6bccd08c4bd0fa8ed37e2fd6020af1  scripts/smoke-test.sh
 e5d674feca33e389ce3970f9aec8839439ba9fbf2fab989cdab1c32b6b842f11  scripts/update-checksums.sh
 d53b4e42cc3d6a728c9ff86cd0892e80343b71533aab9cbd4efa7f05e3a534bd  scripts/lib/agents.sh
 d026a288aa65a9be335a6b05f942d3e760c775d05dee70d4a00f793fbf85741d  scripts/lib/course-token.sh
