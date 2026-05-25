@@ -587,6 +587,18 @@ grep -q 'main_choice_tier_mismatch_base' scripts/install-agents.sh \
   || fail "wave 21: проверка соответствия Base vs tier отсутствует"
 pass "wave 21: главное меню V_MAIN (Pro/Base/OpenClaw) + tier-валидация"
 
+# ─── Test 6.27: wave 22 banner AI TEAM 2.0 (новый brand) ─────────
+# ASCII-баннер «OpenClaw Agents Pack» заменён на «AI TEAM 2.0».
+# Проверяем уникальные части нового баннера (figlet standard font).
+grep -q '___   _____ _____    _    __  __   ____    ___' scripts/install-agents.sh \
+  || fail "wave 22: новый ASCII-баннер «AI TEAM 2.0» отсутствует (строка 1)"
+grep -q '|___ \\  / _ \\' scripts/install-agents.sh \
+  || fail "wave 22: новый ASCII-баннер «AI TEAM 2.0» (часть 2.0) отсутствует"
+# Старый OpenClaw-баннер не должен остаться
+! grep -q 'T R U E   P A C K' scripts/install-agents.sh \
+  || fail "wave 22: старый «T R U E   P A C K» suffix не удалён"
+pass "wave 22: banner AI TEAM 2.0 (новый бренд)"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
