@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.25.1"
+INSTALLER_VERSION="2026.05.25.2"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -366,6 +366,7 @@ cat << 'LOGO'
  / ___ \ | |    | | | |___ / ___ \| |  | |  / __/ | |_| |
 /_/   \_\___|   |_| |_____/_/   \_\_|  |_| |_____(_)___/
 LOGO
+echo -e "${BOLD}${MAGENTA}              T O N Y   T R U E   ×   С Е Р Д И Т О В${NC}"
 echo -e "${NC}"
 echo ""
 echo -e "${BOLD}${WHITE}   Собери команду ИИ-агентов,${NC}"

@@ -618,6 +618,12 @@ grep -q 'установил, работает' scripts/install-agents.sh \
   || fail "wave 23: старая строка «Installer v...(COMMIT)» в баннере осталась"
 pass "wave 23: продающий pitch под баннером + версия мелко"
 
+# ─── Test 6.29: wave 24 co-branding TONY TRUE × СЕРДИТОВ ─────────
+# Подзаголовок под ASCII-баннером AI TEAM 2.0 — разреженный шрифт magenta.
+grep -q 'T O N Y   T R U E   ×   С Е Р Д И Т О В' scripts/install-agents.sh \
+  || fail "wave 24: подзаголовок «TONY TRUE × СЕРДИТОВ» отсутствует"
+pass "wave 24: co-branding подзаголовок TONY TRUE × СЕРДИТОВ"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
