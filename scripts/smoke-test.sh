@@ -568,6 +568,25 @@ grep -q '\[1/2/3/4/5' scripts/install-agents.sh \
   && fail "wave 20: старое 5-опционное меню всё ещё на месте"
 pass "wave 20: публичные тарифы Base/Pro/OpenClaw + меню 3 пункта"
 
+# ─── Test 6.26: wave 21 главное меню (V_MAIN) после banner ───────
+# V_MAIN показывает 3 опции (Pro/Base/OpenClaw) СРАЗУ после banner,
+# ДО запроса токена. Клиент видит линейку продуктов и выбирает что
+# хочет — потом подтверждает токеном. Пропускается при non-interactive
+# флагах (--install / --course-token / --only-agent / --config / VPS).
+grep -q 'V_MAIN. ГЛАВНОЕ МЕНЮ' scripts/install-agents.sh \
+  || fail "wave 21: V_MAIN блок не помечен"
+grep -q 'Г Л А В Н О Е   М Е Н Ю' scripts/install-agents.sh \
+  || fail "wave 21: ASCII-баннер главного меню отсутствует"
+grep -q 'MAIN_CHOICE=' scripts/install-agents.sh \
+  || fail "wave 21: переменная MAIN_CHOICE не объявлена"
+grep -q 'main_menu_openclaw_exit' scripts/install-agents.sh \
+  || fail "wave 21: telemetry-маркер выхода через OpenClaw отсутствует"
+grep -q 'main_choice_tier_mismatch_pro' scripts/install-agents.sh \
+  || fail "wave 21: проверка соответствия Pro vs tier отсутствует"
+grep -q 'main_choice_tier_mismatch_base' scripts/install-agents.sh \
+  || fail "wave 21: проверка соответствия Base vs tier отсутствует"
+pass "wave 21: главное меню V_MAIN (Pro/Base/OpenClaw) + tier-валидация"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
