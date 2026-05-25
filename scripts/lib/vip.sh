@@ -39,7 +39,7 @@ EOF
 VIP_ACTIVATION_ENDPOINT="${VIP_ACTIVATION_ENDPOINT:-https://aiteam-vip.openclaw.ai/log/activation}"
 
 # ─── Определить версию токена по его форме ─────────────────────
-# stdout: "v3-vip" | "v3-std" | "v2" | "v1" | "unknown"
+# stdout: "v3-vip" | "v3-std" | "v3-sub" | "v3-hrm" | "v2" | "v1" | "unknown"
 #
 # wave 12: добавлен v3 формат с явным tier-префиксом для course-token.
 # v3 синтаксис: <TIER>-<email_hash16>-<tg_user_id>-<signature>
@@ -61,6 +61,10 @@ vip_token_version() {
     printf 'v3-std'
   elif [[ "$token" =~ ^SUB-[A-F0-9]{16}-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf 'v3-sub'
+  elif [[ "$token" =~ ^HRM-[A-F0-9]{16}-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
+    # wave 25: HRM-tier (Hermes super-agent — отдельный платный SKU).
+    # Тот же формат подписи что v3-VIP/STD/SUB, payload "HRM|<hash>|<tg>".
+    printf 'v3-hrm'
   elif [[ "$token" =~ ^VIP-[A-F0-9]{16}-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf 'v1'
   else
@@ -72,7 +76,7 @@ vip_token_version() {
 # Возвращает пусто для v1-токена (там нет TG).
 vip_token_get_expected_tg() {
   local token="$1"
-  if [[ "$token" =~ ^(VIP|STD|SUB)-[A-F0-9]{16}-([0-9]{5,15})-[A-Za-z0-9_-]{80,100}$ ]]; then
+  if [[ "$token" =~ ^(VIP|STD|SUB|HRM)-[A-F0-9]{16}-([0-9]{5,15})-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf '%s' "${BASH_REMATCH[2]}"
     return 0
   fi
@@ -83,7 +87,7 @@ vip_token_get_expected_tg() {
 vip_token_get_hash() {
   local token="$1"
   # v2 / v3: <TIER>-<hash>-<tg>-<sig>
-  if [[ "$token" =~ ^(VIP|STD|SUB)-([A-F0-9]{16})-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
+  if [[ "$token" =~ ^(VIP|STD|SUB|HRM)-([A-F0-9]{16})-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf '%s' "${BASH_REMATCH[2]}"
     return 0
   fi
@@ -96,14 +100,15 @@ vip_token_get_hash() {
 }
 
 # ─── Извлечь tier из токена ─────────────────────────────────────
-# stdout: "VIP" | "STD" | "SUB" | "" (пусто для v1)
+# stdout: "VIP" | "STD" | "SUB" | "HRM" | "" (пусто для v1)
 # Используется установщиком чтобы понять что у клиента:
-#   • VIP — 6 агентов
-#   • STD — Standard 3 агента
-#   • SUB — подписка, только base OpenClaw+main (через первый установщик)
+#   • VIP — Pro: 6 агентов
+#   • STD — Base: 3 агента
+#   • SUB — OpenClaw: подписка, только base через первый установщик
+#   • HRM — Hermes: super-agent (отдельный SKU), wave 25
 course_token_get_tier() {
   local token="$1"
-  if [[ "$token" =~ ^(VIP|STD|SUB)- ]]; then
+  if [[ "$token" =~ ^(VIP|STD|SUB|HRM)- ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
     return 0
   fi
@@ -154,6 +159,14 @@ verify_vip_token() {
       # Standard/VIP» — без агентов не ставит (это работа первого
       # установщика factory).
       _verify_v3 "$token" "$machine_tg_id" "SUB"
+      return $?
+      ;;
+    v3-hrm)
+      # wave 25: HRM-tier (Hermes super-agent). Отдельный платный SKU.
+      # Тот же формат подписи и тот же Ed25519-ключ — на стороне бота
+      # выдача HRM-токенов идёт через отдельный канал (новая таблица
+      # hermes_buyers, см. handoff для технаря).
+      _verify_v3 "$token" "$machine_tg_id" "HRM"
       return $?
       ;;
     v1)

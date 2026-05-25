@@ -6,6 +6,137 @@
 
 ---
 
+## 2026-05-25 — Wave 25 (Hermes super-agent в главном меню)
+
+### Триггер
+
+Антон попросил: «Если система видит что стоит OpenClaw — в главном
+меню должна появиться опция установки супер-агента Hermes (так же
+как мы устанавливали его себе — анализируя и сканируя текущую
+OpenClaw-систему). Hermes требует отдельный платный токен.»
+
+### Добавлено
+
+#### Детекция OpenClaw
+
+Новая функция `detect_openclaw()` в `install-agents.sh`:
+```bash
+detect_openclaw() {
+  command -v openclaw &>/dev/null && return 0
+  [[ -d "$HOME/.openclaw" ]] && return 0
+  return 1
+}
+```
+
+Выставляет переменную `OPENCLAW_INSTALLED=true/false`. Используется
+в V_MAIN для условного показа 4-го пункта.
+
+#### 4-й пункт «Hermes» в V_MAIN — условно
+
+Показывается **только если** `OPENCLAW_INSTALLED=true`:
+
+```
+   1)  Pro        — 6 агентов (полный набор)  ← рекомендуется
+   2)  Base       — 3 базовых агента
+   3)  OpenClaw   — только движок (без агентов)
+   4)  Hermes     — супер-агент над всей командой  ★
+       Анализирует твою OpenClaw-установку и оркестрирует агентов
+       Требует отдельный HRM-токен (платный SKU)
+```
+
+На свежей машине без OpenClaw — пункт **скрыт** (нельзя поставить
+super-agent если нет основы).
+
+#### Новый tier HRM (Hermes) в `vip.sh`
+
+- Регекс `^HRM-...` распознаётся как `v3-hrm`
+- `course_token_get_tier()` возвращает `HRM`
+- `verify_vip_token` → `_verify_v3` с TIER=HRM (тот же Ed25519-ключ,
+  payload `HRM|<hash>|<tg>`)
+- Все вспомогательные функции (`vip_token_get_expected_tg`,
+  `vip_token_get_hash`) расширены на HRM
+
+Это backwards-compat расширение — старые VIP/STD/SUB-токены не
+затронуты.
+
+#### Функция `install_hermes_super_agent()`
+
+Запускается при выборе опции 4 в V_MAIN. Шаги:
+
+1. **Запрос HRM-токена** — отдельный prompt с wave 17 санитизацией
+   (whitespace / юникод-тире / кавычки)
+2. **Валидация HRM-токена** через `verify_vip_token` (3 попытки)
+3. **Сканирование OpenClaw-системы**:
+   - Список агентов из `~/.openclaw/agents/`
+   - Количество workspaces (`~/.openclaw/workspace*`)
+   - Доступность CLI `openclaw`
+   - Сохраняется в JSON-скан-файл во временной директории
+4. **Confirm от клиента** — мы явно показываем что запустим
+   third-party installer от NousResearch (~200MB Python venv +
+   macOS LaunchAgent), просим подтверждение `[y/N]`
+5. **Запуск официального Hermes installer**:
+   ```
+   curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+   ```
+6. **Verify** — `hermes --version` или fallback на venv-binary
+7. **Финал** — команды для запуска (`hermes gateway status`,
+   `hermes config path`, путь к логам)
+
+### Безопасность
+
+- Hermes installer запускается **только после явного `y` подтверждения**
+  клиента — не silent install
+- Confirm-блок указывает **источник** (URL репо) и **что будет создано**
+  (~/.hermes/, LaunchAgent, размер)
+- HRM-токен валидируется через **наш** Ed25519-ключ (не Hermes-ключ)
+  — это **наша** платная гейт-проверка
+- Telemetry-маркеры (`hermes_install_success`, `hermes_install_declined`,
+  `hermes_installer_failed`) — для понимания конверсии
+
+### Сканирование — что собирается
+
+JSON-файл во временной директории:
+```json
+{
+  "scan_at": "2026-05-25T20:45:00Z",
+  "openclaw_home": "/Users/.../openclaw",
+  "agents_installed": "brain,coordinator,copywriter,...",
+  "workspaces_count": 7,
+  "openclaw_cli_available": true
+}
+```
+
+Этот файл передаётся Hermes как контекст (путь печатается в финале
+для клиента — он может прокинуть его в `hermes config` если нужно).
+
+### Compatibility
+
+- **Полная backwards-compat**: новый tier HRM не ломает старые
+  VIP/STD/SUB-токены
+- Если бот ещё не выдаёт HRM-токены — клиенту просто не пройдёт
+  валидация на шаге 2, отказ
+- `INSTALLER_VERSION` `2026.05.25.2` → `2026.05.25.3`
+
+### Что нужно технарю
+
+На стороне `@AITeamVIPBot` — отдельный handoff:
+- Новая таблица `hermes_buyers` (email → tg_id → expires_at)
+- Команда `/admin_upload_hermes_buyers <csv>`
+- 4-level поиск при `/start`: Hermes → VIP → STD → SUB
+- Выдача HRM-токенов формата `HRM-<hash>-<tg>-<sig>` (тот же
+  Ed25519-ключ что v3)
+
+Handoff будет в следующем коммите.
+
+### Tests
+
+- Smoke 6.30 (новый, 7 ассертов): функции detect_openclaw +
+  install_hermes_super_agent + URL Hermes installer + OPENCLAW_INSTALLED
+  + HRM-tier в vip.sh
+- Все 35 ассертов зелёные
+
+---
+
 ## 2026-05-25 — Wave 24 (co-branding подзаголовок TONY TRUE × СЕРДИТОВ)
 
 ### Added

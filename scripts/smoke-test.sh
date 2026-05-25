@@ -624,6 +624,28 @@ grep -q 'T O N Y   T R U E   ×   С Е Р Д И Т О В' scripts/install-agent
   || fail "wave 24: подзаголовок «TONY TRUE × СЕРДИТОВ» отсутствует"
 pass "wave 24: co-branding подзаголовок TONY TRUE × СЕРДИТОВ"
 
+# ─── Test 6.30: wave 25 Hermes super-agent integration ──────────
+# Опция «4) Hermes» появляется в V_MAIN только если OpenClaw обнаружен.
+# Новый HRM-tier распознаётся в vip.sh (тот же Ed25519, payload HRM|hash|tg).
+# Установка через official NousResearch installer после HRM-токен валидации
+# и confirm-шага от клиента.
+grep -q 'detect_openclaw()' scripts/install-agents.sh \
+  || fail "wave 25: функция detect_openclaw отсутствует"
+grep -q 'install_hermes_super_agent' scripts/install-agents.sh \
+  || fail "wave 25: функция install_hermes_super_agent отсутствует"
+grep -q 'NousResearch/hermes-agent' scripts/install-agents.sh \
+  || fail "wave 25: URL Hermes installer отсутствует"
+grep -q 'OPENCLAW_INSTALLED' scripts/install-agents.sh \
+  || fail "wave 25: переменная OPENCLAW_INSTALLED не объявлена"
+grep -q 'BOLD}Hermes' scripts/install-agents.sh \
+  || fail "wave 25: 4-й пункт меню (Hermes) отсутствует"
+# vip.sh распознаёт HRM-префикс
+grep -q "'v3-hrm'" scripts/lib/vip.sh \
+  || fail "wave 25: vip.sh не распознаёт HRM-tier (v3-hrm)"
+grep -q 'HRM' scripts/lib/vip.sh \
+  || fail "wave 25: vip.sh не упоминает HRM tier"
+pass "wave 25: Hermes super-agent (HRM-токен + condition menu + Nous installer)"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.

@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.25.2"
+INSTALLER_VERSION="2026.05.25.3"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -611,7 +611,202 @@ record_telemetry "agents_pack_start" "ok"
 #
 # Backwards-compat 100% — все существующие команды работают как раньше.
 
+# ─────────────────────────────────────────────────────────────────
+# Wave 25: установка Hermes super-agent (отдельный платный SKU)
+# ─────────────────────────────────────────────────────────────────
+#
+# Hermes — open-source проект NousResearch (https://github.com/NousResearch/hermes-agent).
+# Это «супер-агент» над всей командой OpenClaw — оркестрирует
+# существующих агентов, делегирует задачи, держит общий контекст.
+#
+# Шаги установки (только если клиент выбрал опцию 4 в V_MAIN):
+#   1. Запрос HRM-токена (отдельный platный SKU — выдаётся через бота)
+#   2. Валидация HRM-токена (Ed25519, тот же ключ что VIP/STD/SUB)
+#   3. Сканирование текущей OpenClaw-системы (список агентов + workspace)
+#      → передаём как контекст следующему шагу
+#   4. Confirm от клиента — мы покажем что собираемся запускать
+#      (third-party installer от NousResearch)
+#   5. Запуск официального Hermes installer:
+#        curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+#   6. Verify (hermes --version)
+#   7. Финал: команды для запуска (hermes gateway status, hermes config path)
+
+install_hermes_super_agent() {
+  echo ""
+  echo -e "${BOLD}${MAGENTA}   ╔════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}${MAGENTA}   ║      H E R M E S   —   С У П Е Р - А Г Е Н Т             ║${NC}"
+  echo -e "${BOLD}${MAGENTA}   ╚════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+
+  # ── 1. Запрос HRM-токена ────────────────────────────────────────
+  echo -e "   ${BOLD}${WHITE}Hermes — это платный SKU.${NC} Получи HRM-токен в ${BOLD}@AITeamVIPBot${NC} (/start)."
+  echo ""
+
+  local machine_tg_id
+  machine_tg_id=$(vip_detect_owner_tg_id)
+  if [[ -z "$machine_tg_id" ]]; then
+    echo -e "   ${BOLD}${WHITE}Введите ваш Telegram user ID:${NC}"
+    read -r machine_tg_id
+    [[ ! "$machine_tg_id" =~ ^[0-9]+$ ]] && { warn "TG ID должен быть числом."; return 1; }
+  fi
+
+  local hrm_token=""
+  local attempts=0
+  while [[ $attempts -lt 3 ]]; do
+    attempts=$((attempts + 1))
+    echo -e "   ${BOLD}${WHITE}Вставь HRM-токен (попытка ${attempts}/3):${NC}"
+    read -r hrm_token
+
+    # Wave 17 санитизация — те же правила что для course-token
+    hrm_token=$(printf '%s' "$hrm_token" | tr -d '[:space:]')
+    hrm_token="${hrm_token//—/-}"
+    hrm_token="${hrm_token//–/-}"
+    hrm_token="${hrm_token//‐/-}"
+    hrm_token="${hrm_token//‑/-}"
+    hrm_token="${hrm_token//\"/}"
+    hrm_token="${hrm_token//\'/}"
+
+    if [[ -z "$hrm_token" ]]; then
+      warn "Пустой ввод."
+      continue
+    fi
+
+    if [[ ! "$hrm_token" =~ ^HRM- ]]; then
+      warn "HRM-токен должен начинаться с «HRM-». Это отдельный SKU от VIP/STD."
+      echo -e "   ${DIM}Получи в @AITeamVIPBot — он выдаст HRM-... для платных Hermes-юзеров.${NC}"
+      continue
+    fi
+
+    verify_vip_token "$hrm_token" "$machine_tg_id"
+    local rc=$?
+    case $rc in
+      0)
+        echo -e "   ${GREEN}✓${NC} HRM-токен подтверждён."
+        break
+        ;;
+      3)
+        warn "HRM-токен привязан к другому Telegram ID."
+        echo -e "   ${DIM}Используй ТОТ ЖЕ Telegram-аккаунт что при покупке.${NC}"
+        ;;
+      *)
+        warn "HRM-токен не прошёл проверку (код $rc)."
+        echo -e "   ${DIM}Возможно: повреждён при копировании / отозван / устарел.${NC}"
+        ;;
+    esac
+    hrm_token=""
+  done
+
+  if [[ -z "$hrm_token" ]]; then
+    echo ""
+    echo -e "${BOLD}${RED}   ✗  HRM-токен не подтверждён за 3 попытки. Отказ.${NC}"
+    record_telemetry "hermes_token_rejected" "ok"
+    return 1
+  fi
+
+  # ── 2. Сканирование текущей OpenClaw-системы ────────────────────
+  echo ""
+  echo -e "   ${DIM}Сканирую твою OpenClaw-установку...${NC}"
+  local scan_file
+  scan_file=$(mktemp -t openclaw-scan.XXXXXX.json 2>/dev/null || echo "/tmp/openclaw-scan-$$.json")
+
+  local agents_list=""
+  if [[ -d "$HOME/.openclaw/agents" ]]; then
+    agents_list=$(ls -1 "$HOME/.openclaw/agents" 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+  fi
+  local workspaces=""
+  workspaces=$(ls -1d "$HOME"/.openclaw/workspace* 2>/dev/null | wc -l | tr -d ' ')
+
+  cat > "$scan_file" <<EOF
+{
+  "scan_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "openclaw_home": "$HOME/.openclaw",
+  "agents_installed": "${agents_list}",
+  "workspaces_count": ${workspaces},
+  "openclaw_cli_available": $(command -v openclaw &>/dev/null && echo true || echo false)
+}
+EOF
+
+  echo -e "   ${GREEN}✓${NC} Скан сохранён: ${DIM}${scan_file}${NC}"
+  echo -e "   ${DIM}Найдено агентов: $(echo "$agents_list" | tr ',' ' ')${NC}"
+  echo -e "   ${DIM}Workspaces: ${workspaces}${NC}"
+  echo ""
+
+  # ── 3. Confirm перед third-party install ────────────────────────
+  echo -e "${BOLD}${YELLOW}   ⚠  ВАЖНО: дальше запустится official installer Hermes${NC}"
+  echo -e "   ${DIM}Источник: https://github.com/NousResearch/hermes-agent${NC}"
+  echo -e "   ${DIM}Команда: curl -fsSL .../scripts/install.sh | bash${NC}"
+  echo -e "   ${DIM}Установит: ~/.hermes/ (~200MB venv + Python deps + macOS LaunchAgent)${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Продолжить? [y/N]:${NC}"
+  read -r _hermes_confirm
+  if [[ "${_hermes_confirm:-n}" != "y" && "${_hermes_confirm:-n}" != "Y" ]]; then
+    echo -e "   ${DIM}Установка Hermes отменена. HRM-токен остался валидным,${NC}"
+    echo -e "   ${DIM}можешь запустить ту же команду снова когда будешь готов.${NC}"
+    record_telemetry "hermes_install_declined" "ok"
+    return 0
+  fi
+
+  # ── 4. Запуск Hermes installer ──────────────────────────────────
+  echo ""
+  echo -e "   ${DIM}Запускаю Hermes installer (это займёт 3-5 минут)...${NC}"
+  echo ""
+  if curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash; then
+    record_telemetry "hermes_installer_completed" "ok"
+  else
+    warn "Hermes installer завершился с ошибкой. Проверь логи выше."
+    record_telemetry "hermes_installer_failed" "ok"
+    return 1
+  fi
+
+  # ── 5. Verify ───────────────────────────────────────────────────
+  echo ""
+  if command -v hermes &>/dev/null || [[ -x "$HOME/.hermes/hermes-agent/venv/bin/hermes" ]]; then
+    local hermes_version
+    if command -v hermes &>/dev/null; then
+      hermes_version=$(hermes --version 2>/dev/null | head -1 || echo "unknown")
+    else
+      hermes_version=$("$HOME/.hermes/hermes-agent/venv/bin/hermes" --version 2>/dev/null | head -1 || echo "unknown")
+    fi
+    echo -e "   ${GREEN}✓${NC} Hermes установлен: ${BOLD}${hermes_version}${NC}"
+  else
+    warn "Не нашёл hermes-команду после установки. Возможно installer не завершился."
+    return 1
+  fi
+
+  # ── 6. Финал ────────────────────────────────────────────────────
+  echo ""
+  echo -e "${BOLD}${GREEN}   ╔════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}${GREEN}   ║   ✓  Hermes готов!                                       ║${NC}"
+  echo -e "${BOLD}${GREEN}   ╚════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Что дальше:${NC}"
+  echo -e "   ${CYAN}1.${NC} Проверь статус gateway:  ${BOLD}hermes gateway status${NC}"
+  echo -e "   ${CYAN}2.${NC} Открой config:           ${BOLD}hermes config path${NC}"
+  echo -e "   ${CYAN}3.${NC} Логи gateway:            ${BOLD}~/.hermes/logs/gateway.log${NC}"
+  echo ""
+  echo -e "   ${DIM}OpenClaw-скан передан Hermes как контекст: ${scan_file}${NC}"
+  echo -e "   ${DIM}Документация: https://github.com/NousResearch/hermes-agent${NC}"
+  echo ""
+  record_telemetry "hermes_install_success" "ok"
+  return 0
+}
+
 MAIN_CHOICE=""
+
+# Wave 25: детекция установленного OpenClaw.
+# Используется в V_MAIN чтобы условно показывать 4-й пункт «Hermes»
+# (super-agent над OpenClaw), который имеет смысл только если движок
+# уже стоит. На свежей машине без OpenClaw — Hermes-опция скрыта.
+detect_openclaw() {
+  command -v openclaw &>/dev/null && return 0
+  [[ -d "$HOME/.openclaw" ]] && return 0
+  return 1
+}
+
+OPENCLAW_INSTALLED=false
+if detect_openclaw; then
+  OPENCLAW_INSTALLED=true
+fi
 
 if [[ "$SKIP_MENU" != true && \
       -z "$ONLY_AGENT" && \
@@ -634,9 +829,19 @@ if [[ "$SKIP_MENU" != true && \
   echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
   echo ""
   echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}OpenClaw${NC}   ${DIM}— только движок (без агентов)${NC}"
+  if [[ "$OPENCLAW_INSTALLED" == true ]]; then
+    echo ""
+    echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Hermes${NC}     ${DIM}— супер-агент над всей командой${NC}  ${YELLOW}★${NC}"
+    echo -e "       ${DIM}Анализирует твою OpenClaw-установку и оркестрирует агентов${NC}"
+    echo -e "       ${DIM}Требует отдельный HRM-токен (платный SKU)${NC}"
+  fi
   echo ""
   divider
-  echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
+  if [[ "$OPENCLAW_INSTALLED" == true ]]; then
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4, Enter = 1]:${NC}"
+  else
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
+  fi
   echo ""
   read -r _main_menu_input
 
@@ -663,6 +868,20 @@ if [[ "$SKIP_MENU" != true && \
       echo ""
       record_telemetry "main_menu_openclaw_exit" "ok"
       _last_exit_reason="main_menu_openclaw"
+      exit 0
+      ;;
+    4)
+      if [[ "$OPENCLAW_INSTALLED" != true ]]; then
+        echo ""
+        echo -e "   ${YELLOW}Опция 4 (Hermes) доступна только если OpenClaw уже установлен.${NC}"
+        echo -e "   ${DIM}Сначала запусти первый установщик (factory) — поставь OpenClaw движок.${NC}"
+        _last_exit_reason="hermes_no_openclaw"
+        exit 0
+      fi
+      MAIN_CHOICE="hermes"
+      record_telemetry "main_menu_hermes" "ok"
+      install_hermes_super_agent
+      _last_exit_reason="hermes_install_done"
       exit 0
       ;;
     *)
