@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.24"
+INSTALLER_VERSION="2026.05.24.1"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -587,6 +587,87 @@ ensure_telemetry_consent
 record_telemetry "agents_pack_start" "ok"
 
 # ═══════════════════════════════════════════════════════════════
+#  V_MAIN. ГЛАВНОЕ МЕНЮ (wave 21)
+# ═══════════════════════════════════════════════════════════════
+#
+# Показывается СРАЗУ после banner (и early-exits), ДО запроса токена.
+# Клиент видит линейку продуктов → выбирает что хочет → потом подтверждает
+# токеном. Это UX как у любого интернет-магазина: «продукт → корзина →
+# подтверждение оплаты».
+#
+# Пропускается если запуск non-interactive (любой из):
+#   --install / --skip-menu  → клиент знает что хочет
+#   --course-token <T>       → tier определит выбор
+#   --only-agent <name>      → явный запрос конкретного агента
+#   --config <file>          → CI / автоматический запуск
+#   VPS_MODE=true            → headless установка
+#
+# Backwards-compat 100% — все существующие команды работают как раньше.
+
+MAIN_CHOICE=""
+
+if [[ "$SKIP_MENU" != true && \
+      -z "$ONLY_AGENT" && \
+      -z "$COURSE_TOKEN" && \
+      -z "${CONFIG_FILE:-}" && \
+      "$VPS_MODE" != true ]]; then
+
+  echo ""
+  echo -e "${BOLD}${MAGENTA}   ╔════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}${MAGENTA}   ║                  Г Л А В Н О Е   М Е Н Ю               ║${NC}"
+  echo -e "${BOLD}${MAGENTA}   ╚════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Что ставим?${NC}"
+  echo ""
+  echo -e "   ${BOLD}${YELLOW}  1)${NC}  ${BOLD}Pro${NC}        ${DIM}— 6 агентов (полный набор)${NC}  ${GREEN}← рекомендуется${NC}"
+  echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
+  echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
+  echo ""
+  echo -e "   ${BOLD}${GREEN}  2)${NC}  ${BOLD}Base${NC}       ${DIM}— 3 базовых агента${NC}"
+  echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
+  echo ""
+  echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}OpenClaw${NC}   ${DIM}— только движок (без агентов)${NC}"
+  echo ""
+  divider
+  echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
+  echo ""
+  read -r _main_menu_input
+
+  case "${_main_menu_input:-1}" in
+    1|"")
+      MAIN_CHOICE="pro"
+      record_telemetry "main_menu_pro" "ok"
+      ;;
+    2)
+      MAIN_CHOICE="base"
+      record_telemetry "main_menu_base" "ok"
+      ;;
+    3)
+      # OpenClaw — движок уже стоит (поставлен factory'ем на шаге 1).
+      # Этот установщик ставит АГЕНТОВ — а клиент не хочет агентов.
+      # Graceful exit без запроса токена.
+      MAIN_CHOICE="openclaw"
+      echo ""
+      echo -e "   ${BOLD}${GREEN}✓${NC} Ок — оставляю только OpenClaw движок (без AI-агентов)."
+      echo ""
+      echo -e "   ${DIM}OpenClaw уже работает (поставлен первым установщиком).${NC}"
+      echo -e "   ${DIM}Если захочешь добавить агентов — запусти эту команду снова,${NC}"
+      echo -e "   ${DIM}выбери 1 (Pro) или 2 (Base).${NC}"
+      echo ""
+      record_telemetry "main_menu_openclaw_exit" "ok"
+      _last_exit_reason="main_menu_openclaw"
+      exit 0
+      ;;
+    *)
+      echo ""
+      echo -e "   ${YELLOW}Не распознал «${_main_menu_input}». Выход.${NC}"
+      _last_exit_reason="main_menu_invalid"
+      exit 0
+      ;;
+  esac
+fi
+
+# ═══════════════════════════════════════════════════════════════
 #  V0. COURSE-ТОКЕН — самое первое действие после preflight
 # ═══════════════════════════════════════════════════════════════
 #
@@ -675,6 +756,67 @@ VIP_TOKEN="$COURSE_TOKEN"
 vip_log_activation "$(vip_token_get_hash "$COURSE_TOKEN")" "$MACHINE_TG_ID" || true
 
 ok "Курс-токен подтверждён: ${BOLD}${COURSE_TIER}${NC}-тариф. TG ID: ${MACHINE_TG_ID}"
+
+# ═══════════════════════════════════════════════════════════════
+#  V_MAIN валидация — соответствует ли выбор в главном меню токену
+# ═══════════════════════════════════════════════════════════════
+#
+# Wave 21: если клиент выбрал в V_MAIN продукт выше своего тарифа —
+# отказ с подсказкой как получить нужный токен.
+#
+# Матрица доступа:
+#   MAIN_CHOICE=pro       требует токен VIP
+#   MAIN_CHOICE=base      требует токен STD или VIP (Pro→Base downgrade OK)
+#   MAIN_CHOICE=openclaw  — обработан в V_MAIN graceful-exit'ом ДО V0
+#
+# Если MAIN_CHOICE пуст (запуск через флаги --install/--course-token) —
+# tier определяет режим автоматически через V0b (старая логика).
+
+if [[ -n "$MAIN_CHOICE" ]]; then
+  case "$MAIN_CHOICE" in
+    pro)
+      if [[ "$COURSE_TIER" != "VIP" ]]; then
+        echo ""
+        echo -e "${BOLD}${RED}╔════════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${BOLD}${RED}║   ✗  УСТАНОВКА ОТКЛОНЕНА — несоответствие тарифа              ║${NC}"
+        echo -e "${BOLD}${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "   ${BOLD}${WHITE}Что произошло:${NC}"
+        echo -e "   Ты выбрал ${BOLD}Pro${NC} (6 агентов), но твой токен — ${BOLD}${COURSE_TIER}${NC}-тарифа."
+        echo ""
+        echo -e "   ${BOLD}${WHITE}Что делать:${NC}"
+        echo -e "   ${CYAN}•${NC} Если ты оплачивал ${BOLD}Pro${NC} — получи новый токен:"
+        echo -e "     ${BOLD}@AITeamVIPBot${NC} → /start → email/телефон оплаты"
+        echo -e "   ${CYAN}•${NC} Если оплачивал меньше — запусти установщик снова и выбери Base"
+        echo ""
+        _last_exit_reason="main_choice_tier_mismatch_pro"
+        exit 1
+      fi
+      VIP_MODE=true
+      SKIP_MENU=true  # V0b пропускаем — уже выбрали в V_MAIN
+      ;;
+    base)
+      if [[ "$COURSE_TIER" != "STD" && "$COURSE_TIER" != "VIP" ]]; then
+        echo ""
+        echo -e "${BOLD}${RED}╔════════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${BOLD}${RED}║   ✗  УСТАНОВКА ОТКЛОНЕНА — несоответствие тарифа              ║${NC}"
+        echo -e "${BOLD}${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "   ${BOLD}${WHITE}Что произошло:${NC}"
+        echo -e "   Ты выбрал ${BOLD}Base${NC} (3 агента), но твой токен — ${BOLD}${COURSE_TIER}${NC}-тарифа."
+        echo ""
+        echo -e "   ${BOLD}${WHITE}Что делать:${NC}"
+        echo -e "   ${CYAN}•${NC} Если оплачивал ${BOLD}Base${NC} — получи новый токен в ${BOLD}@AITeamVIPBot${NC}"
+        echo -e "   ${CYAN}•${NC} Если у тебя ${BOLD}OpenClaw${NC} (подписка) — запусти снова и выбери опцию 3"
+        echo ""
+        _last_exit_reason="main_choice_tier_mismatch_base"
+        exit 1
+      fi
+      VIP_MODE=false
+      SKIP_MENU=true
+      ;;
+  esac
+fi
 
 # ═══════════════════════════════════════════════════════════════
 #  V0c. SUB-tier — graceful exit (wave 16)
