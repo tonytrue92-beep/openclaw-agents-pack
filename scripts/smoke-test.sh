@@ -551,10 +551,13 @@ pass "wave 19: платформо-aware финальный экран (macOS/Win
 # Banner и меню используют новые публичные названия Base (бывший Standard)
 # и Pro (бывший VIP). Внутренние COURSE_TIER (STD/VIP/SUB) и token-формат
 # не меняются — backwards-compat с токенами полная.
-grep -q 'Base: Технарь' scripts/install-agents.sh \
-  || fail "wave 20: banner не содержит «Base:» (бывший Standard)"
-grep -q 'Pro: + Дизайнер' scripts/install-agents.sh \
-  || fail "wave 20: banner не содержит «Pro:» (бывший VIP)"
+# Wave 23: «Base:» и «Pro:» из баннера убраны в пользу маркетингового
+# pitch'а. Названия тарифов остались в главном меню (V_MAIN) — там
+# и проверяем.
+grep -q 'Base.*3 базовых агента' scripts/install-agents.sh \
+  || fail "wave 20/23: «Base» в меню (3 базовых агента) отсутствует"
+grep -q 'Pro.*6 агентов' scripts/install-agents.sh \
+  || fail "wave 20/23: «Pro» в меню (6 агентов) отсутствует"
 grep -q 'Pro — 6 агентов' scripts/install-agents.sh \
   || fail "wave 20: меню не содержит опцию «Pro — 6 агентов»"
 grep -q 'Base — 3 агента' scripts/install-agents.sh \
@@ -598,6 +601,22 @@ grep -q '|___ \\  / _ \\' scripts/install-agents.sh \
 ! grep -q 'T R U E   P A C K' scripts/install-agents.sh \
   || fail "wave 22: старый «T R U E   P A C K» suffix не удалён"
 pass "wave 22: banner AI TEAM 2.0 (новый бренд)"
+
+# ─── Test 6.28: wave 23 продающий pitch под баннером ─────────────
+# Технические строки «Base: ... / Pro: ... / Installer v...» заменены
+# на маркетинговый pitch + версия мелким текстом для саппорта.
+grep -q 'Собери команду ИИ-агентов' scripts/install-agents.sh \
+  || fail "wave 23: продающий pitch (строка 1) отсутствует"
+grep -q 'работает на тебя 24/7' scripts/install-agents.sh \
+  || fail "wave 23: продающий pitch («24/7») отсутствует"
+grep -q 'становится умнее каждую неделю' scripts/install-agents.sh \
+  || fail "wave 23: продающий pitch («умнее каждую неделю») отсутствует"
+grep -q 'установил, работает' scripts/install-agents.sh \
+  || fail "wave 23: продающий pitch («установил, работает») отсутствует"
+# Старый «Installer v..» с (COMMIT) убран — версия теперь компактная
+! grep -q 'Installer v\${INSTALLER_VERSION} (\${INSTALLER_COMMIT})' scripts/install-agents.sh \
+  || fail "wave 23: старая строка «Installer v...(COMMIT)» в баннере осталась"
+pass "wave 23: продающий pitch под баннером + версия мелко"
 
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
