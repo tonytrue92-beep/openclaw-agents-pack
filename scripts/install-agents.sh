@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.17.1"
+INSTALLER_VERSION="2026.05.24"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -96,7 +96,7 @@ OpenClaw Agents Pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})
 Usage: bash install-agents.sh [OPTIONS]
 
 Options:
-  --install              Пропустить меню, поставить Standard-набор (3 агента)
+  --install              Пропустить меню, поставить Base-набор (3 агента)
   --course-token <token> Course-token из @AITeamVIPBot. Mandatory для свежей установки.
                          Формат VIP-... → VIP-режим (6 агентов), STD-... → Standard (3).
   --vip-token <token>    Backward-compat алиас для --course-token.
@@ -368,8 +368,8 @@ cat << 'LOGO'
         |_|                                              |___/   T R U E   P A C K
 LOGO
 echo -e "${NC}"
-echo -e "${BOLD}   Standard: Технарь 🔧  Маркетолог 📈  Продюсер 🎬${NC}"
-echo -e "${BOLD}   VIP: + Дизайнер 🎨  Координатор 🧭${NC}"
+echo -e "${BOLD}   Base: Технарь 🔧  Маркетолог 📈  Продюсер 🎬${NC}"
+echo -e "${BOLD}   Pro: + Дизайнер 🎨  Координатор 🧭  Копирайтер ✍️${NC}"
 echo -e "${DIM}   Installer v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
 if [[ "$VPS_MODE" == true ]]; then
   echo -e "${BOLD}${MAGENTA}   🌐 VPS-режим: Linux-сервер, headless${NC}"
@@ -692,7 +692,7 @@ if [[ "$COURSE_TIER" == "SUB" ]]; then
   echo ""
   echo -e "${BOLD}${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BOLD}${YELLOW}║                                                                ║${NC}"
-  echo -e "${BOLD}${YELLOW}║   ℹ️   SUB-тариф (подписка) — базовая установка              ║${NC}"
+  echo -e "${BOLD}${YELLOW}║   ℹ️   Тариф OpenClaw (подписка) — базовая установка         ║${NC}"
   echo -e "${BOLD}${YELLOW}║                                                                ║${NC}"
   echo -e "${BOLD}${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
   echo ""
@@ -700,16 +700,16 @@ if [[ "$COURSE_TIER" == "SUB" ]]; then
   echo -e "   ${GREEN}✓${NC} OpenClaw движок + main-агент (ставится первым установщиком)"
   echo ""
   echo -e "   ${BOLD}${WHITE}Что это значит:${NC}"
-  echo -e "   ${DIM}Этот установщик (agents-pack) добавляет ${BOLD}дополнительных${NC}${DIM} агентов${NC}"
+  echo -e "   ${DIM}Этот установщик добавляет ${BOLD}дополнительных${NC}${DIM} агентов${NC}"
   echo -e "   ${DIM}(Технаря / Маркетолога / Продюсера / Дизайнера / Координатора /${NC}"
-  echo -e "   ${DIM}Копирайтера). В SUB-тарифе они недоступны — это для Standard / VIP.${NC}"
+  echo -e "   ${DIM}Копирайтера). В тарифе OpenClaw они недоступны — это для Base / Pro.${NC}"
   echo ""
   echo -e "   ${BOLD}${WHITE}Что у тебя уже работает:${NC}"
   echo -e "   ${CYAN}•${NC} Открой Telegram, найди бота которого настраивал в первом установщике"
   echo -e "   ${CYAN}•${NC} Напиши ему ${BOLD}/start${NC} или просто сообщение — main-агент ответит"
   echo ""
   echo -e "   ${BOLD}${WHITE}Хочешь больше агентов?${NC}"
-  echo -e "   ${DIM}Апгрейд на Standard (3 агента) или VIP (6 агентов) — пиши в саппорт-чат курса.${NC}"
+  echo -e "   ${DIM}Апгрейд на Base (3 агента) или Pro (6 агентов) — пиши в саппорт-чат курса.${NC}"
   echo -e "   ${DIM}После апгрейда получишь новый токен в @AITeamVIPBot и запустишь этот${NC}"
   echo -e "   ${DIM}установщик снова — он распознает новый тариф и поставит агентов.${NC}"
   echo ""
@@ -741,34 +741,28 @@ fi
 
 if [[ "$SKIP_MENU" != true && -z "$ONLY_AGENT" ]]; then
   if [[ "$COURSE_TIER" == "STD" ]]; then
-    # STD: без меню. Сообщение для прозрачности.
+    # STD (Base): без меню. Сообщение для прозрачности.
     echo ""
-    echo -e "   ${GREEN}✓${NC} Тариф ${BOLD}Standard${NC} — установлю 3 агента: 🔧 Технарь, 📈 Маркетолог, 🎬 Продюсер."
-    echo -e "   ${DIM}Если нужна диагностика или debug-bundle — запусти с флагом${NC}"
-    echo -e "   ${DIM}  --diagnose-only  (проверить уже установленных)${NC}"
-    echo -e "   ${DIM}  --collect-debug  (собрать архив для саппорта)${NC}"
+    echo -e "   ${GREEN}✓${NC} Тариф ${BOLD}Base${NC} — установлю 3 агента: 🔧 Технарь, 📈 Маркетолог, 🎬 Продюсер."
     VIP_MODE=false
     record_telemetry "menu_skipped_std_tier" "ok"
   else
-    # VIP: меню с подтверждением + опциями
-    explain "У тебя ${BOLD}VIP${NC}-тариф — можешь поставить полный набор или урезанный."
-    echo -e "   ${BOLD}${YELLOW}  1)${NC}  ${BOLD}VIP — 6 агентов${NC}  ${GREEN}← рекомендуется (по тарифу)${NC}"
+    # VIP (Pro): меню — 3 пункта, по продуктовой линейке.
+    # Wave 20: Pro / Base / OpenClaw как публичные названия тарифов.
+    # Убраны «Установить только одного», «Диагностика», «Debug-bundle» —
+    # это эксперт-флаги, в основном меню не нужны.
+    explain "Выбери что поставить:"
+    echo -e "   ${BOLD}${YELLOW}  1)${NC}  ${BOLD}Pro — 6 агентов${NC}  ${GREEN}← рекомендуется (по тарифу)${NC}"
     echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
     echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
     echo ""
-    echo -e "   ${BOLD}${GREEN}  2)${NC}  ${BOLD}Только Standard — 3 агента${NC}"
+    echo -e "   ${BOLD}${GREEN}  2)${NC}  ${BOLD}Base — 3 агента${NC}"
     echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
-    echo -e "       ${DIM}(если хочешь начать с базового набора, VIP-агентов добавишь позже)${NC}"
     echo ""
-    echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}Установить только одного${NC}"
-    echo -e "       ${DIM}Выбери: tech, marketer, producer, designer, coordinator, copywriter.${NC}"
-    echo ""
-    echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Диагностика${NC} — проверить уже установленных"
-    echo ""
-    echo -e "   ${BOLD}${WHITE}  5)${NC}  ${BOLD}Debug-bundle${NC} для саппорта"
+    echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}Только OpenClaw${NC}  ${DIM}(без агентов, чистый движок)${NC}"
     echo ""
     divider
-    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4/5, Enter = 1]:${NC}"
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
     echo ""
     read -r MENU_CHOICE
     case "${MENU_CHOICE:-1}" in
@@ -781,21 +775,16 @@ if [[ "$SKIP_MENU" != true && -z "$ONLY_AGENT" ]]; then
         record_telemetry "menu_vip_chose_std" "ok"
         ;;
       3)
-        echo -e "   ${BOLD}${WHITE}Какого агента поставить? [tech/marketer/producer/designer/coordinator/copywriter]:${NC}"
-        read -r ONLY_AGENT
-        record_telemetry "menu_only_one" "${ONLY_AGENT}"
-        ;;
-      4)
-        # См. предыдущую версию: НЕ exec — там curl-bash проблема.
+        # «Только OpenClaw» — клиент с Pro решил оставить только базовый
+        # движок без AI-агентов. Graceful exit с инструкцией как добавить
+        # агентов потом.
         echo ""
-        echo -e "   ${DIM}Запускаю диагностику...${NC}"
-        bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --diagnose-only
-        _last_exit_reason="manual_diagnose"
-        exit 0
-        ;;
-      5)
-        collect_debug_bundle "manual from menu (VIP tier)"
-        _last_exit_reason="manual_debug_bundle"
+        echo -e "   ${BOLD}${WHITE}Ок — оставляю только OpenClaw движок (без AI-агентов).${NC}"
+        echo -e "   ${DIM}OpenClaw уже стоит (первая ступень установки). Этот шаг ничего не меняет.${NC}"
+        echo -e "   ${DIM}Если захочешь агентов потом — запусти эту команду снова, выбери 1 или 2.${NC}"
+        echo ""
+        record_telemetry "menu_only_openclaw" "ok"
+        _last_exit_reason="menu_only_openclaw"
         exit 0
         ;;
       *)
@@ -832,13 +821,13 @@ if [[ "$VIP_MODE" == true && "$COURSE_TIER" != "VIP" ]]; then
   echo -e "${BOLD}${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
   echo ""
   echo -e "   ${BOLD}${WHITE}Что произошло:${NC}"
-  echo -e "   Запрошен VIP-набор (6 агентов), но твой токен — ${BOLD}${COURSE_TIER}${NC}-тарифа."
-  echo -e "   ${COURSE_TIER}-токен даёт доступ только к Standard-набору (3 агента)."
+  echo -e "   Запрошен Pro-набор (6 агентов), но твой токен — ${BOLD}${COURSE_TIER}${NC}-тарифа."
+  echo -e "   ${COURSE_TIER}-токен даёт доступ только к Base-набору (3 агента)."
   echo ""
   echo -e "   ${BOLD}${WHITE}Что делать:${NC}"
-  echo -e "   ${CYAN}•${NC} Если ты оплатил ${BOLD}VIP${NC} — получи новый токен:"
+  echo -e "   ${CYAN}•${NC} Если ты оплатил ${BOLD}Pro${NC} — получи новый токен:"
   echo -e "     ${BOLD}@AITeamVIPBot${NC} → /start → email/phone оплаты"
-  echo -e "   ${CYAN}•${NC} Если оплачивал ${BOLD}Standard${NC} — запусти без флагов VIP-режима:"
+  echo -e "   ${CYAN}•${NC} Если оплачивал ${BOLD}Base${NC} — запусти без флагов Pro-режима:"
   echo -e "     ${GREEN}bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh) --install${NC}"
   echo ""
   _last_exit_reason="tier_mismatch"
