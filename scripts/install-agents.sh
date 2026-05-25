@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.25"
+INSTALLER_VERSION="2026.05.25.1"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -367,9 +367,16 @@ cat << 'LOGO'
 /_/   \_\___|   |_| |_____/_/   \_\_|  |_| |_____(_)___/
 LOGO
 echo -e "${NC}"
-echo -e "${BOLD}   Base: Технарь 🔧  Маркетолог 📈  Продюсер 🎬${NC}"
-echo -e "${BOLD}   Pro: + Дизайнер 🎨  Координатор 🧭  Копирайтер ✍️${NC}"
-echo -e "${DIM}   Installer v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
+echo ""
+echo -e "${BOLD}${WHITE}   Собери команду ИИ-агентов,${NC}"
+echo -e "${BOLD}${WHITE}   которая работает на тебя 24/7${NC}"
+echo -e "${BOLD}${WHITE}   и становится умнее каждую неделю${NC}"
+echo ""
+echo -e "${DIM}   Не просто боты — готовая ИИ-команда с супер-агентом${NC}"
+echo -e "${DIM}   и ролями под бизнес. Не нанимать, не обучать,${NC}"
+echo -e "${DIM}   не увольнять — установил, работает.${NC}"
+echo ""
+echo -e "${DIM}   v${INSTALLER_VERSION}${NC}"
 if [[ "$VPS_MODE" == true ]]; then
   echo -e "${BOLD}${MAGENTA}   🌐 VPS-режим: Linux-сервер, headless${NC}"
 fi
