@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.25.3"
+INSTALLER_VERSION="2026.05.25.4"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -821,14 +821,14 @@ if [[ "$SKIP_MENU" != true && \
   echo ""
   echo -e "   ${BOLD}${WHITE}Что ставим?${NC}"
   echo ""
-  echo -e "   ${BOLD}${YELLOW}  1)${NC}  ${BOLD}Pro${NC}        ${DIM}— 6 агентов (полный набор)${NC}  ${GREEN}← рекомендуется${NC}"
-  echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
-  echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
+  echo -e "   ${BOLD}${CYAN}  1)${NC}  ${BOLD}OpenClaw${NC}   ${DIM}— только движок (без агентов)${NC}"
   echo ""
   echo -e "   ${BOLD}${GREEN}  2)${NC}  ${BOLD}Base${NC}       ${DIM}— 3 базовых агента${NC}"
   echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
   echo ""
-  echo -e "   ${BOLD}${CYAN}  3)${NC}  ${BOLD}OpenClaw${NC}   ${DIM}— только движок (без агентов)${NC}"
+  echo -e "   ${BOLD}${YELLOW}  3)${NC}  ${BOLD}Pro${NC}        ${DIM}— 6 агентов (полный набор)${NC}  ${GREEN}← рекомендуется${NC}"
+  echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
+  echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
   if [[ "$OPENCLAW_INSTALLED" == true ]]; then
     echo ""
     echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Hermes${NC}     ${DIM}— супер-агент над всей командой${NC}  ${YELLOW}★${NC}"
@@ -838,23 +838,15 @@ if [[ "$SKIP_MENU" != true && \
   echo ""
   divider
   if [[ "$OPENCLAW_INSTALLED" == true ]]; then
-    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4, Enter = 1]:${NC}"
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4, Enter = 3]:${NC}"
   else
-    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 3]:${NC}"
   fi
   echo ""
   read -r _main_menu_input
 
-  case "${_main_menu_input:-1}" in
-    1|"")
-      MAIN_CHOICE="pro"
-      record_telemetry "main_menu_pro" "ok"
-      ;;
-    2)
-      MAIN_CHOICE="base"
-      record_telemetry "main_menu_base" "ok"
-      ;;
-    3)
+  case "${_main_menu_input:-3}" in
+    1)
       # OpenClaw — движок уже стоит (поставлен factory'ем на шаге 1).
       # Этот установщик ставит АГЕНТОВ — а клиент не хочет агентов.
       # Graceful exit без запроса токена.
@@ -864,11 +856,19 @@ if [[ "$SKIP_MENU" != true && \
       echo ""
       echo -e "   ${DIM}OpenClaw уже работает (поставлен первым установщиком).${NC}"
       echo -e "   ${DIM}Если захочешь добавить агентов — запусти эту команду снова,${NC}"
-      echo -e "   ${DIM}выбери 1 (Pro) или 2 (Base).${NC}"
+      echo -e "   ${DIM}выбери 2 (Base) или 3 (Pro).${NC}"
       echo ""
       record_telemetry "main_menu_openclaw_exit" "ok"
       _last_exit_reason="main_menu_openclaw"
       exit 0
+      ;;
+    2)
+      MAIN_CHOICE="base"
+      record_telemetry "main_menu_base" "ok"
+      ;;
+    3|"")
+      MAIN_CHOICE="pro"
+      record_telemetry "main_menu_pro" "ok"
       ;;
     4)
       if [[ "$OPENCLAW_INSTALLED" != true ]]; then

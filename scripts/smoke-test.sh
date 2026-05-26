@@ -564,12 +564,14 @@ grep -q 'Base — 3 агента' scripts/install-agents.sh \
   || fail "wave 20: меню не содержит опцию «Base — 3 агента»"
 grep -q 'Только OpenClaw' scripts/install-agents.sh \
   || fail "wave 20: меню не содержит опцию «Только OpenClaw» (3-й пункт)"
-# Меню теперь 3 пункта вместо 5 — проверяем что нет старого «[1/2/3/4/5,]»
-grep -q '\[1/2/3, Enter = 1\]' scripts/install-agents.sh \
-  || fail "wave 20: меню не сужено до 3 опций (ожидаем [1/2/3, Enter = 1])"
+# Меню теперь компактное — 3 пункта без Hermes или 4 с Hermes.
+# Wave 26: порядок пунктов изменён (OpenClaw → Base → Pro → Hermes),
+# default стал Enter = 3 (Pro).
+grep -qE '\[1/2/3, Enter = 3\]|\[1/2/3/4, Enter = 3\]' scripts/install-agents.sh \
+  || fail "wave 20/26: меню не содержит [1/2/3, Enter = 3] / [1/2/3/4, Enter = 3]"
 grep -q '\[1/2/3/4/5' scripts/install-agents.sh \
   && fail "wave 20: старое 5-опционное меню всё ещё на месте"
-pass "wave 20: публичные тарифы Base/Pro/OpenClaw + меню 3 пункта"
+pass "wave 20/26: публичные тарифы Base/Pro/OpenClaw + меню 3-4 пункта"
 
 # ─── Test 6.26: wave 21 главное меню (V_MAIN) после banner ───────
 # V_MAIN показывает 3 опции (Pro/Base/OpenClaw) СРАЗУ после banner,
@@ -645,6 +647,20 @@ grep -q "'v3-hrm'" scripts/lib/vip.sh \
 grep -q 'HRM' scripts/lib/vip.sh \
   || fail "wave 25: vip.sh не упоминает HRM tier"
 pass "wave 25: Hermes super-agent (HRM-токен + condition menu + Nous installer)"
+
+# ─── Test 6.31: wave 26 порядок пунктов меню (OpenClaw → Base → Pro) ─
+# Ladder снизу вверх: OpenClaw (1) → Base (2) → Pro (3, default) → Hermes (4).
+# Default Enter = 3 (Pro как рекомендуемый).
+# Проверяем что в коде «1)» идёт с OpenClaw, «3)» с Pro, default «3» в case.
+grep -q '1)${NC}  ${BOLD}OpenClaw' scripts/install-agents.sh \
+  || fail "wave 26: пункт 1) не OpenClaw (порядок ladder нарушен)"
+grep -q '2)${NC}  ${BOLD}Base' scripts/install-agents.sh \
+  || fail "wave 26: пункт 2) не Base"
+grep -q '3)${NC}  ${BOLD}Pro' scripts/install-agents.sh \
+  || fail "wave 26: пункт 3) не Pro"
+grep -q '_main_menu_input:-3' scripts/install-agents.sh \
+  || fail "wave 26: default по Enter не = 3 (Pro)"
+pass "wave 26: ladder OpenClaw→Base→Pro→Hermes (default Enter = Pro)"
 
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
