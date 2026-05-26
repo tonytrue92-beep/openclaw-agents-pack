@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.25.4"
+INSTALLER_VERSION="2026.05.25.5"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -632,6 +632,102 @@ record_telemetry "agents_pack_start" "ok"
 #   7. Финал: команды для запуска (hermes gateway status, hermes config path)
 
 install_hermes_super_agent() {
+  # Wave 27: ANSI 3D-куб анимация (intro). Skip если нет python3 или
+  # ENV HERMES_NO_INTRO=1 (для CI / non-interactive / нелюбителей анимаций).
+  if [[ "${HERMES_NO_INTRO:-0}" != "1" ]] && command -v python3 &>/dev/null; then
+    python3 - <<'HERMES_CUBE_EOF' 2>/dev/null || true
+import math, time, sys
+
+W, H = 80, 24
+CUBE_WIDTH = 1.32
+DISTANCE = 4
+K1 = 18
+INC = 0.05
+
+FACE_CHARS = ['@', '$', '~', '#', ';', '+']
+FACE_COLORS = [196, 46, 226, 33, 129, 208]
+FACE_NORMALS = [(0,0,-1),(1,0,0),(-1,0,0),(0,0,1),(0,-1,0),(0,1,0)]
+VERTS = [(-CUBE_WIDTH,-CUBE_WIDTH,-CUBE_WIDTH),(CUBE_WIDTH,-CUBE_WIDTH,-CUBE_WIDTH),
+         (CUBE_WIDTH,CUBE_WIDTH,-CUBE_WIDTH),(-CUBE_WIDTH,CUBE_WIDTH,-CUBE_WIDTH),
+         (-CUBE_WIDTH,-CUBE_WIDTH,CUBE_WIDTH),(CUBE_WIDTH,-CUBE_WIDTH,CUBE_WIDTH),
+         (CUBE_WIDTH,CUBE_WIDTH,CUBE_WIDTH),(-CUBE_WIDTH,CUBE_WIDTH,CUBE_WIDTH)]
+EDGES = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(0,4),(1,5),(2,6),(3,7)]
+
+def rot(i,j,k,A,B,C):
+    sA,cA=math.sin(A),math.cos(A); sB,cB=math.sin(B),math.cos(B); sC,cC=math.sin(C),math.cos(C)
+    x1=i*cC-j*sC; y1=i*sC+j*cC; z1=k
+    y2=y1*cA-z1*sA; z2=y1*sA+z1*cA; x2=x1
+    z3=z2*cB-x2*sB; x3=z2*sB+x2*cB
+    return x3,y2,z3
+
+def frame(A,B,C):
+    zbuf=[0.0]*(W*H); chbuf=[' ']*(W*H); cbuf=[0]*(W*H)
+    for face in range(6):
+        ni,nj,nk = FACE_NORMALS[face]
+        sA,cA=math.sin(A),math.cos(A); sB,cB=math.sin(B),math.cos(B)
+        if -ni*sB + nj*sA*cB + nk*cA*cB > 0: continue
+        ch = FACE_CHARS[face]; col = FACE_COLORS[face]
+        u = -CUBE_WIDTH
+        while u < CUBE_WIDTH:
+            v = -CUBE_WIDTH
+            while v < CUBE_WIDTH:
+                if face==0: i,j,k = u,v,-CUBE_WIDTH
+                elif face==1: i,j,k = CUBE_WIDTH,v,u
+                elif face==2: i,j,k = -CUBE_WIDTH,v,-u
+                elif face==3: i,j,k = -u,v,CUBE_WIDTH
+                elif face==4: i,j,k = u,-CUBE_WIDTH,-v
+                else: i,j,k = u,CUBE_WIDTH,v
+                x,y,z = rot(i,j,k,A,B,C); z += DISTANCE
+                if z > 0.01:
+                    ooz = 1.0/z
+                    xp = int(W/2 + K1*ooz*x*2); yp = int(H/2 + K1*ooz*y)
+                    if 0<=xp<W and 0<=yp<H:
+                        idx = xp + yp*W
+                        if ooz > zbuf[idx]:
+                            zbuf[idx]=ooz; chbuf[idx]=ch; cbuf[idx]=col
+                v += INC
+            u += INC
+    for a,b in EDGES:
+        x0,y0,z0 = rot(*VERTS[a],A,B,C); x1,y1,z1 = rot(*VERTS[b],A,B,C)
+        z0 += DISTANCE; z1 += DISTANCE
+        for s in range(81):
+            t = s/80; x=x0+(x1-x0)*t; y=y0+(y1-y0)*t; z=z0+(z1-z0)*t
+            if z <= 0.01: continue
+            ooz = 1.0/z
+            xp = int(W/2 + K1*ooz*x*2); yp = int(H/2 + K1*ooz*y)
+            if 0<=xp<W and 0<=yp<H:
+                idx = xp + yp*W
+                if ooz > zbuf[idx] - 1e-9:
+                    zbuf[idx] = ooz + 1e-6; chbuf[idx] = '+'; cbuf[idx] = 231
+    out = []
+    for y in range(H):
+        row = []
+        for x in range(W):
+            idx = x + y*W
+            if chbuf[idx] != ' ':
+                row.append(f"\033[38;5;{cbuf[idx]}m{chbuf[idx]}")
+            else:
+                row.append(' ')
+        out.append(''.join(row) + "\033[0m")
+    return '\n'.join(out)
+
+A=B=C=0.0
+sys.stdout.write("\033[2J\033[?25l")
+try:
+    for n in range(int(3.5 * 30)):
+        sys.stdout.write("\033[H" + frame(A,B,C))
+        sys.stdout.flush()
+        A += 0.06; B += 0.045; C += 0.025
+        time.sleep(1.0/30)
+except KeyboardInterrupt:
+    pass
+finally:
+    sys.stdout.write("\033[?25h\033[0m\n")
+    sys.stdout.flush()
+HERMES_CUBE_EOF
+    clear 2>/dev/null || printf '\033[2J\033[H'
+  fi
+
   echo ""
   echo -e "${BOLD}${MAGENTA}   ╔════════════════════════════════════════════════════════╗${NC}"
   echo -e "${BOLD}${MAGENTA}   ║      H E R M E S   —   С У П Е Р - А Г Е Н Т             ║${NC}"

@@ -6,6 +6,46 @@
 
 ---
 
+## 2026-05-25 — Wave 27 (ANSI 3D-куб intro для Hermes)
+
+### Added
+
+При выборе опции **4) Hermes** в главном меню теперь играет
+**3.5-секундная ANSI 3D-куб анимация** — вращающийся цветной куб
+с 6 цветными гранями (red/green/yellow/blue/purple/orange) и
+белыми ребрами.
+
+Это вау-эффект перед запросом HRM-токена — клиент видит «магию»
+до начала установки super-agent'а.
+
+### Реализация
+
+- **Inline Python heredoc** `<<'HERMES_CUBE_EOF'` в bash-функции
+  `install_hermes_super_agent`
+- Алгоритм портирован 1-в-1 из React-компонента `CubeAnimation`
+  (присланного Антоном)
+- 80×24 терминал, 30 FPS, ANSI 256-color
+- Z-buffer + backface culling + edges всегда сверху
+- Hide cursor на время анимации (`\033[?25l`)
+- После анимации `clear` → переход к заголовку Hermes
+
+### Graceful fallbacks
+
+- **Нет `python3`** (Windows Git Bash без Python) → анимация
+  пропускается, сразу заголовок Hermes
+- **`HERMES_NO_INTRO=1`** в env → анимация пропускается (CI /
+  non-interactive)
+- **Ctrl+C во время анимации** → выход из анимации, cursor
+  восстанавливается, переход к Hermes flow
+
+### Compatibility
+
+- `INSTALLER_VERSION` `2026.05.25.4` → `2026.05.25.5`
+- Не ломает существующий Hermes-flow (анимация — pre-step)
+- Smoke 6.32 (новый, 4 ассерта). 37/37 PASS
+
+---
+
 ## 2026-05-25 — Wave 26 (порядок V_MAIN: ladder снизу вверх)
 
 ### Changed
