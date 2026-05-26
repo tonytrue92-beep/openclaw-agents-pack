@@ -67,7 +67,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.25.5"
+INSTALLER_VERSION="2026.05.25.6"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -378,8 +378,24 @@ echo -e "${DIM}   и ролями под бизнес. Не нанимать, н
 echo -e "${DIM}   не увольнять — установил, работает.${NC}"
 echo ""
 echo -e "${DIM}   v${INSTALLER_VERSION}${NC}"
+
+# Wave 28: показать клиенту что система определяется автоматически.
+# В VPS-режиме (флаг --vps) — приоритетная плашка. Иначе — auto-detect
+# ОС через detect_environment() из preflight.sh.
 if [[ "$VPS_MODE" == true ]]; then
   echo -e "${BOLD}${MAGENTA}   🌐 VPS-режим: Linux-сервер, headless${NC}"
+else
+  _detected_os=$(detect_environment 2>/dev/null || echo "unknown")
+  case "$_detected_os" in
+    macos)        _os_label="macOS" ;;
+    linux)        _os_label="Linux" ;;
+    wsl)          _os_label="Windows (WSL)" ;;
+    windows-bash) _os_label="Windows (Git Bash)" ;;
+    *)            _os_label="неизвестная ОС" ;;
+  esac
+  echo -e "${DIM}   🖥  Система определена автоматически: ${BOLD}${_os_label}${NC}${DIM}.${NC}"
+  echo -e "${DIM}      Если ты на VPS / сервере по SSH — перезапусти с флагом ${BOLD}--vps${NC}${DIM}.${NC}"
+  unset _detected_os _os_label
 fi
 echo ""
 echo -e "${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

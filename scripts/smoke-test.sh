@@ -675,6 +675,17 @@ grep -q 'CUBE_WIDTH' scripts/install-agents.sh \
   || fail "wave 27: куб-параметр CUBE_WIDTH не inline'ен"
 pass "wave 27: ANSI 3D-куб intro для Hermes (inline Python heredoc)"
 
+# ─── Test 6.33: wave 28 auto-detect ОС indicator в баннере ──────
+# Клиент видит в баннере «🖥 Система определена автоматически: macOS»
+# (или Linux / Windows / WSL) с подсказкой запустить --vps если сервер.
+grep -q 'Система определена автоматически' scripts/install-agents.sh \
+  || fail "wave 28: auto-detect indicator отсутствует в баннере"
+grep -q '_os_label' scripts/install-agents.sh \
+  || fail "wave 28: переменная _os_label не объявлена"
+grep -q 'Если ты на VPS' scripts/install-agents.sh \
+  || fail "wave 28: подсказка про --vps отсутствует"
+pass "wave 28: auto-detect ОС-indicator в баннере"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
