@@ -662,6 +662,19 @@ grep -q '_main_menu_input:-3' scripts/install-agents.sh \
   || fail "wave 26: default по Enter не = 3 (Pro)"
 pass "wave 26: ladder OpenClaw→Base→Pro→Hermes (default Enter = Pro)"
 
+# ─── Test 6.32: wave 27 ANSI 3D-куб intro в Hermes ──────────────
+# Inline Python heredoc HERMES_CUBE_EOF — анимация 3.5s при выборе
+# опции 4. Skip если нет python3 или ENV HERMES_NO_INTRO=1.
+grep -q 'HERMES_CUBE_EOF' scripts/install-agents.sh \
+  || fail "wave 27: heredoc HERMES_CUBE_EOF отсутствует"
+grep -q 'HERMES_NO_INTRO' scripts/install-agents.sh \
+  || fail "wave 27: opt-out через HERMES_NO_INTRO не реализован"
+grep -q 'FACE_CHARS' scripts/install-agents.sh \
+  || fail "wave 27: куб-рендер (FACE_CHARS) не inline'ен"
+grep -q 'CUBE_WIDTH' scripts/install-agents.sh \
+  || fail "wave 27: куб-параметр CUBE_WIDTH не inline'ен"
+pass "wave 27: ANSI 3D-куб intro для Hermes (inline Python heredoc)"
+
 # ─── Test 7: wave 6 AGENTS.md содержит Session Startup + Онбординг ───
 # Гарантия что агент при старте сессии читает файлы по порядку
 # и запускает онбординг при пустом USER.md.
