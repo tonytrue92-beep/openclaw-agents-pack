@@ -844,6 +844,22 @@ grep -qE 'gateway status.*running|running.*gateway status' scripts/install-trial
   || fail "wave 40: trial не проверяет что gateway running"
 pass "wave 40: gateway install+start+проверка (бот реально поднимается)"
 
+# ─── Test 6.42: wave 41 trial — надёжный gateway (launchctl bootstrap) ─
+# Баги wave 40: grep "running" ловил "not running" → install пропускался;
+# gateway start не грузит LaunchAgent. Фикс: install безусловно +
+# launchctl bootstrap (точная команда openclaw) + надёжная проверка.
+grep -q 'launchctl bootstrap' scripts/install-trial.sh \
+  || fail "wave 41: trial не делает launchctl bootstrap (LaunchAgent не грузится)"
+grep -q 'ai.openclaw.gateway.plist' scripts/install-trial.sh \
+  || fail "wave 41: trial не ссылается на gateway LaunchAgent plist"
+grep -q 'LaunchAgent \\(loaded\\)' scripts/install-trial.sh \
+  || fail "wave 41: проверка gateway не на надёжный маркер (LaunchAgent loaded)"
+# Хрупкий grep "running" (ловящий "not running") должен быть убран из проверки gateway
+grep -q 'grep -qE "running|RPC probe: ok"' scripts/install-trial.sh \
+  && fail "wave 41: остался хрупкий grep running (ловит not running)" \
+  || true
+pass "wave 41: надёжный gateway (install безусловно + launchctl bootstrap)"
+
 rm -f /tmp/fake.json
 
 echo ""

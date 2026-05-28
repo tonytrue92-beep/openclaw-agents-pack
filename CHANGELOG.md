@@ -6,6 +6,51 @@
 
 ---
 
+## 2026-05-28 — Wave 41 (trial: gateway реально запускается — launchctl bootstrap)
+
+### Триггер
+
+Лог Антона показал что wave 40 не сработал: `openclaw gateway install`
+вручную выдал «No gateway.mode found» + «Installed LaunchAgent», но
+gateway всё равно не запущен.
+
+### Два реальных бага (найдены по логу, не гаданием)
+
+**1. Хрупкий grep ловил «not running».** Условие
+`if ! openclaw gateway status | grep -qE "running"` — подстрока
+«running» содержится в «not running» → grep=true → `! true`=false →
+**install пропускался**. Классический баг частичного совпадения.
+
+**2. `gateway start` не грузит LaunchAgent.** После `gateway install`
+openclaw явно подсказывает:
+`launchctl bootstrap gui/$UID ~/Library/LaunchAgents/ai.openclaw.gateway.plist`
+— а я делал `gateway start`, который этого не делает.
+
+### Fix (по факту, проверено на рабочей машине)
+
+```bash
+openclaw config set gateway.mode local        # всегда (Updated gateway.mode)
+openclaw gateway install                        # БЕЗУСЛОВНО (идемпотентно)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.openclaw.gateway.plist
+openclaw gateway start
+# проверка на НАДЁЖНЫЙ маркер из рабочего status:
+gateway status | grep "LaunchAgent (loaded)|RPC probe: ok"
+```
+
+Убран хрупкий `grep running`. install теперь безусловный (не за
+ложным условием). Добавлен `launchctl bootstrap` (fallback на
+`launchctl load`). Проверка на «LaunchAgent (loaded)» — реальный
+маркер из рабочего `gateway status`.
+
+Если не поднялось — чёткая инструкция: 2 команды в новом терминале.
+
+### Compatibility
+
+- `TRIAL_VERSION` `2026.05.28.9` → `2026.05.28.10`
+- Smoke 6.42 (новый). ShellCheck чистый.
+
+---
+
 ## 2026-05-28 — Wave 40 (trial: правильный запуск gateway — бот оживает)
 
 ### Триггер
