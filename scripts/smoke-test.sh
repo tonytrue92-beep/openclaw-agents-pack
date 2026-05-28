@@ -787,6 +787,20 @@ grep -q 'openclaw agents delete assistant' scripts/install-trial.sh \
   || fail "wave 36: --uninstall не удаляет assistant-агента"
 pass "wave 36: флаг --uninstall (чистое удаление для переустановки)"
 
+# ─── Test 6.38: wave 37 trial подключает модель (auth-profile) ──
+# Без auth-profiles.json агент молчит (нет авторизации к provider).
+# Trial запрашивает opencode-ключ → пишет auth-profiles.json для
+# assistant-агента + config set model (как factory R3).
+grep -q 'opencode.ai' scripts/install-trial.sh \
+  || fail "wave 37: trial не запрашивает opencode-ключ для модели"
+grep -q 'auth-profiles.json' scripts/install-trial.sh \
+  || fail "wave 37: trial не пишет auth-profiles.json (агент будет молчать)"
+grep -q 'agents.defaults.model.primary' scripts/install-trial.sh \
+  || fail "wave 37: trial не устанавливает модель по умолчанию"
+grep -q 'OPENCODE_KEY' scripts/install-trial.sh \
+  || fail "wave 37: trial не обрабатывает opencode API-ключ"
+pass "wave 37: trial подключает модель (opencode-ключ + auth-profile + config)"
+
 rm -f /tmp/fake.json
 
 echo ""
