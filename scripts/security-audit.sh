@@ -102,12 +102,19 @@ echo "─── Check 6: templates/ не содержат личных данн�
 # Брендовое название курса вычищается ревью на стадии коммита вручную.
 forbidden=$(grep -rniE \
   'antonpolakov|@tonytruee|tonytrue92|975494053|1167075209|vip-factory\b|openclaw-factory\b|/Users/[a-z]+|Антон\s+Поляков|Tonytrue|serditov|instapol2136|TRUE AI AGENCY|ntn_[A-Za-z0-9]{20,}|cpk_[A-Za-z0-9]{20,}|pat_FL[A-Za-z0-9]{20,}' \
-  templates/ 2>/dev/null || true)
+  templates/ 2>/dev/null \
+  | grep -vE 'serditov\.tonytrue\.pro' \
+  || true)
+# Wave 30: course-offer URL https://serditov.tonytrue.pro/ — публичный
+# маркетинговый адрес (страница продаж), НАМЕРЕННО присутствует в
+# templates/assistant/ (демо-воронка). Это не утечка личных данных —
+# исключаем именно этот URL, но «serditov» в любом другом контексте
+# по-прежнему ловится как личный маркер.
 if [[ -n "$forbidden" ]]; then
   fail "templates/ содержат личные маркеры автора:"
   echo "$forbidden" | head -10
 else
-  pass "templates/ чистые от личных данных автора"
+  pass "templates/ чистые от личных данных автора (course-offer URL разрешён)"
 fi
 echo ""
 
