@@ -840,8 +840,10 @@ grep -q 'openclaw gateway install' scripts/install-trial.sh \
   || fail "wave 40: trial не делает gateway install (сервис не создаётся)"
 grep -q 'openclaw gateway start' scripts/install-trial.sh \
   || fail "wave 40: trial не делает gateway start"
-grep -qE 'gateway status.*running|running.*gateway status' scripts/install-trial.sh \
-  || fail "wave 40: trial не проверяет что gateway running"
+# Проверка статуса gateway — по НАДЁЖНЫМ маркерам (не «running», который
+# ловит «not running»; см. wave 41). Маркер проверяется в онбординге T5.
+grep -q 'openclaw gateway status' scripts/install-trial.sh \
+  || fail "wave 40: trial не проверяет статус gateway"
 pass "wave 40: gateway install+start+проверка (бот реально поднимается)"
 
 # ─── Test 6.42: wave 41 trial — надёжный gateway (launchctl bootstrap) ─
@@ -859,6 +861,31 @@ grep -q 'grep -qE "running|RPC probe: ok"' scripts/install-trial.sh \
   && fail "wave 41: остался хрупкий grep running (ловит not running)" \
   || true
 pass "wave 41: надёжный gateway (install безусловно + launchctl bootstrap)"
+
+# ─── Test 6.43: wave 42 trial — выбор модели + onboard + рус. онбординг ─
+# Антон: «человек первично выбирает модель + прогоняет быстрый анбординг
+# на русском». Меню моделей в T2, штатный onboard в авто-режиме, и
+# видимый русский чек-лист (✓/✗) в конце. Проверенные auth/gateway
+# (wave 37/40/41) ОСТАЮТСЯ как страховка — onboard их не заменяет.
+grep -q 'Выбери модель' scripts/install-trial.sh \
+  || fail "wave 42: нет меню выбора модели в T2"
+grep -q 'claude-sonnet-4-5' scripts/install-trial.sh \
+  || fail "wave 42: меню моделей без Claude Sonnet"
+grep -q 'openclaw onboard' scripts/install-trial.sh \
+  || fail "wave 42: trial не прогоняет openclaw onboard (Антон просил анбординг)"
+grep -q 'opencode-zen-api-key' scripts/install-trial.sh \
+  || fail "wave 42: onboard без --opencode-zen-api-key (модель не настроится)"
+grep -q 'non-interactive' scripts/install-trial.sh \
+  || fail "wave 42: onboard не в non-interactive (повиснет на промпте)"
+grep -q 'Быстрый онбординг' scripts/install-trial.sh \
+  || fail "wave 42: нет видимого русского онбординг-чеклиста"
+# Страховка не должна быть потеряна: auth-profile пишется напрямую,
+# gateway поднимается проверенными командами (не только через onboard).
+grep -q 'auth-profiles.json' scripts/install-trial.sh \
+  || fail "wave 42: потеряна прямая запись auth-profile (агент замолчит)"
+grep -q 'openclaw gateway install' scripts/install-trial.sh \
+  || fail "wave 42: потеряна страховочная установка gateway"
+pass "wave 42: выбор модели + onboard + русский онбординг (страховка сохранена)"
 
 rm -f /tmp/fake.json
 
