@@ -194,20 +194,29 @@ prepare_workspace_from_templates() {
     fi
   done
 
-  # ─── VIP-агенты: расширенный набор (SOUL + LEARNING + skills) ──
+  # ─── Расширенный набор (SOUL + LEARNING + skills) ─────────────
   #
-  # 3 VIP-специфичных агента (designer/coordinator/copywriter) получают
-  # дополнительные файлы:
+  # Wave 29: дифференциация по тарифу.
+  #
+  # designer/coordinator/copywriter — VIP-only агенты, ВСЕГДА получают
+  # расширенный набор (они и так ставятся только в Pro):
   #   • SOUL.md   — personality / границы / autonomy / онбординг-протокол
   #   • LEARNING.md — предзаполненные anti-patterns + место для новых
   #   • skills/<name>/SKILL.md × 2 — готовые фреймворки под роль
   #
-  # Остальные 3 (tech/marketer/producer) используют старый минимальный
-  # формат (4 базовых md-файла). Если VIP-extras не докачались — warn,
-  # но установку не прерываем (без них агент работает хуже, но работает).
+  # tech/marketer/producer — базовая тройка, ставится и в Base, и в Pro:
+  #   • В Pro (VIP_MODE=true) — ПОЛУЧАЮТ расширенный набор (как VIP-тройка)
+  #   • В Base (VIP_MODE=false) — только 4 базовых md-файла (как раньше)
+  #
+  # Это дифференциация тарифов: Pro-клиент получает «прокачанных» базовых
+  # агентов (с характером, уроками, навыками), Base — функциональных но
+  # без extras. Если extras не докачались — warn, установку не прерываем.
   local has_extras=false
   case "$agent_id" in
-    designer|coordinator|copywriter) has_extras=true ;;
+    designer|coordinator|copywriter)
+      has_extras=true ;;
+    tech|marketer|producer)
+      [[ "${VIP_MODE:-false}" == true ]] && has_extras=true ;;
   esac
 
   if [[ "$has_extras" == true ]]; then
@@ -233,6 +242,11 @@ prepare_workspace_from_templates() {
       designer)    skills_list="eachlabs-image-generation color-palette" ;;
       coordinator) skills_list="agent-collaboration-network close-loop" ;;
       copywriter)  skills_list="reef-copywriting brand-voice-profile" ;;
+      # Wave 29: skills для базовой тройки (только Pro — has_extras уже
+      # учёл VIP_MODE выше)
+      tech)        skills_list="diagnostic-checklist safe-rollback" ;;
+      marketer)    skills_list="funnel-diagnosis channel-unit-economics" ;;
+      producer)    skills_list="launch-route-selector product-unit-economics" ;;
     esac
 
     # В refresh mode — целиком бэкапим skills/ перед перезаписью

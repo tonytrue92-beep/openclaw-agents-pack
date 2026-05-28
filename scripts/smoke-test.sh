@@ -140,6 +140,29 @@ pass "wave 6: skills/*/SKILL.md на месте (6 импортированны�
   || fail "отсутствует templates/LICENSE-skills.md (MIT attribution)"
 pass "wave 6: LICENSE-skills.md attribution manifest на месте"
 
+# ─── Test 6.4b: wave 29 обогащённая базовая тройка (Pro) ─────────
+# tech/marketer/producer теперь имеют SOUL + LEARNING + 2 skills
+# (как VIP-тройка). В установщике эти extras копируются ТОЛЬКО при
+# VIP_MODE=true (Pro) — в Base остаются 4 базовых файла.
+for base_agent in tech marketer producer; do
+  [[ -f "templates/${base_agent}/SOUL.md" ]] \
+    || fail "wave 29: templates/${base_agent}/SOUL.md отсутствует"
+  [[ -f "templates/${base_agent}/LEARNING.md" ]] \
+    || fail "wave 29: templates/${base_agent}/LEARNING.md отсутствует"
+done
+for skill in tech/skills/diagnostic-checklist tech/skills/safe-rollback \
+             marketer/skills/funnel-diagnosis marketer/skills/channel-unit-economics \
+             producer/skills/launch-route-selector producer/skills/product-unit-economics; do
+  [[ -f "templates/${skill}/SKILL.md" ]] \
+    || fail "wave 29: отсутствует templates/${skill}/SKILL.md"
+done
+# В agents.sh — extras для базовой тройки гейтятся VIP_MODE
+grep -qE 'tech\|marketer\|producer\)' scripts/lib/agents.sh \
+  || fail "wave 29: agents.sh не различает базовую тройку для extras"
+grep -q 'VIP_MODE:-false.*== true.*&& has_extras=true' scripts/lib/agents.sh \
+  || fail "wave 29: extras базовой тройки не гейтятся через VIP_MODE"
+pass "wave 29: базовая тройка обогащена (SOUL+LEARNING+skills, только Pro)"
+
 # ─── Test 6.5: wave 7 refresh mode прописан в prepare_workspace_from_templates ───
 # Проверяем что в коде функции действительно есть проверка mode=refresh,
 # и find_installed_agents объявлена. Это статическая проверка — полный
