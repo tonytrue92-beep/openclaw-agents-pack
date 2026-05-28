@@ -749,6 +749,18 @@ if grep -vE '^\s*#' scripts/install-trial.sh | grep -qE 'install-agents'; then
 fi
 pass "wave 30: trial-установщик + assistant с offer-логикой (изолирован)"
 
+# ─── Test 6.35: wave 32 macOS 15+ pre-check в trial ─────────────
+# OpenClaw требует macOS 15 (Sequoia). Trial проверяет версию ДО
+# brew install и даёт понятное сообщение если старая (вместо
+# криптовой brew-ошибки).
+grep -q 'sw_vers -productVersion' scripts/install-trial.sh \
+  || fail "wave 32: trial не проверяет версию macOS (sw_vers)"
+grep -q 'macOS 15' scripts/install-trial.sh \
+  || fail "wave 32: trial не упоминает требование macOS 15"
+grep -qE 'macos_major.*-lt 15' scripts/install-trial.sh \
+  || fail "wave 32: trial не сравнивает macOS major < 15"
+pass "wave 32: macOS 15+ pre-check в trial (понятное сообщение)"
+
 rm -f /tmp/fake.json
 
 echo ""

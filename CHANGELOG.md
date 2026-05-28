@@ -6,6 +6,58 @@
 
 ---
 
+## 2026-05-28 — Wave 32 (macOS 15+ pre-check в trial)
+
+### Триггер
+
+Прогон trial на macOS 13.7 (Ventura): `brew install --cask openclaw`
+упал с `Error: This software does not run on macOS versions older
+than Sequoia`. Наше сообщение было бесполезным («попробуй ещё раз» —
+упадёт снова). OpenClaw **физически требует macOS 15 (Sequoia)+**
+(brew cask: `Required: macOS >= 15`).
+
+### Added — pre-check версии macOS
+
+В `install-trial.sh` (T1, до установки) проверка `sw_vers
+-productVersion`. Если major < 15 — понятное сообщение **сразу**,
+не дожидаясь криптовой brew-ошибки:
+
+```
+✗  OpenClaw требует macOS 15 (Sequoia) или новее.
+   У тебя сейчас: macOS 13.7
+
+Что можно сделать:
+1. Обнови macOS до Sequoia (Системные настройки → Обновление ПО)
+2. Или поставь на VPS (Linux-сервер) — там нет этого ограничения
+3. Или попробуй на другом, более новом Mac
+
+Это требование самого OpenClaw, не нашего установщика.
+Полная версия (6 агентов): https://serditov.tonytrue.pro/
+```
+
+### Improved — error-handler brew install
+
+Если pre-check пропустил (edge case) и `brew install --cask openclaw`
+всё же упал — ловим вывод, распознаём Sequoia-ошибку, даём понятное
+сообщение вместо повтора команды.
+
+### Compatibility
+
+- `TRIAL_VERSION` `2026.05.28` → `2026.05.28.1`
+- Не затрагивает машины с macOS 15+ (pre-check молча пропускает)
+- Smoke 6.35 (новый). ShellCheck чистый.
+
+### Важно для бизнеса
+
+Клиенты на macOS < 15 (Ventura/Monterey/...) **не смогут** поставить
+OpenClaw на сам Mac — это ограничение OpenClaw. Им нужен:
+- macOS 15+ (обновить), или
+- VPS (Linux — без ограничения версии)
+
+Trial теперь честно об этом говорит вместо непонятного фейла.
+
+---
+
 ## 2026-05-28 — Wave 31 (снят bash 4+ барьер — работаем на 3.2)
 
 ### Триггер
