@@ -6,6 +6,61 @@
 
 ---
 
+## 2026-05-28 — Wave 37 (trial подключает модель — агент больше не молчит)
+
+### Триггер
+
+Антон: «ставишь trial-агента, нажимаешь /start — он молчит. Модель
+не подключена. Нужно чтобы шёл по шагам как реальный установщик и
+подключал мозги (minimax-free от opencode).»
+
+### Корень проблемы
+
+Trial регистрировал агента с `--model minimax`, но **не настраивал
+auth** к provider. Без `auth-profiles.json` агент не может обратиться
+к модели → молчит. Реальный установщик (factory R3) это делает —
+запрашивает opencode API-ключ и пишет auth-profile.
+
+### Changed — T2 теперь «Подключение модели»
+
+Был интерактивный `openclaw onboard` (непредсказуемый). Стал явный
+шаг как factory R3:
+
+1. Объяснение: агенту нужна модель, используем **MiniMax Free**
+   (бесплатно, карта не нужна)
+2. Авто-открытие `https://opencode.ai` в браузере
+3. Запрос API-ключа (скрытый ввод, `sk-` проверка, 3 попытки)
+4. `openclaw config set agents.defaults.model.primary opencode/minimax-m2.5-free`
+
+### Changed — T4 пишет auth-profile
+
+После `openclaw agents add assistant` создаётся
+`~/.openclaw/agents/assistant/agent/auth-profiles.json` (формат 1-в-1
+как factory):
+
+```json
+{
+  "version": 1,
+  "profiles": {
+    "opencode:default": { "type": "api_key", "provider": "opencode", "key": "..." }
+  },
+  "lastGood": { "opencode": "opencode:default" }
+}
+```
+
+chmod 600 + `unset OPENCODE_KEY` после записи (не держим ключ в памяти).
+
+Потом `openclaw gateway restart` — агент поднимается **с моделью и
+авторизацией**. Теперь `/start` → агент отвечает.
+
+### Compatibility
+
+- `TRIAL_VERSION` `2026.05.28.5` → `2026.05.28.6`
+- Security-audit чистый (ключ — runtime-ввод, не в коде)
+- Smoke 6.38 (новый). ShellCheck чистый.
+
+---
+
 ## 2026-05-28 — Wave 36 (флаг --uninstall в trial)
 
 ### Триггер

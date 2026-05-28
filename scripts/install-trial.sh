@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.5"
+TRIAL_VERSION="2026.05.28.6"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -260,19 +260,63 @@ ok "OpenClaw установлен: $(openclaw --version 2>/dev/null | head -1 ||
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-#  T2. Онбординг OpenClaw (gateway + модель)
+#  T2. Подключение модели («мозги» агента) — opencode MiniMax Free
 # ═══════════════════════════════════════════════════════════════
-echo -e "${BOLD}${WHITE}Шаг 2/4 — Базовая настройка OpenClaw...${NC}"
+#
+# Wave 37: без этого шага агент молчит — нет подключённой модели.
+# Делаем как factory R3: opencode API-ключ → auth-profiles.json +
+# config set model. MiniMax Free — бесплатная (карта не нужна).
+echo -e "${BOLD}${WHITE}Шаг 2/4 — Подключаю мозги (AI-модель)...${NC}"
 echo ""
-echo -e "${DIM}   Если OpenClaw ещё не настроен — открою интерактивный онбординг.${NC}"
-echo -e "${DIM}   Для тест-драйва выбирай модель minimax когда спросит.${NC}"
+echo -e "${DIM}   Агенту нужна модель чтобы думать. Используем ${BOLD}MiniMax Free${NC}${DIM}${NC}"
+echo -e "${DIM}   от opencode — бесплатно, карта не нужна.${NC}"
+echo ""
+echo -e "   ${CYAN}1.${NC} Открой ${CYAN}https://opencode.ai${NC} (открою сам в браузере)"
+echo -e "   ${CYAN}2.${NC} Зарегистрируйся и создай API-ключ (начинается с ${BOLD}sk-${NC})"
+echo -e "   ${CYAN}3.${NC} Вставь его сюда"
 echo ""
 
-# Если gateway ещё не настроен — запускаем онбординг.
-if ! openclaw gateway status &>/dev/null; then
-  openclaw onboard || warn "Онбординг прерван — можно донастроить позже через 'openclaw configure'"
+# Открываем браузер автоматически (как factory)
+if command -v open &>/dev/null; then
+  open "https://opencode.ai" &>/dev/null &
+  echo -e "   ${DIM}✓ Открыл opencode.ai в браузере${NC}"
+elif command -v xdg-open &>/dev/null; then
+  xdg-open "https://opencode.ai" &>/dev/null &
+  echo -e "   ${DIM}✓ Открыл opencode.ai в браузере${NC}"
 fi
-ok "OpenClaw настроен"
+echo ""
+
+OPENCODE_KEY=""
+attempts=0
+while [[ $attempts -lt 3 ]]; do
+  attempts=$((attempts + 1))
+  echo -e "   ${BOLD}${WHITE}Вставь API-ключ opencode.ai:${NC}"
+  echo -e "   ${DIM}(символы не отображаются при вводе — это нормально)${NC}"
+  read -rs OPENCODE_KEY
+  echo ""
+  OPENCODE_KEY=$(printf '%s' "$OPENCODE_KEY" | tr -d '[:space:]')
+  if [[ -z "$OPENCODE_KEY" ]]; then
+    warn "Пустой ключ."
+    continue
+  fi
+  if [[ ! "$OPENCODE_KEY" =~ ^sk- ]]; then
+    warn "Ключ обычно начинается с 'sk-'. Продолжить всё равно? [y/N]"
+    read -r _force
+    [[ "$_force" != "y" && "$_force" != "Y" ]] && { OPENCODE_KEY=""; continue; }
+  fi
+  break
+done
+
+if [[ -z "$OPENCODE_KEY" ]]; then
+  err "Не получил API-ключ. Создай бесплатный на https://opencode.ai и запусти снова."
+  echo -e "${BOLD}${YELLOW}   Полная версия (6 агентов): ${CYAN}${COURSE_URL}${NC}"
+  exit 1
+fi
+ok "Ключ получен (${#OPENCODE_KEY} символов)"
+
+# Модель по умолчанию — MiniMax Free
+TRIAL_MODEL="opencode/minimax-m2.5-free"
+openclaw config set agents.defaults.model.primary "$TRIAL_MODEL" &>/dev/null || true
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
@@ -335,9 +379,6 @@ for f in IDENTITY AGENTS SOUL USER MEMORY; do
   fi
 done
 
-# Модель для демо — бесплатная minimax
-TRIAL_MODEL="opencode/minimax-m2.5-free"
-
 # Регистрируем агента (реальная команда OpenClaw)
 echo -e "   ${DIM}Регистрирую ассистента в OpenClaw...${NC}"
 { openclaw agents add assistant \
@@ -349,7 +390,31 @@ echo -e "   ${DIM}Регистрирую ассистента в OpenClaw...${NC
 done
 openclaw agents bind --agent assistant --bind "telegram:assistant" &>/dev/null || true
 
-# Рестарт gateway чтобы агент поднялся
+# Wave 37: записываем auth-profile (opencode ключ из T2) в agent dir.
+# БЕЗ ЭТОГО АГЕНТ МОЛЧИТ — нет авторизации к provider, модель не отвечает.
+# Формат 1-в-1 как factory R3.
+AUTH_DIR="$HOME/.openclaw/agents/assistant/agent"
+mkdir -p "$AUTH_DIR"
+cat > "${AUTH_DIR}/auth-profiles.json" <<AUTHEOF
+{
+  "version": 1,
+  "profiles": {
+    "opencode:default": {
+      "type": "api_key",
+      "provider": "opencode",
+      "key": "${OPENCODE_KEY}"
+    }
+  },
+  "lastGood": {
+    "opencode": "opencode:default"
+  }
+}
+AUTHEOF
+chmod 600 "${AUTH_DIR}/auth-profiles.json"
+unset OPENCODE_KEY  # ключ больше не нужен в памяти
+ok "Модель подключена (MiniMax Free через opencode)"
+
+# Рестарт gateway чтобы агент поднялся с моделью и авторизацией
 echo -e "   ${DIM}Перезапускаю gateway...${NC}"
 openclaw gateway restart &>/dev/null || openclaw gateway start &>/dev/null || true
 ok "Ассистент готов"
