@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.6"
+TRIAL_VERSION="2026.05.28.7"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -49,6 +49,25 @@ ok()   { echo -e "   ${GREEN}✓${NC} $*"; }
 warn() { echo -e "   ${YELLOW}⚠${NC} $*" >&2; }
 err()  { echo -e "   ${RED}✗${NC} $*" >&2; }
 divider() { echo -e "${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
+
+# Wave 38: прописать nvm в shell rc-файлы (как factory). БЕЗ ЭТОГО
+# команда openclaw недоступна в новых терминалах — nvm не загружается,
+# node/openclaw не попадают в PATH. Это была главная причина «openclaw
+# не вызывается после установки».
+persist_nvm_in_shell_rc() {
+  local nvm_block='
+# NVM (AI TEAM 2.0 trial installer)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+  for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile"; do
+    [[ ! -f "$rc" ]] && touch "$rc"
+    if ! grep -q "AI TEAM 2.0 trial installer" "$rc" 2>/dev/null; then
+      echo "$nvm_block" >> "$rc"
+      echo -e "   ${DIM}↳ прописал nvm в ${rc}${NC}"
+    fi
+  done
+}
 
 # ─── Парсинг флагов ─────────────────────────────────────────────
 VPS_MODE=false
@@ -219,6 +238,9 @@ if ! command -v node &>/dev/null; then
       echo -e "   ${DIM}${line}${NC}"
     done
     nvm use 22 &>/dev/null || true
+    # Wave 38: КРИТИЧНО — прописать nvm в shell rc, иначе после закрытия
+    # терминала команда openclaw будет недоступна (node не в PATH).
+    persist_nvm_in_shell_rc
   fi
 fi
 if command -v node &>/dev/null; then
