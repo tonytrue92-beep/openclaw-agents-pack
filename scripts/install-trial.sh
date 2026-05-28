@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.12"
+TRIAL_VERSION="2026.05.28.13"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -576,5 +576,15 @@ fi
 echo ""
 echo -e "${BOLD}${YELLOW}   ⭐ Понравилось? Полная версия — команда из 6 агентов + супер-агент:${NC}"
 echo -e "${BOLD}${CYAN}      ${COURSE_URL}${NC}"
+echo ""
+# Wave 44: открываем сайт-продажник в браузере (как opencode.ai в Шаге 2) —
+# клиент сразу видит полную версию, а не просто ссылку в терминале.
+if command -v open &>/dev/null; then
+  open "$COURSE_URL" &>/dev/null &
+  echo -e "   ${DIM}✓ Открыл страницу полной версии в браузере${NC}"
+elif command -v xdg-open &>/dev/null; then
+  xdg-open "$COURSE_URL" &>/dev/null &
+  echo -e "   ${DIM}✓ Открыл страницу полной версии в браузере${NC}"
+fi
 echo ""
 divider
