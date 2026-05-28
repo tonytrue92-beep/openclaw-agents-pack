@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.8"
+TRIAL_VERSION="2026.05.28.9"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -461,9 +461,35 @@ chmod 600 "${AUTH_DIR}/auth-profiles.json"
 unset OPENCODE_KEY  # ключ больше не нужен в памяти
 ok "Модель подключена (MiniMax Free через opencode)"
 
-# Рестарт gateway чтобы агент поднялся с моделью и авторизацией
-echo -e "   ${DIM}Перезапускаю gateway...${NC}"
-openclaw gateway restart &>/dev/null || openclaw gateway start &>/dev/null || true
+# Wave 40: ПРАВИЛЬНЫЙ запуск gateway (как factory). Раньше делали только
+# `gateway restart` — но без `gateway install` launchd-сервис не создаётся,
+# gateway не поднимается → бот молчит («Gateway: not reachable»).
+echo -e "   ${DIM}Настраиваю и запускаю gateway...${NC}"
+# 1. mode=local ДО install (иначе gateway падает с 1006)
+openclaw config set gateway.mode local &>/dev/null || true
+# 2. install (launchd-сервис) + start, если ещё не running
+if ! openclaw gateway status 2>&1 | grep -qE "running|RPC probe: ok"; then
+  { openclaw gateway install 2>&1 || true; } | tail -3 | while IFS= read -r line; do
+    echo -e "   ${DIM}${line}${NC}"
+  done
+  { openclaw gateway start 2>&1 || true; } | tail -3 | while IFS= read -r line; do
+    echo -e "   ${DIM}${line}${NC}"
+  done
+fi
+# 3. Проверка + recovery
+sleep 2
+if openclaw gateway status 2>&1 | grep -qE "running|RPC probe: ok"; then
+  ok "Gateway работает"
+else
+  openclaw gateway restart &>/dev/null || true
+  sleep 2
+  if openclaw gateway status 2>&1 | grep -qE "running|RPC probe: ok"; then
+    ok "Gateway работает"
+  else
+    warn "Gateway не поднялся. Проверь вручную: openclaw gateway status"
+    echo -e "   ${DIM}   Починить: openclaw gateway install && openclaw gateway start${NC}"
+  fi
+fi
 ok "Ассистент готов"
 echo ""
 

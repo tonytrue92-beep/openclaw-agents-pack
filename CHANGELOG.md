@@ -6,6 +6,44 @@
 
 ---
 
+## 2026-05-28 — Wave 40 (trial: правильный запуск gateway — бот оживает)
+
+### Триггер
+
+После установки `openclaw` работает (wave 38/39), но бот молчит.
+`openclaw` TUI показал корень: **`Gateway: not reachable at
+ws://127.0.0.1:18789`** — gateway не запущен.
+
+### Корень проблемы
+
+Trial делал только `openclaw gateway restart || start`. Но на свежей
+машине **launchd-сервис gateway ещё не создан** — `restart` нечего
+перезапускать, `start` без установленного сервиса не персистит.
+Factory делает правильно: `gateway.mode local` → **`gateway install`**
+(создаёт launchd-сервис) → `gateway start`.
+
+### Fix — последовательность как factory
+
+```bash
+openclaw config set gateway.mode local        # ДО install (иначе 1006)
+if ! gateway status | grep running; then
+  openclaw gateway install                     # launchd-сервис
+  openclaw gateway start
+fi
+# проверка + recovery (restart если не поднялся)
+```
+
+С проверкой статуса + recovery-перезапуском + понятным сообщением
+если не поднялось («openclaw gateway install && openclaw gateway start»).
+
+### Compatibility
+
+- `TRIAL_VERSION` `2026.05.28.8` → `2026.05.28.9`
+- Это последний известный барьер — после него бот должен отвечать
+- Smoke 6.41 (новый). ShellCheck чистый.
+
+---
+
 ## 2026-05-28 — Wave 39 (trial: рабочий telegram-бот + openclaw в PATH)
 
 ### Триггер

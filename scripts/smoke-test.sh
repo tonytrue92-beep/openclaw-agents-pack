@@ -830,6 +830,20 @@ grep -q 'bind "telegram:assistant"' scripts/install-trial.sh \
   || true
 pass "wave 39: telegram channels add + dmPolicy/allowFrom + nvm default + bind telegram"
 
+# ─── Test 6.41: wave 40 trial — правильный запуск gateway ───────
+# «Gateway: not reachable» = бот молчит. Был только `gateway restart`,
+# но без `gateway install` launchd-сервис не создаётся. Нужно:
+# gateway.mode local → gateway install → gateway start (как factory).
+grep -q 'config set gateway.mode local' scripts/install-trial.sh \
+  || fail "wave 40: trial не ставит gateway.mode local (gateway упадёт)"
+grep -q 'openclaw gateway install' scripts/install-trial.sh \
+  || fail "wave 40: trial не делает gateway install (сервис не создаётся)"
+grep -q 'openclaw gateway start' scripts/install-trial.sh \
+  || fail "wave 40: trial не делает gateway start"
+grep -qE 'gateway status.*running|running.*gateway status' scripts/install-trial.sh \
+  || fail "wave 40: trial не проверяет что gateway running"
+pass "wave 40: gateway install+start+проверка (бот реально поднимается)"
+
 rm -f /tmp/fake.json
 
 echo ""
