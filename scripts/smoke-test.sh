@@ -862,15 +862,10 @@ grep -q 'grep -qE "running|RPC probe: ok"' scripts/install-trial.sh \
   || true
 pass "wave 41: надёжный gateway (install безусловно + launchctl bootstrap)"
 
-# ─── Test 6.43: wave 42 trial — выбор модели + onboard + рус. онбординг ─
-# Антон: «человек первично выбирает модель + прогоняет быстрый анбординг
-# на русском». Меню моделей в T2, штатный onboard в авто-режиме, и
-# видимый русский чек-лист (✓/✗) в конце. Проверенные auth/gateway
-# (wave 37/40/41) ОСТАЮТСЯ как страховка — onboard их не заменяет.
-grep -q 'Выбери модель' scripts/install-trial.sh \
-  || fail "wave 42: нет меню выбора модели в T2"
-grep -q 'claude-sonnet-4-5' scripts/install-trial.sh \
-  || fail "wave 42: меню моделей без Claude Sonnet"
+# ─── Test 6.43: wave 42 trial — onboard + русский онбординг ─────
+# Штатный onboard в авто-режиме + видимый русский чек-лист (✓/✗).
+# Проверенные auth/gateway (wave 37/40/41) ОСТАЮТСЯ как страховка —
+# onboard их не заменяет.
 grep -q 'openclaw onboard' scripts/install-trial.sh \
   || fail "wave 42: trial не прогоняет openclaw onboard (Антон просил анбординг)"
 grep -q 'opencode-zen-api-key' scripts/install-trial.sh \
@@ -885,7 +880,19 @@ grep -q 'auth-profiles.json' scripts/install-trial.sh \
   || fail "wave 42: потеряна прямая запись auth-profile (агент замолчит)"
 grep -q 'openclaw gateway install' scripts/install-trial.sh \
   || fail "wave 42: потеряна страховочная установка gateway"
-pass "wave 42: выбор модели + onboard + русский онбординг (страховка сохранена)"
+pass "wave 42: onboard + русский онбординг (страховка сохранена)"
+
+# ─── Test 6.44: wave 43 trial — модель фиксирована (DeepSeek), без меню ─
+# Антон: убрать меню выбора модели, всегда ставить deepseek-v4-flash-free.
+grep -q 'opencode/deepseek-v4-flash-free' scripts/install-trial.sh \
+  || fail "wave 43: trial не ставит deepseek-v4-flash-free по умолчанию"
+grep -q 'Выбери модель' scripts/install-trial.sh \
+  && fail "wave 43: меню выбора модели должно быть убрано" \
+  || true
+grep -qiE 'minimax|gpt-5|claude-sonnet' scripts/install-trial.sh \
+  && fail "wave 43: остались старые модели (minimax/gpt-5/claude-sonnet)" \
+  || true
+pass "wave 43: модель фиксирована DeepSeek Flash Free (меню убрано)"
 
 rm -f /tmp/fake.json
 

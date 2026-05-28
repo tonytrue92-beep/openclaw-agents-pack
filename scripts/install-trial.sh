@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.11"
+TRIAL_VERSION="2026.05.28.12"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -285,15 +285,15 @@ ok "OpenClaw установлен: $(openclaw --version 2>/dev/null | head -1 ||
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-#  T2. Подключение модели («мозги» агента) — opencode MiniMax Free
+#  T2. Подключение модели («мозги» агента) — opencode DeepSeek Flash Free
 # ═══════════════════════════════════════════════════════════════
 #
 # Wave 37: без этого шага агент молчит — нет подключённой модели.
 # Делаем как factory R3: opencode API-ключ → auth-profiles.json +
-# config set model. MiniMax Free — бесплатная (карта не нужна).
+# config set model. DeepSeek Flash Free — бесплатная (карта не нужна).
 echo -e "${BOLD}${WHITE}Шаг 2/4 — Подключаю мозги (AI-модель)...${NC}"
 echo ""
-echo -e "${DIM}   Агенту нужна модель чтобы думать. Используем ${BOLD}MiniMax Free${NC}${DIM}${NC}"
+echo -e "${DIM}   Агенту нужна модель чтобы думать. Используем ${BOLD}DeepSeek Flash Free${NC}${DIM}${NC}"
 echo -e "${DIM}   от opencode — бесплатно, карта не нужна.${NC}"
 echo ""
 echo -e "   ${CYAN}1.${NC} Открой ${CYAN}https://opencode.ai${NC} (открою сам в браузере)"
@@ -340,21 +340,10 @@ fi
 ok "Ключ получен (${#OPENCODE_KEY} символов)"
 echo ""
 
-# Wave 42: выбор модели (Антон просил — человек первично выбирает мозги)
-echo -e "   ${BOLD}${WHITE}Выбери модель (мозги ассистента):${NC}"
-echo ""
-echo -e "   ${BOLD}${GREEN}  1)${NC} MiniMax Free      ${DIM}(бесплатно — для теста)${NC}  ${GREEN}← рекомендуется${NC}"
-echo -e "   ${BOLD}${YELLOW}  2)${NC} Claude Sonnet     ${DIM}(платно — умнее)${NC}"
-echo -e "   ${BOLD}${CYAN}  3)${NC} GPT-5             ${DIM}(платно)${NC}"
-echo ""
-echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
-read -r _model_choice
-case "${_model_choice:-1}" in
-  2) TRIAL_MODEL="opencode/claude-sonnet-4-5" ;;
-  3) TRIAL_MODEL="opencode/gpt-5" ;;
-  *) TRIAL_MODEL="opencode/minimax-m2.5-free" ;;
-esac
-ok "Модель: ${TRIAL_MODEL}"
+# Wave 43: модель фиксирована (Антон) — БЕЗ меню выбора. Тест-драйв
+# всегда ставит бесплатную DeepSeek Flash Free, чтобы не путать клиента.
+TRIAL_MODEL="opencode/deepseek-v4-flash-free"
+ok "Модель: ${TRIAL_MODEL} (бесплатно)"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
