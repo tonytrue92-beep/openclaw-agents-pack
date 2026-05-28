@@ -894,6 +894,15 @@ grep -qiE 'minimax|gpt-5|claude-sonnet' scripts/install-trial.sh \
   || true
 pass "wave 43: модель фиксирована DeepSeek Flash Free (меню убрано)"
 
+# ─── Test 6.45: wave 44 trial — финал открывает сайт-продажник ──────
+# Антон: в конце авто-открыть сайт полной версии в браузере (как
+# opencode.ai в Шаге 2), а не просто кинуть ссылку текстом.
+grep -qF 'open "$COURSE_URL"' scripts/install-trial.sh \
+  || fail "wave 44: финал не открывает сайт-продажник через open (macOS)"
+grep -qF 'xdg-open "$COURSE_URL"' scripts/install-trial.sh \
+  || fail "wave 44: финал не открывает сайт-продажник через xdg-open (Linux)"
+pass "wave 44: финал авто-открывает сайт полной версии в браузере"
+
 rm -f /tmp/fake.json
 
 echo ""
