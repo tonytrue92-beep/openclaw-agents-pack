@@ -749,17 +749,19 @@ if grep -vE '^\s*#' scripts/install-trial.sh | grep -qE 'install-agents'; then
 fi
 pass "wave 30: trial-установщик + assistant с offer-логикой (изолирован)"
 
-# ─── Test 6.35: wave 32 macOS 15+ pre-check в trial ─────────────
-# OpenClaw требует macOS 15 (Sequoia). Trial проверяет версию ДО
-# brew install и даёт понятное сообщение если старая (вместо
-# криптовой brew-ошибки).
-grep -q 'sw_vers -productVersion' scripts/install-trial.sh \
-  || fail "wave 32: trial не проверяет версию macOS (sw_vers)"
-grep -q 'macOS 15' scripts/install-trial.sh \
-  || fail "wave 32: trial не упоминает требование macOS 15"
-grep -qE 'macos_major.*-lt 15' scripts/install-trial.sh \
-  || fail "wave 32: trial не сравнивает macOS major < 15"
-pass "wave 32: macOS 15+ pre-check в trial (понятное сообщение)"
+# ─── Test 6.35: wave 34 trial ставит OpenClaw через npm ─────────
+# Wave 34: trial ставит движок через `npm install -g openclaw@latest`
+# (как factory) — кроссплатформенно, БЕЗ brew-cask и macOS 15+ барьера.
+# Это заменило ошибочный wave 32 (macOS-check был на предпосылке brew cask).
+grep -q 'npm install -g openclaw@latest' scripts/install-trial.sh \
+  || fail "wave 34: trial не ставит OpenClaw через npm"
+grep -q 'nvm install 22' scripts/install-trial.sh \
+  || fail "wave 34: trial не ставит Node.js через nvm"
+# brew-cask путь убран (он был macOS-only + требовал Sequoia)
+grep -q 'brew install --cask openclaw' scripts/install-trial.sh \
+  && fail "wave 34: brew-cask путь должен быть убран (заменён на npm)" \
+  || true
+pass "wave 34: trial ставит OpenClaw через npm (Node+npm, кроссплатформенно)"
 
 rm -f /tmp/fake.json
 

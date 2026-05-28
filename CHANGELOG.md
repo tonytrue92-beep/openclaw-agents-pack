@@ -6,6 +6,57 @@
 
 ---
 
+## 2026-05-28 — Wave 34 (trial: OpenClaw через npm, как factory)
+
+### Триггер
+
+Антон: «в прошлом установщике (factory) всё это уже было». Верно —
+factory ставит OpenClaw через **`npm install -g openclaw@latest`**,
+а я в trial ошибочно использовал `brew install --cask openclaw`.
+
+### Проблема brew-cask пути (waves 30-32)
+
+- `brew install --cask` — **macOS-only** формат (.app), не работает
+  на Linux/VPS
+- Требует **macOS 15 (Sequoia)** — отсюда вся боль на старых маках
+  (wave 32 macOS-check был «лечением симптома», а не причины)
+
+### Fix — npm-путь (как factory demo-install.sh)
+
+T1 переписан 1-в-1 по образцу factory:
+
+1. **Node.js**: если нет — ставим через nvm (`nvm install 22`)
+2. **OpenClaw**: `npm install -g openclaw@latest` + retry-конфиг
+   (fetch-retries 5, таймауты) для плохой сети
+3. EACCES-обработка (подсказка про sudo / npm prefix)
+
+### Что это решает
+
+| Платформа | brew-cask (было) | npm (стало) |
+|---|---|---|
+| macOS 15+ | ✅ | ✅ |
+| **macOS < 15** | ❌ требует Sequoia | ✅ **работает** |
+| **Linux / VPS** | ❌ cask macOS-only | ✅ **работает** |
+| Windows (с Node) | ❌ | ✅ работает |
+
+**npm не требует macOS 15** — твой Mac на 13.7 теперь сможет
+поставить trial.
+
+### Removed
+
+- `brew install --cask openclaw` (заменён на npm)
+- macOS 15+ pre-check (wave 32 — был основан на ложной предпосылке
+  brew-cask; npm-путь его не требует)
+- Homebrew-установка для trial (не нужна для npm-пути — быстрее)
+
+### Compatibility
+
+- `TRIAL_VERSION` `2026.05.28.2` → `2026.05.28.3`
+- Smoke 6.35 переписан под npm-путь (wave 34)
+- ShellCheck чистый
+
+---
+
 ## 2026-05-28 — Wave 33 (тест-драйв нейминг + Windows-ветка)
 
 ### Триггер
