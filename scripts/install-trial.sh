@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.9"
+TRIAL_VERSION="2026.05.28.10"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -461,34 +461,46 @@ chmod 600 "${AUTH_DIR}/auth-profiles.json"
 unset OPENCODE_KEY  # ключ больше не нужен в памяти
 ok "Модель подключена (MiniMax Free через opencode)"
 
-# Wave 40: ПРАВИЛЬНЫЙ запуск gateway (как factory). Раньше делали только
-# `gateway restart` — но без `gateway install` launchd-сервис не создаётся,
-# gateway не поднимается → бот молчит («Gateway: not reachable»).
+# Wave 41: НАДЁЖНЫЙ запуск gateway. Прошлые баги:
+#   • `if ! gateway status | grep running` ловил «not running» (подстрока
+#     «running» внутри!) → install пропускался
+#   • `gateway start` не загружает LaunchAgent — после install openclaw
+#     явно требует `launchctl bootstrap gui/$UID ...plist`
+# Теперь: mode local → install (безусловно, идемпотентно) → launchctl
+# bootstrap (точная команда из подсказки openclaw) → проверка.
 echo -e "   ${DIM}Настраиваю и запускаю gateway...${NC}"
-# 1. mode=local ДО install (иначе gateway падает с 1006)
-openclaw config set gateway.mode local &>/dev/null || true
-# 2. install (launchd-сервис) + start, если ещё не running
-if ! openclaw gateway status 2>&1 | grep -qE "running|RPC probe: ok"; then
-  { openclaw gateway install 2>&1 || true; } | tail -3 | while IFS= read -r line; do
-    echo -e "   ${DIM}${line}${NC}"
-  done
-  { openclaw gateway start 2>&1 || true; } | tail -3 | while IFS= read -r line; do
-    echo -e "   ${DIM}${line}${NC}"
-  done
-fi
-# 3. Проверка + recovery
-sleep 2
-if openclaw gateway status 2>&1 | grep -qE "running|RPC probe: ok"; then
-  ok "Gateway работает"
-else
-  openclaw gateway restart &>/dev/null || true
-  sleep 2
-  if openclaw gateway status 2>&1 | grep -qE "running|RPC probe: ok"; then
-    ok "Gateway работает"
-  else
-    warn "Gateway не поднялся. Проверь вручную: openclaw gateway status"
-    echo -e "   ${DIM}   Починить: openclaw gateway install && openclaw gateway start${NC}"
+
+# 1. mode=local — ОБЯЗАТЕЛЬНО до install (иначе «No gateway.mode found»)
+{ openclaw config set gateway.mode local 2>&1 || true; } | tail -1 | while IFS= read -r line; do
+  echo -e "   ${DIM}${line}${NC}"
+done
+
+# 2. install — безусловно (идемпотентно; создаёт LaunchAgent)
+{ openclaw gateway install 2>&1 || true; } | tail -3 | while IFS= read -r line; do
+  echo -e "   ${DIM}${line}${NC}"
+done
+
+# 3. Загрузить LaunchAgent (на macOS — то что openclaw просит после install)
+if [[ "$OS_NAME" == "macos" ]]; then
+  _plist="$HOME/Library/LaunchAgents/ai.openclaw.gateway.plist"
+  if [[ -f "$_plist" ]]; then
+    launchctl bootstrap "gui/$(id -u)" "$_plist" 2>/dev/null \
+      || launchctl load "$_plist" 2>/dev/null || true
   fi
+fi
+{ openclaw gateway start 2>&1 || true; } | tail -2 | while IFS= read -r line; do
+  echo -e "   ${DIM}${line}${NC}"
+done
+
+# 4. Проверка (грепаем НАДЁЖНЫЕ маркеры из рабочего status, не «running»
+#    который матчит и «not running»)
+sleep 3
+if openclaw gateway status 2>&1 | grep -qE "LaunchAgent \(loaded\)|RPC probe: ok"; then
+  ok "Gateway запущен и работает"
+else
+  warn "Gateway пока не поднялся. В НОВОМ терминале выполни 2 команды:"
+  echo -e "   ${BOLD}${WHITE}   openclaw gateway install${NC}"
+  echo -e "   ${BOLD}${WHITE}   launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/ai.openclaw.gateway.plist${NC}"
 fi
 ok "Ассистент готов"
 echo ""
