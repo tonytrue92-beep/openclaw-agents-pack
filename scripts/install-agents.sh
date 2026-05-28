@@ -13,41 +13,20 @@ set -euo pipefail
 #  ассоциативных массивов нет в bash 3.2. Мы уже переписали без них, но
 #  профилактически проверяем версию — мало ли какую bash-фичу понадобится
 #  добавить в будущем.
+# Wave 31: НЕ требуем bash 4+. Код намеренно 3.2-совместим (wave 11 —
+# переписан без declare -A / mapfile), как factory demo-install.sh.
+# Раньше hard-exit на bash<4 заставлял клиента ставить Homebrew + долго
+# компилировать bash из исходников (особенно на старых Intel-маках) —
+# огромный барьер на входе. Теперь: если свежий bash УЖЕ есть в brew —
+# переключаемся на него (стабильнее), но если нет — спокойно работаем
+# на штатном 3.2.
 if (( BASH_VERSINFO[0] < 4 )); then
-  # Шаг 1: может уже лежит новый bash в brew-путях — переиспользуем.
   for _newer_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
     if [[ -x "$_newer_bash" && "$_newer_bash" != "$BASH" ]]; then
       exec "$_newer_bash" "$0" "$@"
     fi
   done
-  # Шаг 2: если есть Homebrew — ставим bash автоматически.
-  # Клиент уже согласился на `bash <(curl ...)` — доверие есть, не спрашиваем.
-  if command -v brew &>/dev/null; then
-    echo "⚙ Текущий bash устарел ($BASH_VERSION); ставлю свежий через Homebrew..." >&2
-    if brew install bash >&2; then
-      for _newer_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
-        if [[ -x "$_newer_bash" && "$_newer_bash" != "$BASH" ]]; then
-          echo "✓ Готово. Перезапускаю установщик через $_newer_bash..." >&2
-          exec "$_newer_bash" "$0" "$@"
-        fi
-      done
-    fi
-  fi
-  # Шаг 3: ни brew-bash, ни brew — даём инструкцию.
-  cat >&2 <<BASHERR
-✗ Этому установщику нужен bash 4+ (у вас $BASH_VERSION).
-
-macOS по умолчанию поставляется с bash 3.2, Apple не обновляет его
-из-за GPLv3. Поставьте свежий bash:
-
-  1. Убедитесь, что Homebrew установлен (если нет — https://brew.sh)
-  2. brew install bash
-  3. Запустите установщик снова
-
-Или поставьте OpenClaw через первый установщик — он сам ставит Homebrew:
-  bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)
-BASHERR
-  exit 1
+  # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -67,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.05.26"
+INSTALLER_VERSION="2026.05.28"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
