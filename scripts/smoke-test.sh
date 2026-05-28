@@ -774,6 +774,19 @@ grep -q 'Command Line Tools' scripts/install-trial.sh \
   || fail "wave 35: trial не упоминает Command Line Tools в сообщении"
 pass "wave 35: auto-install Xcode CLT + wait-loop (без ошибки у клиента)"
 
+# ─── Test 6.37: wave 36 флаг --uninstall в trial ────────────────
+# Чистое удаление для повторной установки: gateway stop + удалить
+# агента + npm uninstall openclaw + rm ~/.openclaw. С confirm.
+grep -q '\-\-uninstall|--reset)' scripts/install-trial.sh \
+  || fail "wave 36: флаг --uninstall не обработан"
+grep -q 'npm uninstall -g openclaw' scripts/install-trial.sh \
+  || fail "wave 36: --uninstall не удаляет npm-пакет openclaw"
+grep -q 'rm -rf "\$HOME/.openclaw"' scripts/install-trial.sh \
+  || fail "wave 36: --uninstall не удаляет ~/.openclaw"
+grep -q 'openclaw agents delete assistant' scripts/install-trial.sh \
+  || fail "wave 36: --uninstall не удаляет assistant-агента"
+pass "wave 36: флаг --uninstall (чистое удаление для переустановки)"
+
 rm -f /tmp/fake.json
 
 echo ""

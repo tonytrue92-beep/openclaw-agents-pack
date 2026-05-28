@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.4"
+TRIAL_VERSION="2026.05.28.5"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -55,6 +55,35 @@ VPS_MODE=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --vps|--headless) VPS_MODE=true; shift ;;
+    --uninstall|--reset)
+      # Wave 36: чистое удаление того что поставил trial — для повторной
+      # установки с нуля. Node.js/Xcode CLT НЕ трогаем (не мешают, ускоряют
+      # переустановку). Удаляем: gateway + assistant-агента + npm openclaw
+      # + ~/.openclaw.
+      echo ""
+      echo "Это удалит OpenClaw движок, агента-ассистента и папку ~/.openclaw"
+      echo "(данные и настройки). Node.js и Xcode CLT останутся."
+      echo ""
+      printf "Продолжить удаление? [y/N]: "
+      read -r _confirm
+      if [[ "${_confirm:-n}" != "y" && "${_confirm:-n}" != "Y" ]]; then
+        echo "Отменено."
+        exit 0
+      fi
+      echo ""
+      echo "Останавливаю gateway..."
+      openclaw gateway stop &>/dev/null || true
+      launchctl unload "$HOME/Library/LaunchAgents/ai.openclaw.gateway.plist" &>/dev/null || true
+      echo "Удаляю агента-ассистента..."
+      openclaw agents delete assistant --yes &>/dev/null || true
+      echo "Удаляю движок OpenClaw (npm)..."
+      npm uninstall -g openclaw &>/dev/null || true
+      echo "Удаляю данные ~/.openclaw..."
+      rm -rf "$HOME/.openclaw" 2>/dev/null || true
+      echo ""
+      echo "✓ Готово. OpenClaw удалён. Запусти установку снова чтобы начать с чистого листа."
+      exit 0
+      ;;
     --version)
       echo "AI TEAM 2.0 Trial v${TRIAL_VERSION} (${TRIAL_COMMIT})"
       exit 0
@@ -71,6 +100,7 @@ Usage:
 
 Options:
   --vps, --headless   Режим VPS/сервера (без GUI, dashboard через SSH)
+  --uninstall         Удалить OpenClaw + агента (для чистой переустановки)
   --version           Показать версию
   --help              Эта справка
 HELP

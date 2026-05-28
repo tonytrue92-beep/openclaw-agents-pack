@@ -6,6 +6,38 @@
 
 ---
 
+## 2026-05-28 — Wave 36 (флаг --uninstall в trial)
+
+### Триггер
+
+Антон: «если я остановил установку на полпути — нужно удалить OpenClaw,
+всё что поставилось, чтобы пройти заново с чистого листа».
+
+### Added — флаг `--uninstall` (и алиас `--reset`)
+
+```
+bash <(curl -fsSL .../install-trial.sh) --uninstall
+```
+
+Что делает (с confirm `[y/N]`):
+1. Останавливает gateway (`openclaw gateway stop` + `launchctl unload`)
+2. Удаляет агента-ассистента (`openclaw agents delete assistant`)
+3. Удаляет движок (`npm uninstall -g openclaw`)
+4. Удаляет данные (`rm -rf ~/.openclaw`)
+
+**Не трогает** Node.js и Xcode CLT — они не мешают и ускоряют
+повторную установку (не придётся ставить заново).
+
+После — «запусти установку снова чтобы начать с чистого листа».
+
+### Compatibility
+
+- `TRIAL_VERSION` `2026.05.28.4` → `2026.05.28.5`
+- Confirm перед удалением (защита от случайного сноса данных)
+- Smoke 6.37 (новый). ShellCheck чистый.
+
+---
+
 ## 2026-05-28 — Wave 35 (auto-install Xcode CLT в trial)
 
 ### Триггер
