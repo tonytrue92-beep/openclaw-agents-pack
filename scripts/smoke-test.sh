@@ -810,6 +810,26 @@ grep -qE '\.zshrc.*\.bashrc|HOME/.zshrc' scripts/install-trial.sh \
   || fail "wave 38: trial не трогает shell rc-файлы для nvm"
 pass "wave 38: trial персистит nvm в shell rc (openclaw доступен в новых терминалах)"
 
+# ─── Test 6.40: wave 39 trial — правильное подключение telegram+node ─
+# Главные баги рабочего бота: токен через config set (не работал) +
+# bind telegram:assistant (нет аккаунта) + нет dmPolicy/allowFrom (бот
+# просит pairing) + нет nvm alias default (openclaw не в PATH).
+grep -q 'openclaw channels add --channel telegram' scripts/install-trial.sh \
+  || fail "wave 39: telegram-токен не через channels add (бот будет молчать)"
+grep -q 'channels.telegram.dmPolicy allowlist' scripts/install-trial.sh \
+  || fail "wave 39: нет dmPolicy allowlist (бот попросит pairing)"
+grep -q 'channels.telegram.allowFrom' scripts/install-trial.sh \
+  || fail "wave 39: нет allowFrom (владелец не в allowlist)"
+grep -q 'nvm alias default' scripts/install-trial.sh \
+  || fail "wave 39: нет nvm alias default (openclaw не в PATH новых терминалов)"
+grep -q -- '--bind telegram' scripts/install-trial.sh \
+  || fail "wave 39: agents add без --bind telegram"
+# Старый неправильный bind не должен остаться
+grep -q 'bind "telegram:assistant"' scripts/install-trial.sh \
+  && fail "wave 39: остался неправильный bind telegram:assistant" \
+  || true
+pass "wave 39: telegram channels add + dmPolicy/allowFrom + nvm default + bind telegram"
+
 rm -f /tmp/fake.json
 
 echo ""

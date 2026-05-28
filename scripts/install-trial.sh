@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.7"
+TRIAL_VERSION="2026.05.28.8"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -238,8 +238,11 @@ if ! command -v node &>/dev/null; then
       echo -e "   ${DIM}${line}${NC}"
     done
     nvm use 22 &>/dev/null || true
-    # Wave 38: КРИТИЧНО — прописать nvm в shell rc, иначе после закрытия
-    # терминала команда openclaw будет недоступна (node не в PATH).
+    # Wave 39: КРИТИЧНО — alias default, иначе в новом терминале nvm
+    # не активирует node автоматически → openclaw «command not found».
+    nvm alias default 22 &>/dev/null || true
+    # Wave 38: прописать nvm в shell rc (без этого nvm не грузится в
+    # новых терминалах вообще).
     persist_nvm_in_shell_rc
   fi
 fi
@@ -378,9 +381,29 @@ if [[ -z "$BOT_TOKEN" ]]; then
   exit 1
 fi
 
-# Прописываем telegram-аккаунт для ассистента
-openclaw config set "channels.telegram.accounts.assistant.token" "$BOT_TOKEN" &>/dev/null || \
-  warn "Не смог записать токен в конфиг — проверь 'openclaw configure'"
+# Wave 39: подключаем Telegram-канал через `openclaw channels add`
+# (НЕ config set — это была причина «токен не записался» → бот молчал).
+echo -e "   ${DIM}Подключаю Telegram-канал...${NC}"
+{ openclaw channels add --channel telegram --name "AI Assistant" --token "$BOT_TOKEN" 2>&1 || true; } \
+  | sed -E 's/[0-9]{8,12}:[A-Za-z0-9_-]{30,}/[TG_TOKEN_REDACTED]/g' \
+  | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
+unset BOT_TOKEN
+ok "Telegram-бот @${username} подключён"
+
+# Wave 39: DM-политика + allowlist владельца. БЕЗ ЭТОГО бот отвечает
+# «access not configured» + pairing code вместо нормального общения.
+echo ""
+echo -e "   ${BOLD}${WHITE}Твой Telegram user ID (чтобы бот сразу отвечал тебе):${NC}"
+echo -e "   ${DIM}Узнать ID: напиши @userinfobot в Telegram. Можно Enter чтобы пропустить.${NC}"
+read -r TG_USER_ID
+TG_USER_ID=$(printf '%s' "$TG_USER_ID" | tr -cd '0-9')
+if [[ -n "$TG_USER_ID" ]]; then
+  openclaw config set channels.telegram.dmPolicy allowlist &>/dev/null || true
+  openclaw config set channels.telegram.allowFrom "[\"${TG_USER_ID}\"]" &>/dev/null || true
+  ok "Доступ настроен — бот будет отвечать тебе без подтверждения"
+else
+  warn "ID не введён — при первом сообщении бот может попросить код подтверждения."
+fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
@@ -407,10 +430,12 @@ echo -e "   ${DIM}Регистрирую ассистента в OpenClaw...${NC
     --non-interactive \
     --workspace "$WORKSPACE" \
     --model "$TRIAL_MODEL" \
-    --bind "telegram:assistant" 2>&1 || true; } | while IFS= read -r line; do
+    --bind telegram 2>&1 || true; } | while IFS= read -r line; do
   echo -e "   ${DIM}${line}${NC}"
 done
-openclaw agents bind --agent assistant --bind "telegram:assistant" &>/dev/null || true
+# Wave 39: bind telegram (НЕ telegram:assistant — такого аккаунта нет,
+# канал создан через channels add выше).
+openclaw agents bind --agent assistant --bind telegram &>/dev/null || true
 
 # Wave 37: записываем auth-profile (opencode ключ из T2) в agent dir.
 # БЕЗ ЭТОГО АГЕНТ МОЛЧИТ — нет авторизации к provider, модель не отвечает.
@@ -454,6 +479,14 @@ echo -e "   ${CYAN}1.${NC} Открой Telegram, найди своего бот
 echo -e "   ${CYAN}2.${NC} Попробуй: «придумай 3 идеи для поста» / «помоги составить план»"
 echo -e "   ${CYAN}3.${NC} Ассистент покажет на что способна AI-команда"
 echo ""
+# Wave 39: если openclaw не в PATH текущей сессии — подскажем про новый
+# терминал (nvm прописан в rc, но текущая сессия его ещё не перечитала).
+if ! command -v openclaw &>/dev/null; then
+  echo -e "   ${BOLD}${YELLOW}⚠ Команда openclaw в этом терминале пока недоступна.${NC}"
+  echo -e "   ${DIM}   Открой НОВЫЙ терминал — или выполни: ${BOLD}source ~/.zshrc${NC}"
+  echo -e "   ${DIM}   После этого заработает: openclaw --version / openclaw doctor${NC}"
+  echo ""
+fi
 if [[ "$VPS_MODE" == true ]]; then
   echo -e "   ${BOLD}${WHITE}Dashboard (VPS):${NC} ssh -L 18789:127.0.0.1:18789 root@<ip>, затем http://127.0.0.1:18789"
 else
