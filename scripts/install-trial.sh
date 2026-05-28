@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28"
+TRIAL_VERSION="2026.05.28.1"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -135,6 +135,31 @@ echo ""
 echo -e "${BOLD}${WHITE}Шаг 1/4 — Проверяю систему и ставлю OpenClaw...${NC}"
 echo ""
 
+# Wave 32: pre-check версии macOS. OpenClaw требует macOS 15 (Sequoia)+.
+# Без этого клиент на старом маке ловит криптовую brew-ошибку
+# «does not run on macOS versions older than Sequoia» в середине установки.
+if [[ "$OS_NAME" == "macos" ]]; then
+  macos_ver=$(sw_vers -productVersion 2>/dev/null || echo "0")
+  macos_major=$(printf '%s' "$macos_ver" | cut -d. -f1)
+  if [[ -n "$macos_major" && "$macos_major" =~ ^[0-9]+$ && "$macos_major" -lt 15 ]]; then
+    echo ""
+    echo -e "${BOLD}${RED}   ✗  OpenClaw требует macOS 15 (Sequoia) или новее.${NC}"
+    echo -e "      У тебя сейчас: ${BOLD}macOS ${macos_ver}${NC}"
+    echo ""
+    echo -e "   ${BOLD}${WHITE}Что можно сделать:${NC}"
+    echo -e "   ${CYAN}1.${NC} Обнови macOS до Sequoia:"
+    echo -e "      Системные настройки → Основные → Обновление ПО"
+    echo -e "   ${CYAN}2.${NC} Или поставь на VPS (Linux-сервер) — там нет этого ограничения"
+    echo -e "   ${CYAN}3.${NC} Или попробуй на другом, более новом Mac"
+    echo ""
+    echo -e "   ${DIM}Это требование самого OpenClaw, не нашего установщика.${NC}"
+    echo ""
+    echo -e "${BOLD}${YELLOW}   Полная версия (6 агентов): ${CYAN}${COURSE_URL}${NC}"
+    echo ""
+    exit 1
+  fi
+fi
+
 # Homebrew (нужен для установки OpenClaw на macOS/Linux)
 if ! command -v brew &>/dev/null; then
   if [[ "$OS_NAME" == "windows-bash" ]]; then
@@ -157,12 +182,20 @@ ok "Homebrew на месте"
 # OpenClaw движок
 if ! command -v openclaw &>/dev/null; then
   echo -e "   ${DIM}Ставлю OpenClaw движок через Homebrew...${NC}"
-  brew install --cask openclaw 2>&1 | tail -5 | while IFS= read -r line; do
+  _brew_out=$(brew install --cask openclaw 2>&1) || true
+  echo "$_brew_out" | tail -5 | while IFS= read -r line; do
     echo -e "   ${DIM}${line}${NC}"
-  done || {
-    err "Не удалось поставить OpenClaw. Попробуй: brew install --cask openclaw"
+  done
+  if ! command -v openclaw &>/dev/null; then
+    echo ""
+    if echo "$_brew_out" | grep -qi 'Sequoia\|macOS versions older'; then
+      err "OpenClaw требует macOS 15 (Sequoia)+. Обнови macOS или используй VPS / новый Mac."
+    else
+      err "Не удалось поставить OpenClaw. Детали выше. Нужна помощь — пришли вывод в саппорт."
+    fi
+    echo -e "${BOLD}${YELLOW}   Полная версия (6 агентов): ${CYAN}${COURSE_URL}${NC}"
     exit 1
-  }
+  fi
 fi
 if command -v openclaw &>/dev/null; then
   ok "OpenClaw установлен: $(openclaw --version 2>/dev/null | head -1 || echo 'готов')"
