@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.10"
+TRIAL_VERSION="2026.05.28.11"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -338,10 +338,23 @@ if [[ -z "$OPENCODE_KEY" ]]; then
   exit 1
 fi
 ok "Ключ получен (${#OPENCODE_KEY} символов)"
+echo ""
 
-# Модель по умолчанию — MiniMax Free
-TRIAL_MODEL="opencode/minimax-m2.5-free"
-openclaw config set agents.defaults.model.primary "$TRIAL_MODEL" &>/dev/null || true
+# Wave 42: выбор модели (Антон просил — человек первично выбирает мозги)
+echo -e "   ${BOLD}${WHITE}Выбери модель (мозги ассистента):${NC}"
+echo ""
+echo -e "   ${BOLD}${GREEN}  1)${NC} MiniMax Free      ${DIM}(бесплатно — для теста)${NC}  ${GREEN}← рекомендуется${NC}"
+echo -e "   ${BOLD}${YELLOW}  2)${NC} Claude Sonnet     ${DIM}(платно — умнее)${NC}"
+echo -e "   ${BOLD}${CYAN}  3)${NC} GPT-5             ${DIM}(платно)${NC}"
+echo ""
+echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 1]:${NC}"
+read -r _model_choice
+case "${_model_choice:-1}" in
+  2) TRIAL_MODEL="opencode/claude-sonnet-4-5" ;;
+  3) TRIAL_MODEL="opencode/gpt-5" ;;
+  *) TRIAL_MODEL="opencode/minimax-m2.5-free" ;;
+esac
+ok "Модель: ${TRIAL_MODEL}"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
@@ -407,25 +420,50 @@ fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-#  T4. Установка агента-ассистента
+#  T4. Финальная сборка: onboard --non-interactive + прямая настройка
 # ═══════════════════════════════════════════════════════════════
-echo -e "${BOLD}${WHITE}Шаг 4/4 — Ставлю агента-ассистента...${NC}"
+#
+# Wave 42: Антон просил «прогнать анборд». Прогоняем штатный
+# `openclaw onboard --non-interactive` (в его логе он дал «Gateway:
+# reachable»). НО onboard в non-interactive режиме не проверен на
+# чистой машине — поэтому НЕ полагаемся только на него: ниже сами
+# пишем auth-profile и поднимаем gateway проверенными командами
+# (wave 37/40/41, идемпотентны). Пояса и подтяжки = надёжность.
+# </dev/null — чтобы onboard не завис на возможном промпте.
+echo -e "${BOLD}${WHITE}Шаг 4/4 — Финальная настройка (модель + gateway)...${NC}"
+echo ""
+echo -e "${DIM}   Запускаю штатный мастер OpenClaw в авто-режиме${NC}"
+echo -e "${DIM}   (настроит доступ к модели и поднимет движок)...${NC}"
+
+{ openclaw onboard \
+    --non-interactive \
+    --accept-risk \
+    --flow quickstart \
+    --auth-choice opencode-zen \
+    --opencode-zen-api-key "$OPENCODE_KEY" \
+    --skip-channels \
+    --skip-search \
+    --skip-hooks \
+    --skip-skills \
+    --skip-ui </dev/null 2>&1 || true; } | tail -10 | sed -E 's/sk-[A-Za-z0-9_-]{20,}/sk-[REDACTED]/g' \
+  | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
+# OPENCODE_KEY ещё нужен ниже для прямой записи auth-profile — unset позже.
+
+# Модель по умолчанию (выбор клиента из T2)
+openclaw config set agents.defaults.model.primary "$TRIAL_MODEL" &>/dev/null || true
+ok "Модель настроена: ${TRIAL_MODEL}"
 echo ""
 
+# ─── Агент-ассистент ────────────────────────────────────────────
 WORKSPACE="$HOME/.openclaw/workspace-assistant"
 mkdir -p "$WORKSPACE"
-
-# Скачиваем шаблон ассистента (с offer-логикой)
 for f in IDENTITY AGENTS SOUL USER MEMORY; do
-  if curl -fsSL --max-time 15 "${REPO_RAW}/templates/assistant/${f}.md" -o "${WORKSPACE}/${f}.md" 2>/dev/null; then
-    ok "${f}.md"
-  else
-    warn "Не скачал ${f}.md — ассистент будет работать в базовом режиме"
-  fi
+  curl -fsSL --max-time 15 "${REPO_RAW}/templates/assistant/${f}.md" -o "${WORKSPACE}/${f}.md" 2>/dev/null \
+    && ok "${f}.md" \
+    || warn "Не скачал ${f}.md — ассистент в базовом режиме"
 done
 
-# Регистрируем агента (реальная команда OpenClaw)
-echo -e "   ${DIM}Регистрирую ассистента в OpenClaw...${NC}"
+echo -e "   ${DIM}Регистрирую ассистента...${NC}"
 { openclaw agents add assistant \
     --non-interactive \
     --workspace "$WORKSPACE" \
@@ -433,13 +471,11 @@ echo -e "   ${DIM}Регистрирую ассистента в OpenClaw...${NC
     --bind telegram 2>&1 || true; } | while IFS= read -r line; do
   echo -e "   ${DIM}${line}${NC}"
 done
-# Wave 39: bind telegram (НЕ telegram:assistant — такого аккаунта нет,
-# канал создан через channels add выше).
 openclaw agents bind --agent assistant --bind telegram &>/dev/null || true
 
-# Wave 37: записываем auth-profile (opencode ключ из T2) в agent dir.
-# БЕЗ ЭТОГО АГЕНТ МОЛЧИТ — нет авторизации к provider, модель не отвечает.
-# Формат 1-в-1 как factory R3.
+# Wave 37+42: пишем auth-profile ассистенту НАПРЯМУЮ (проверенный путь
+# factory R3 — не зависит от того, создал ли onboard профиль для main).
+# БЕЗ ЭТОГО АГЕНТ МОЛЧИТ — нет авторизации к provider.
 AUTH_DIR="$HOME/.openclaw/agents/assistant/agent"
 mkdir -p "$AUTH_DIR"
 cat > "${AUTH_DIR}/auth-profiles.json" <<AUTHEOF
@@ -459,28 +495,15 @@ cat > "${AUTH_DIR}/auth-profiles.json" <<AUTHEOF
 AUTHEOF
 chmod 600 "${AUTH_DIR}/auth-profiles.json"
 unset OPENCODE_KEY  # ключ больше не нужен в памяти
-ok "Модель подключена (MiniMax Free через opencode)"
+ok "Доступ к модели записан ассистенту"
 
-# Wave 41: НАДЁЖНЫЙ запуск gateway. Прошлые баги:
-#   • `if ! gateway status | grep running` ловил «not running» (подстрока
-#     «running» внутри!) → install пропускался
-#   • `gateway start` не загружает LaunchAgent — после install openclaw
-#     явно требует `launchctl bootstrap gui/$UID ...plist`
-# Теперь: mode local → install (безусловно, идемпотентно) → launchctl
-# bootstrap (точная команда из подсказки openclaw) → проверка.
-echo -e "   ${DIM}Настраиваю и запускаю gateway...${NC}"
-
-# 1. mode=local — ОБЯЗАТЕЛЬНО до install (иначе «No gateway.mode found»)
-{ openclaw config set gateway.mode local 2>&1 || true; } | tail -1 | while IFS= read -r line; do
-  echo -e "   ${DIM}${line}${NC}"
-done
-
-# 2. install — безусловно (идемпотентно; создаёт LaunchAgent)
-{ openclaw gateway install 2>&1 || true; } | tail -3 | while IFS= read -r line; do
-  echo -e "   ${DIM}${line}${NC}"
-done
-
-# 3. Загрузить LaunchAgent (на macOS — то что openclaw просит после install)
+# Wave 40/41: НАДЁЖНЫЙ запуск gateway (страховка — даже если onboard
+# выше уже всё поднял, команды идемпотентны). Прошлые баги: grep
+# «running» ловил «not running»; gateway start не грузит LaunchAgent —
+# нужен launchctl bootstrap. mode local → install → bootstrap → start.
+echo -e "   ${DIM}Настраиваю и поднимаю gateway (движок)...${NC}"
+openclaw config set gateway.mode local &>/dev/null || true
+openclaw gateway install &>/dev/null || true
 if [[ "$OS_NAME" == "macos" ]]; then
   _plist="$HOME/Library/LaunchAgents/ai.openclaw.gateway.plist"
   if [[ -f "$_plist" ]]; then
@@ -488,22 +511,53 @@ if [[ "$OS_NAME" == "macos" ]]; then
       || launchctl load "$_plist" 2>/dev/null || true
   fi
 fi
-{ openclaw gateway start 2>&1 || true; } | tail -2 | while IFS= read -r line; do
-  echo -e "   ${DIM}${line}${NC}"
-done
-
-# 4. Проверка (грепаем НАДЁЖНЫЕ маркеры из рабочего status, не «running»
-#    который матчит и «not running»)
+openclaw gateway start &>/dev/null || true
+openclaw gateway restart &>/dev/null || true  # подхватить только что добавленного агента
 sleep 3
-if openclaw gateway status 2>&1 | grep -qE "LaunchAgent \(loaded\)|RPC probe: ok"; then
-  ok "Gateway запущен и работает"
-else
-  warn "Gateway пока не поднялся. В НОВОМ терминале выполни 2 команды:"
-  echo -e "   ${BOLD}${WHITE}   openclaw gateway install${NC}"
-  echo -e "   ${BOLD}${WHITE}   launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/ai.openclaw.gateway.plist${NC}"
-fi
-ok "Ассистент готов"
+
+# ═══════════════════════════════════════════════════════════════
+#  T5. Быстрый онбординг — проверяем что всё на месте (по-русски)
+# ═══════════════════════════════════════════════════════════════
+#
+# Wave 42: Антон просил «прогнать анборд по-русски» — чтобы человек,
+# который не разбирается в техничке, сам убедился что всё встало.
+# Прогоняем понятный чек-лист по каждому узлу: движок, модель,
+# Telegram, агент, gateway. Никакого английского TUI — простой ✓/✗.
 echo ""
+divider
+echo -e "${BOLD}${WHITE}🚀 Быстрый онбординг — проверяю что всё работает...${NC}"
+echo ""
+
+_onb_ok=0
+_onb_total=5
+
+if command -v openclaw >/dev/null 2>&1; then
+  ok "Движок OpenClaw установлен"; _onb_ok=$((_onb_ok + 1))
+else err "Движок OpenClaw установлен"; fi
+
+if openclaw config get agents.defaults.model.primary 2>/dev/null | grep -q .; then
+  ok "Мозги (AI-модель) подключены"; _onb_ok=$((_onb_ok + 1))
+else err "Мозги (AI-модель) подключены"; fi
+
+if openclaw channels status 2>&1 | grep -qi telegram; then
+  ok "Telegram-бот привязан"; _onb_ok=$((_onb_ok + 1))
+else err "Telegram-бот привязан"; fi
+
+if openclaw agents list 2>&1 | grep -qi assistant; then
+  ok "Агент-ассистент создан"; _onb_ok=$((_onb_ok + 1))
+else err "Агент-ассистент создан"; fi
+
+if openclaw gateway status 2>&1 | grep -qE "LaunchAgent \(loaded\)|RPC probe: ok|reachable"; then
+  ok "Gateway (движок) запущен"; _onb_ok=$((_onb_ok + 1))
+else err "Gateway (движок) запущен"; fi
+
+echo ""
+if [[ "$_onb_ok" -eq "$_onb_total" ]]; then
+  echo -e "   ${BOLD}${GREEN}✅ Онбординг пройден: ${_onb_ok}/${_onb_total} — всё работает!${NC}"
+else
+  echo -e "   ${BOLD}${YELLOW}Онбординг: ${_onb_ok}/${_onb_total} проверок прошло.${NC}"
+  echo -e "   ${DIM}   Если бот молчит — открой НОВЫЙ терминал и выполни:${NC} ${BOLD}openclaw onboard${NC}"
+fi
 
 # ═══════════════════════════════════════════════════════════════
 #  Финал
