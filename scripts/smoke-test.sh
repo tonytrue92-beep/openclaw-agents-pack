@@ -801,6 +801,15 @@ grep -q 'OPENCODE_KEY' scripts/install-trial.sh \
   || fail "wave 37: trial не обрабатывает opencode API-ключ"
 pass "wave 37: trial подключает модель (opencode-ключ + auth-profile + config)"
 
+# ─── Test 6.39: wave 38 trial прописывает nvm в shell rc ────────
+# Главная причина «openclaw не вызывается после установки»: nvm не
+# прописан в shell-профиль → node/openclaw не в PATH новых терминалов.
+grep -q 'persist_nvm_in_shell_rc' scripts/install-trial.sh \
+  || fail "wave 38: trial не прописывает nvm в shell rc (openclaw будет недоступен)"
+grep -qE '\.zshrc.*\.bashrc|HOME/.zshrc' scripts/install-trial.sh \
+  || fail "wave 38: trial не трогает shell rc-файлы для nvm"
+pass "wave 38: trial персистит nvm в shell rc (openclaw доступен в новых терминалах)"
+
 rm -f /tmp/fake.json
 
 echo ""
