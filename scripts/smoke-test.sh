@@ -717,6 +717,38 @@ for vip_agent in designer coordinator copywriter; do
 done
 pass "wave 6: AGENTS.md у 3 VIP-агентов содержит Session Startup + онбординг"
 
+# ─── Test 6.34: wave 30 trial-установщик (демо-воронка) ──────────
+# Отдельный установщик install-trial.sh — НЕ связан с install-agents.sh.
+# Ставит OpenClaw + одного assistant-агента с offer-логикой.
+[[ -f "scripts/install-trial.sh" ]] \
+  || fail "wave 30: scripts/install-trial.sh отсутствует"
+[[ -x "scripts/install-trial.sh" ]] \
+  || fail "wave 30: scripts/install-trial.sh не executable"
+# Шаблон ассистента (5 файлов)
+for f in IDENTITY AGENTS SOUL USER MEMORY; do
+  [[ -f "templates/assistant/${f}.md" ]] \
+    || fail "wave 30: templates/assistant/${f}.md отсутствует"
+done
+# Offer-логика: ссылка на курс в шаблоне ассистента
+grep -q 'serditov.tonytrue.pro' templates/assistant/AGENTS.md \
+  || fail "wave 30: offer-ссылка отсутствует в assistant/AGENTS.md"
+grep -q 'serditov.tonytrue.pro' scripts/install-trial.sh \
+  || fail "wave 30: offer-ссылка отсутствует в install-trial.sh"
+# Offer-ритм 2-3 сообщения прописан
+grep -qE 'каждые 2-3|2-3 (моих )?ответ' templates/assistant/AGENTS.md \
+  || fail "wave 30: offer-ритм (2-3 сообщения) не прописан"
+# Trial НЕ требует курс-токен (это бесплатное демо)
+grep -q 'course.token\|COURSE_TOKEN\|--vip-token' scripts/install-trial.sh \
+  && fail "wave 30: install-trial.sh не должен требовать курс-токен (демо бесплатно)" \
+  || true
+# Изоляция: install-trial не ВЫЗЫВАЕТ install-agents (source/bash).
+# Сначала выкидываем строки-комментарии, потом ищем реальный вызов —
+# упоминание в комментарии «не связан с install-agents.sh» допустимо.
+if grep -vE '^\s*#' scripts/install-trial.sh | grep -qE 'install-agents'; then
+  fail "wave 30: install-trial.sh не должен вызывать install-agents (изоляция)"
+fi
+pass "wave 30: trial-установщик + assistant с offer-логикой (изолирован)"
+
 rm -f /tmp/fake.json
 
 echo ""

@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-05-28 07:14:54 UTC
-# Commit: 7e3da9b
+# Generated: 2026-05-28 10:48:49 UTC
+# Commit: a7ad4a8
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
@@ -13,8 +13,9 @@ fdd5ee13a75d067198914a57d57ece71e70806bd616288cfdef4e81374a74909  scripts/demo-s
 57f0ac432d277dfdcf6c3d805ec94af096769728632cd8ebe337cb13e5d4f519  scripts/diagnose-agents.sh
 df5dabea8ab20805d17bcdce49733428fed20e02b5ba25695aa650036fa480f4  scripts/install-agents.sh
 c58d722a490b4af6cc2140107a11fed107434ef89c6af9c5daf0e8e6ad916e34  scripts/install-git-hooks.sh
-759667c7af2824d32117f6e5a1ea398c92afac365d427ccb3bdc2586536f0825  scripts/security-audit.sh
-419e50148147ce29386bc4cc6dcc1643bb01e6c7c4ad82e4c205b78bc8d1a428  scripts/smoke-test.sh
+0b2fb8a92442f54afcd5fc92ae80f749efec409c780cc61c323514e3e2e8b7c0  scripts/install-trial.sh
+f8158e17b76926f4b358dc5a249c8165eb19e6692263954c18a85ca50aa853c9  scripts/security-audit.sh
+052df861765d0b7afe7cf94e95cbaf51c8bfcf4a341d425950b3000c3424c802  scripts/smoke-test.sh
 e5d674feca33e389ce3970f9aec8839439ba9fbf2fab989cdab1c32b6b842f11  scripts/update-checksums.sh
 9b00fe5c75190841fd55a26905f32018e928f68c211de27281686cc1fe49655b  scripts/lib/agents.sh
 d026a288aa65a9be335a6b05f942d3e760c775d05dee70d4a00f793fbf85741d  scripts/lib/course-token.sh
@@ -23,6 +24,11 @@ ac415a7b62aabe0f90b627eb1ab46eae7b9161e13222f4d0c1db3db8816f54d7  scripts/lib/pr
 254823d67596058a74884c7a932ed61d83216828993368e1909ae7f29a99e63b  scripts/lib/telemetry.sh
 7d14dc9f88e0af7ae47c7b91279c5e3eae4266d79145d5fb725a0900d5639a36  scripts/lib/ui.sh
 cd031538de6331d2fc4439e47833f32e5bf0f9f73f69e9eb9634bf8b0ef7263d  scripts/lib/vip.sh
+2322c21a936622d4e0666a4277b05474d1a298e211a90500a7d1a4786314b7c7  templates/assistant/AGENTS.md
+68c73a82e884888fb4814aaf724bf53b33528f6f6c9af6038251c70844634bff  templates/assistant/IDENTITY.md
+102d9114cf5f9865a3b93d4c448e82b70732ba90dba59bf3bb3a0d4dd0621f62  templates/assistant/MEMORY.md
+46920b6fa592bc8677989abf48654b5c231557de1ff834d405897163d618e485  templates/assistant/SOUL.md
+ce7fd473f036ca81b279bd65be705ae443152ca91882ab31011a2f0728a904f6  templates/assistant/USER.md
 840213ff19a41a02606848ec8470d0c098b2c846cf10d5e5e7bc752c7dea2b67  templates/coordinator/AGENTS.md
 c217674723b535f555fe46e02ec2f7bbe6dd0b8e26ee305fcc4a0687a38e2860  templates/coordinator/IDENTITY.md
 e3d7487b5d83f9ff47c01cfa7ab14ad8a9fa4076d731f62a572adcab055ed886  templates/coordinator/LEARNING.md
