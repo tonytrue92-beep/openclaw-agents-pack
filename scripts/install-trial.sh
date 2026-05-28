@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.1"
+TRIAL_VERSION="2026.05.28.2"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -61,9 +61,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --help)
       cat <<HELP
-AI TEAM 2.0 — TRIAL / ДЕМО установщик v${TRIAL_VERSION}
+AI TEAM 2.0 — ТЕСТ-ДРАЙВ установщик v${TRIAL_VERSION}
 
-Бесплатная тестовая установка: OpenClaw + один агент-ассистент.
+Тест-драйв: OpenClaw + один агент-ассистент.
 Без курс-токена. Для полной версии (6 агентов) — ${COURSE_URL}
 
 Usage:
@@ -106,10 +106,10 @@ cat << 'LOGO'
 /_/   \_\___|   |_| |_____/_/   \_\_|  |_| |_____(_)___/
 LOGO
 echo -e "${NC}"
-echo -e "${BOLD}${YELLOW}              Д Е М О   —   Б Е С П Л А Т Н А Я   В Е Р С И Я${NC}"
+echo -e "${BOLD}${YELLOW}                  Т Е С Т - Д Р А Й В   В Е Р С И Я${NC}"
 echo ""
-echo -e "${BOLD}${WHITE}   Попробуй личного AI-ассистента бесплатно.${NC}"
-echo -e "${DIM}   Это демо одного агента. Полная версия — команда из 6 агентов${NC}"
+echo -e "${BOLD}${WHITE}   Попробуй личного AI-ассистента в деле.${NC}"
+echo -e "${DIM}   Это тест-драйв одного агента. Полная версия — команда из 6 агентов${NC}"
 echo -e "${DIM}   которые работают на тебя 24/7: ${CYAN}${COURSE_URL}${NC}"
 echo ""
 echo -e "${DIM}   trial v${TRIAL_VERSION}${NC}"
@@ -160,13 +160,32 @@ if [[ "$OS_NAME" == "macos" ]]; then
   fi
 fi
 
-# Homebrew (нужен для установки OpenClaw на macOS/Linux)
-if ! command -v brew &>/dev/null; then
-  if [[ "$OS_NAME" == "windows-bash" ]]; then
-    err "На Windows OpenClaw ставится официальным installer'ом, не через bash."
-    echo -e "   ${DIM}Гайд: ${CYAN}https://github.com/tonytrue92-beep/openclaw-agents-pack/blob/main/docs/windows-install-guide.md${NC}"
-    exit 1
+# Wave 33: Windows-ветка. OpenClaw на Windows = нативный installer
+# (.exe/.msi), не bash. Trial детектит платформу: если OpenClaw уже
+# стоит — продолжаем с агентом; если нет — направляем на установку
+# движка, потом клиент запускает trial снова.
+if [[ "$OS_NAME" == "windows-bash" || "$OS_NAME" == "wsl" ]]; then
+  if command -v openclaw &>/dev/null || command -v openclaw.cmd &>/dev/null; then
+    ok "OpenClaw уже установлен на Windows"
+  else
+    echo ""
+    echo -e "${BOLD}${WHITE}   Шаг для Windows: сначала поставь движок OpenClaw${NC}"
+    echo ""
+    echo -e "   ${CYAN}1.${NC} Скачай Windows-установщик OpenClaw: ${CYAN}https://openclaw.ai${NC}"
+    echo -e "   ${CYAN}2.${NC} Запусти его (двойной клик, обычная установка)"
+    echo -e "   ${CYAN}3.${NC} Запусти эту команду снова — я доставлю агента-ассистента"
+    echo ""
+    echo -e "   ${DIM}На Windows движок ставится официальным установщиком, не через${NC}"
+    echo -e "   ${DIM}bash. Гайд: ${CYAN}https://github.com/tonytrue92-beep/openclaw-agents-pack/blob/main/docs/windows-install-guide.md${NC}"
+    echo ""
+    echo -e "${BOLD}${YELLOW}   Полная версия (6 агентов): ${CYAN}${COURSE_URL}${NC}"
+    echo ""
+    exit 0
   fi
+fi
+
+# Homebrew (нужен для установки OpenClaw на macOS)
+if ! command -v brew &>/dev/null && [[ "$OS_NAME" != "windows-bash" && "$OS_NAME" != "wsl" ]]; then
   echo -e "   ${DIM}Homebrew не найден — ставлю (это займёт 2-5 минут, попросит пароль)...${NC}"
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || {
     err "Не удалось поставить Homebrew. Поставь вручную с https://brew.sh и запусти снова."
@@ -211,7 +230,7 @@ echo ""
 echo -e "${BOLD}${WHITE}Шаг 2/4 — Базовая настройка OpenClaw...${NC}"
 echo ""
 echo -e "${DIM}   Если OpenClaw ещё не настроен — открою интерактивный онбординг.${NC}"
-echo -e "${DIM}   Для демо выбирай бесплатную модель (minimax) когда спросит.${NC}"
+echo -e "${DIM}   Для тест-драйва выбирай модель minimax когда спросит.${NC}"
 echo ""
 
 # Если gateway ещё не настроен — запускаем онбординг.
