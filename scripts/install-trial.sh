@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.3"
+TRIAL_VERSION="2026.05.28.4"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -139,6 +139,35 @@ echo ""
 # macOS 15 (Sequoia) — это ограничение было у brew-cask, не у npm.
 echo -e "${BOLD}${WHITE}Шаг 1/4 — Проверяю Node.js и ставлю OpenClaw...${NC}"
 echo ""
+
+# Wave 35: Xcode Command Line Tools (git/компиляторы). На чистом маке
+# их нет, а nvm install использует git → ошибка «need Xcode CLT».
+# Ставим САМИ и ждём пока готово — пользователь не видит криптовую ошибку.
+if [[ "$OS_NAME" == "macos" ]] && ! xcode-select -p &>/dev/null; then
+  echo -e "   ${DIM}Нужны Apple Command Line Tools (для Node.js). Запускаю установку...${NC}"
+  xcode-select --install &>/dev/null || true
+  echo ""
+  echo -e "   ${BOLD}${WHITE}📦 Открылось окно Apple «Установить инструменты разработчика».${NC}"
+  echo -e "   ${BOLD}${WHITE}   Нажми «Установить» в этом окне и дождись завершения.${NC}"
+  echo -e "   ${DIM}   Жду автоматически (обычно 3-7 минут)...${NC}"
+  echo ""
+  _waited=0
+  while ! xcode-select -p &>/dev/null; do
+    sleep 5
+    _waited=$((_waited + 5))
+    if (( _waited % 30 == 0 )); then
+      echo -e "   ${DIM}   ...всё ещё жду установку Command Line Tools (${_waited}с)${NC}"
+    fi
+    if (( _waited >= 900 )); then
+      echo ""
+      err "Command Line Tools не установились за 15 минут."
+      echo -e "   ${DIM}Заверши установку в окне Apple (или: xcode-select --install)${NC}"
+      echo -e "   ${DIM}и запусти команду снова.${NC}"
+      exit 1
+    fi
+  done
+  ok "Apple Command Line Tools готовы"
+fi
 
 # ─── Node.js (нужен для npm install openclaw) ───────────────────
 if ! command -v node &>/dev/null; then

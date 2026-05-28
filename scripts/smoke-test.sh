@@ -763,6 +763,17 @@ grep -q 'brew install --cask openclaw' scripts/install-trial.sh \
   || true
 pass "wave 34: trial ставит OpenClaw через npm (Node+npm, кроссплатформенно)"
 
+# ─── Test 6.36: wave 35 auto-install Xcode CLT ──────────────────
+# На чистом маке нет Command Line Tools (git/компиляторы) — nvm падает.
+# Trial сам запускает xcode-select --install + ждёт в loop до готовности.
+grep -q 'xcode-select --install' scripts/install-trial.sh \
+  || fail "wave 35: trial не запускает auto-install Xcode CLT"
+grep -q 'xcode-select -p' scripts/install-trial.sh \
+  || fail "wave 35: trial не проверяет наличие Xcode CLT (xcode-select -p)"
+grep -q 'Command Line Tools' scripts/install-trial.sh \
+  || fail "wave 35: trial не упоминает Command Line Tools в сообщении"
+pass "wave 35: auto-install Xcode CLT + wait-loop (без ошибки у клиента)"
+
 rm -f /tmp/fake.json
 
 echo ""
