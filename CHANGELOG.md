@@ -6,6 +6,47 @@
 
 ---
 
+## 2026-05-28 — Wave 39 (trial: рабочий telegram-бот + openclaw в PATH)
+
+### Триггер
+
+Полный лог установки на чистом маке показал: установка проходит
+(OpenClaw 2026.5.27 ставится), НО:
+1. `openclaw --version` → «command not found» (даже после wave 38)
+2. В логе: `⚠ Не смог записать токен в конфиг` → бот молчит
+
+### 4 реальных бага (все исправлены по образцу factory)
+
+**1. openclaw не в PATH** — wave 38 прописал nvm в rc, но не сделал
+`nvm alias default`. В новом терминале nvm загружается, но не
+активирует node без default-алиаса. → Добавлен `nvm alias default 22`.
+
+**2. Telegram-токен не записывался** — использовал
+`openclaw config set channels.telegram.accounts.assistant.token`
+(неправильно). Factory использует `openclaw channels add --channel
+telegram --name ... --token ...`. → Заменено.
+
+**3. Бот просил pairing code** — не настроена DM-политика. Без неё
+бот отвечает «access not configured» вместо общения. → Добавлены
+`config set channels.telegram.dmPolicy allowlist` + `allowFrom`
+(запрос TG user ID владельца).
+
+**4. Неправильный bind** — `--bind telegram:assistant` (такого
+аккаунта нет). Factory: `--bind telegram`. → Исправлено.
+
+### Added — подсказка про новый терминал
+
+Если `openclaw` не в PATH текущей сессии (rc ещё не перечитан) —
+финал показывает: «открой новый терминал или `source ~/.zshrc`».
+
+### Compatibility
+
+- `TRIAL_VERSION` `2026.05.28.7` → `2026.05.28.8`
+- Telegram-настройка теперь 1-в-1 как рабочий factory
+- Smoke 6.40 (новый, 6 ассертов). ShellCheck чистый.
+
+---
+
 ## 2026-05-28 — Wave 38 (trial: persist nvm — openclaw доступен после установки)
 
 ### Триггер
