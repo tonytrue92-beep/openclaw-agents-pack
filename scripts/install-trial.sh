@@ -18,27 +18,20 @@ set -euo pipefail
 #  Работает на macOS / Linux / VPS / Windows (WSL/Git Bash).
 # ═══════════════════════════════════════════════════════════════════════
 
-# ─── Bash 4+ self-upgrade (как в основном установщике) ──────────
+# ─── Bash: работаем на 3.2+ (wave 31) ───────────────────────────
+# Код 3.2-совместим. Если свежий bash уже есть в brew — используем его
+# (стабильнее), но НЕ требуем и НЕ ставим его сами: на старых маках
+# сборка bash из исходников — это минуты ожидания и барьер на входе.
 if (( BASH_VERSINFO[0] < 4 )); then
   for _newer_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
     if [[ -x "$_newer_bash" && "$_newer_bash" != "$BASH" ]]; then
       exec "$_newer_bash" "$0" "$@"
     fi
   done
-  if command -v brew &>/dev/null; then
-    echo "⚙ Обновляю bash через Homebrew..." >&2
-    brew install bash >&2 2>&1 || true
-    for _newer_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
-      if [[ -x "$_newer_bash" && "$_newer_bash" != "$BASH" ]]; then
-        exec "$_newer_bash" "$0" "$@"
-      fi
-    done
-  fi
-  echo "✗ Нужен bash 4+. Поставь Homebrew (https://brew.sh) → brew install bash → запусти снова." >&2
-  exit 1
+  # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.26"
+TRIAL_VERSION="2026.05.28"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
