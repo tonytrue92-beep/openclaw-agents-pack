@@ -31,7 +31,7 @@ if (( BASH_VERSINFO[0] < 4 )); then
   # bash 4+ не найден — продолжаем на текущем 3.2 (код совместим).
 fi
 
-TRIAL_VERSION="2026.05.28.2"
+TRIAL_VERSION="2026.05.28.3"
 TRIAL_COMMIT="__COMMIT_PLACEHOLDER__"
 COURSE_URL="https://serditov.tonytrue.pro/"
 REPO_RAW="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main"
@@ -130,98 +130,74 @@ divider
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-#  T1. Preflight — Homebrew + OpenClaw движок
+#  T1. Preflight — Node.js + OpenClaw движок (через npm)
 # ═══════════════════════════════════════════════════════════════
-echo -e "${BOLD}${WHITE}Шаг 1/4 — Проверяю систему и ставлю OpenClaw...${NC}"
+#
+# Wave 34: ставим OpenClaw через `npm install -g openclaw@latest` —
+# тот же путь что в factory demo-install.sh. Кроссплатформенно
+# (macOS любой версии / Linux / VPS / Windows с Node), БЕЗ требования
+# macOS 15 (Sequoia) — это ограничение было у brew-cask, не у npm.
+echo -e "${BOLD}${WHITE}Шаг 1/4 — Проверяю Node.js и ставлю OpenClaw...${NC}"
 echo ""
 
-# Wave 32: pre-check версии macOS. OpenClaw требует macOS 15 (Sequoia)+.
-# Без этого клиент на старом маке ловит криптовую brew-ошибку
-# «does not run on macOS versions older than Sequoia» в середине установки.
-if [[ "$OS_NAME" == "macos" ]]; then
-  macos_ver=$(sw_vers -productVersion 2>/dev/null || echo "0")
-  macos_major=$(printf '%s' "$macos_ver" | cut -d. -f1)
-  if [[ -n "$macos_major" && "$macos_major" =~ ^[0-9]+$ && "$macos_major" -lt 15 ]]; then
-    echo ""
-    echo -e "${BOLD}${RED}   ✗  OpenClaw требует macOS 15 (Sequoia) или новее.${NC}"
-    echo -e "      У тебя сейчас: ${BOLD}macOS ${macos_ver}${NC}"
-    echo ""
-    echo -e "   ${BOLD}${WHITE}Что можно сделать:${NC}"
-    echo -e "   ${CYAN}1.${NC} Обнови macOS до Sequoia:"
-    echo -e "      Системные настройки → Основные → Обновление ПО"
-    echo -e "   ${CYAN}2.${NC} Или поставь на VPS (Linux-сервер) — там нет этого ограничения"
-    echo -e "   ${CYAN}3.${NC} Или попробуй на другом, более новом Mac"
-    echo ""
-    echo -e "   ${DIM}Это требование самого OpenClaw, не нашего установщика.${NC}"
-    echo ""
-    echo -e "${BOLD}${YELLOW}   Полная версия (6 агентов): ${CYAN}${COURSE_URL}${NC}"
-    echo ""
-    exit 1
-  fi
-fi
-
-# Wave 33: Windows-ветка. OpenClaw на Windows = нативный installer
-# (.exe/.msi), не bash. Trial детектит платформу: если OpenClaw уже
-# стоит — продолжаем с агентом; если нет — направляем на установку
-# движка, потом клиент запускает trial снова.
-if [[ "$OS_NAME" == "windows-bash" || "$OS_NAME" == "wsl" ]]; then
-  if command -v openclaw &>/dev/null || command -v openclaw.cmd &>/dev/null; then
-    ok "OpenClaw уже установлен на Windows"
-  else
-    echo ""
-    echo -e "${BOLD}${WHITE}   Шаг для Windows: сначала поставь движок OpenClaw${NC}"
-    echo ""
-    echo -e "   ${CYAN}1.${NC} Скачай Windows-установщик OpenClaw: ${CYAN}https://openclaw.ai${NC}"
-    echo -e "   ${CYAN}2.${NC} Запусти его (двойной клик, обычная установка)"
-    echo -e "   ${CYAN}3.${NC} Запусти эту команду снова — я доставлю агента-ассистента"
-    echo ""
-    echo -e "   ${DIM}На Windows движок ставится официальным установщиком, не через${NC}"
-    echo -e "   ${DIM}bash. Гайд: ${CYAN}https://github.com/tonytrue92-beep/openclaw-agents-pack/blob/main/docs/windows-install-guide.md${NC}"
-    echo ""
-    echo -e "${BOLD}${YELLOW}   Полная версия (6 агентов): ${CYAN}${COURSE_URL}${NC}"
-    echo ""
-    exit 0
-  fi
-fi
-
-# Homebrew (нужен для установки OpenClaw на macOS)
-if ! command -v brew &>/dev/null && [[ "$OS_NAME" != "windows-bash" && "$OS_NAME" != "wsl" ]]; then
-  echo -e "   ${DIM}Homebrew не найден — ставлю (это займёт 2-5 минут, попросит пароль)...${NC}"
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || {
-    err "Не удалось поставить Homebrew. Поставь вручную с https://brew.sh и запусти снова."
-    exit 1
-  }
-  # Подхватываем brew в PATH (Apple Silicon vs Intel)
-  for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
-    [[ -x "$_brew" ]] && eval "$("$_brew" shellenv)"
-  done
-fi
-ok "Homebrew на месте"
-
-# OpenClaw движок
-if ! command -v openclaw &>/dev/null; then
-  echo -e "   ${DIM}Ставлю OpenClaw движок через Homebrew...${NC}"
-  _brew_out=$(brew install --cask openclaw 2>&1) || true
-  echo "$_brew_out" | tail -5 | while IFS= read -r line; do
-    echo -e "   ${DIM}${line}${NC}"
-  done
-  if ! command -v openclaw &>/dev/null; then
-    echo ""
-    if echo "$_brew_out" | grep -qi 'Sequoia\|macOS versions older'; then
-      err "OpenClaw требует macOS 15 (Sequoia)+. Обнови macOS или используй VPS / новый Mac."
-    else
-      err "Не удалось поставить OpenClaw. Детали выше. Нужна помощь — пришли вывод в саппорт."
-    fi
+# ─── Node.js (нужен для npm install openclaw) ───────────────────
+if ! command -v node &>/dev/null; then
+  if [[ "$OS_NAME" == "windows-bash" ]]; then
+    err "Нужен Node.js. На Windows поставь с https://nodejs.org (LTS), затем запусти снова."
     echo -e "${BOLD}${YELLOW}   Полная версия (6 агентов): ${CYAN}${COURSE_URL}${NC}"
     exit 1
   fi
+  echo -e "   ${DIM}Node.js не найден — ставлю через nvm (1-2 минуты)...${NC}"
+  export NVM_DIR="$HOME/.nvm"
+  if [[ ! -s "$NVM_DIR/nvm.sh" ]]; then
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh 2>/dev/null | bash 2>&1 | tail -3 | while IFS= read -r line; do
+      echo -e "   ${DIM}${line}${NC}"
+    done
+  fi
+  [[ -s "$NVM_DIR/nvm.sh" ]] && \. "$NVM_DIR/nvm.sh"
+  if command -v nvm &>/dev/null; then
+    nvm install 22 2>&1 | tail -3 | while IFS= read -r line; do
+      echo -e "   ${DIM}${line}${NC}"
+    done
+    nvm use 22 &>/dev/null || true
+  fi
 fi
-if command -v openclaw &>/dev/null; then
-  ok "OpenClaw установлен: $(openclaw --version 2>/dev/null | head -1 || echo 'готов')"
+if command -v node &>/dev/null; then
+  ok "Node.js $(node -v 2>/dev/null) готов"
 else
-  err "OpenClaw не доступен после установки. Перезапусти терминал и попробуй снова."
+  err "Не удалось подготовить Node.js. Поставь вручную с https://nodejs.org и запусти снова."
   exit 1
 fi
+
+# ─── OpenClaw движок через npm (как factory) ────────────────────
+if ! command -v openclaw &>/dev/null; then
+  echo -e "   ${DIM}Ставлю OpenClaw: npm install -g openclaw@latest (30-60 сек)...${NC}"
+  # Стабильность при плохой сети (как factory)
+  npm config set fetch-retries 5 >/dev/null 2>&1 || true
+  npm config set fetch-retry-maxtimeout 120000 >/dev/null 2>&1 || true
+  npm config set fetch-timeout 300000 >/dev/null 2>&1 || true
+
+  _npm_err=$(mktemp -t openclaw-npm-err.XXXXXX 2>/dev/null || echo "/tmp/openclaw-npm-err.$$")
+  npm install -g openclaw@latest 2>"$_npm_err" | tail -8 | while IFS= read -r line; do
+    echo -e "   ${DIM}${line}${NC}"
+  done
+
+  if ! command -v openclaw &>/dev/null; then
+    echo ""
+    if grep -qiE 'EACCES|permission denied' "$_npm_err" 2>/dev/null; then
+      err "npm: нет прав на глобальную установку. Попробуй: sudo npm install -g openclaw@latest"
+      echo -e "   ${DIM}Или настрой npm prefix без sudo: https://docs.npmjs.com/resolving-eacces-permissions-errors${NC}"
+    else
+      err "Не удалось поставить OpenClaw через npm. Последние строки ошибки:"
+      tail -5 "$_npm_err" 2>/dev/null | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
+    fi
+    rm -f "$_npm_err"
+    echo -e "${BOLD}${YELLOW}   Полная версия (6 агентов): ${CYAN}${COURSE_URL}${NC}"
+    exit 1
+  fi
+  rm -f "$_npm_err"
+fi
+ok "OpenClaw установлен: $(openclaw --version 2>/dev/null | head -1 || echo 'готов')"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
