@@ -430,19 +430,26 @@ validate_openai_embedding_key() {
 
 # ─── Включить embedding-память для агента ───────────────────────
 #
-# Прописывает в ~/.openclaw/openclaw.json:
-#   • agents.<id>.memorySearch.enabled = true
-#   • agents.<id>.memorySearch.provider = openai
-#   • agents.<id>.memorySearch.model = text-embedding-3-large
+# Прописывает per-agent memorySearch в ~/.openclaw/openclaw.json:
+#   agents.list[<idx>].memorySearch = {enabled, sources, provider,
+#                                      fallback, model}
+#
+# ⚠️ ФИКС 2026.06.02: схема OpenClaw хранит агентов в МАССИВЕ
+# agents.list[], а НЕ в карте agents.<id>. Старый путь
+# agents.<id>.memorySearch.* отвергался валидацией CLI:
+#   «Error: Config validation failed: agents: Invalid input» (×3)
+# → embedding по факту НЕ включался (хоть память и индексировалась).
+# Теперь находим индекс агента в agents.list по id и пишем валидный
+# путь ОДНИМ атомарным --strict-json set (проверено dry-run валидацией).
 #
 # OPENAI_EMBEDDING_API_KEY пишется отдельно один раз глобально через
 # guard-флаг EMBEDDING_ENV_WRITTEN (см. caller в install-agents.sh).
 #
-# Per-agent а не agents.defaults — чтобы --only-установка одного
+# Per-agent (а не agents.defaults) — чтобы --only-установка одного
 # агента не флипала switch у уже стоящих.
 #
-# Все вызовы openclaw config set идут через redaction-pipe чтобы
-# случайно не утёк ключ если openclaw напечатает его в stdout.
+# Вызов openclaw config set идёт через redaction-pipe чтобы случайно
+# не утёк ключ если openclaw напечатает его в stdout.
 #
 # Args:
 #   $1 = agent_id
@@ -451,15 +458,25 @@ enable_embedding_for_agent() {
 
   echo -e "   ${DIM}Включаю embedding-память для ${BOLD}${agent_id}${NC}${DIM}...${NC}"
 
-  { openclaw config set "agents.${agent_id}.memorySearch.enabled" true 2>&1 || true; } \
-    | sed -E -e 's/sk-[A-Za-z0-9_-]{20,}/sk-[REDACTED]/g' \
-    | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
+  # Находим индекс агента в agents.list по id (схема: agents={defaults,list[]}).
+  local idx="" i=0 cur
+  while [[ $i -lt 100 ]]; do
+    cur=$(openclaw config get "agents.list[${i}].id" 2>/dev/null | tr -d '[:space:]"')
+    [[ -z "$cur" ]] && break
+    if [[ "$cur" == "$agent_id" ]]; then idx="$i"; break; fi
+    i=$((i + 1))
+  done
 
-  { openclaw config set "agents.${agent_id}.memorySearch.provider" openai 2>&1 || true; } \
-    | sed -E -e 's/sk-[A-Za-z0-9_-]{20,}/sk-[REDACTED]/g' \
-    | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
+  if [[ -z "$idx" ]]; then
+    warn "Не нашёл ${agent_id} в agents.list — пропускаю embedding (память всё равно проиндексируется)."
+    return 0
+  fi
 
-  { openclaw config set "agents.${agent_id}.memorySearch.model" text-embedding-3-large 2>&1 || true; } \
+  # Один валидный атомарный set полного объекта memorySearch через
+  # --strict-json (раньше было 3 невалидных set по agents.<id>).
+  { openclaw config set "agents.list[${idx}].memorySearch" \
+      '{"enabled":true,"sources":["memory"],"provider":"openai","fallback":"local","model":"text-embedding-3-large"}' \
+      --strict-json 2>&1 || true; } \
     | sed -E -e 's/sk-[A-Za-z0-9_-]{20,}/sk-[REDACTED]/g' \
     | while IFS= read -r line; do echo -e "   ${DIM}${line}${NC}"; done
 }

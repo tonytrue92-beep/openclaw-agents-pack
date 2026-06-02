@@ -193,6 +193,20 @@ grep -q -- '--enable-embedding' scripts/install-agents.sh \
   || fail "Флаг --enable-embedding не прописан (wave 8)"
 pass "wave 8: embedding + group-mode lib функции и флаги на месте"
 
+# ─── Test 6.6b: фикс 2026.06.02 — embedding пишется в валидный путь ──
+# Баг: enable_embedding_for_agent писал в agents.<id>.memorySearch.*,
+# которого нет в схеме (agents={defaults,list[]}) → CLI «Config
+# validation failed: agents: Invalid input» ×3, embedding не включался.
+# Фикс: ищем индекс в agents.list по id + пишем agents.list[<idx>].memorySearch.
+grep -q 'agents.list\[\${idx}\].memorySearch' scripts/lib/agents.sh \
+  || fail "embedding пишется не в agents.list[<idx>].memorySearch (фикс 2026.06.02)"
+grep -qE 'agents\.\$\{agent_id\}\.memorySearch' scripts/lib/agents.sh \
+  && fail "остался невалидный путь agents.<id>.memorySearch (CLI отвергает)" \
+  || true
+grep -q -- '--strict-json' scripts/lib/agents.sh \
+  || fail "embedding set без --strict-json (валидация схемы не сработает)"
+pass "фикс 2026.06.02: embedding в валидный agents.list[<idx>].memorySearch"
+
 # ─── Test 6.7: wave 8 AGENTS.md содержит блок «Если ты в группе» ───
 for vip_agent in tech marketer producer designer coordinator copywriter; do
   grep -q "Если ты в группе" "templates/${vip_agent}/AGENTS.md" \

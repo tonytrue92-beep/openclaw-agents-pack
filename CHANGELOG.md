@@ -6,6 +6,50 @@
 
 ---
 
+## 2026-06-02 — Bugfix (embedding: правильный путь конфига agents.list[])
+
+### Триггер
+
+Лог клиента (dgony) при установке агента `producer`: на шаге «Включаю
+embedding-память» трижды:
+
+```
+Error: Config validation failed: agents: Invalid input
+```
+
+Агент ставился, базовая память индексировалась, но **embedding
+(семантический поиск по памяти) по факту НЕ включался**, плюс клиент
+видел красные ошибки.
+
+### Причина (подтверждена dry-run валидацией)
+
+`enable_embedding_for_agent` писал в `agents.<id>.memorySearch.*`, но
+схема OpenClaw хранит агентов в **массиве** `agents.list[]`, а не в
+карте `agents.<id>`. CLI отвергал путь:
+
+```
+openclaw config set "agents.producer.memorySearch" '{…}' --strict-json --dry-run
+→ Error: Dry run failed: config schema validation failed. - agents: Invalid input
+```
+
+Три невалидных `config set` (enabled / provider / model) = три ошибки.
+
+### Фикс
+
+`enable_embedding_for_agent` теперь:
+1. Находит индекс агента в `agents.list[]` по `id` (как factory с моделью).
+2. Пишет **один атомарный** `config set agents.list[<idx>].memorySearch`
+   с полным объектом через `--strict-json` (валидируется схемой).
+3. Если агент в списке не найден — мягкий warn + skip (память всё равно
+   индексируется), без красных ошибок.
+
+Проверено: dry-run `agents.list[5].memorySearch` (producer) →
+`Dry run successful: validated`. Старый путь воспроизводит «Invalid input».
+
+`INSTALLER_VERSION 2026.05.28 → 2026.06.02`
+
+---
+
 ## 2026-05-28 — Wave 44 (trial: финал авто-открывает сайт-продажник)
 
 ### Триггер
