@@ -798,6 +798,14 @@ grep -q 'setup_knowledge_base' scripts/install-agents.sh \
   || fail "install-agents.sh: setup_knowledge_base не вызывается"
 pass "база знаний: 11 заметок + extraPaths-подключение + вызов в установщике (Pro)"
 
+# ─── Test: предупреждение про flood-блок @BotFather (создание ботов) ─
+# На Pro нужно до 8 ботов; быстрое создание подряд → Telegram блок на ~сутки.
+grep -q 'заблокировать создание новых' scripts/install-agents.sh \
+  || fail "нет предупреждения про flood-блок Telegram при создании ботов"
+grep -q '2-3 бота' scripts/install-agents.sh \
+  || fail "нет совета создавать ботов партиями по 2-3"
+pass "предупреждение про flood-блок @BotFather (создавать ботов партиями)"
+
 # ─── Test 6.34: wave 30 trial-установщик (демо-воронка) ──────────
 # Отдельный установщик install-trial.sh — НЕ связан с install-agents.sh.
 # Ставит OpenClaw + одного assistant-агента с offer-логикой.
