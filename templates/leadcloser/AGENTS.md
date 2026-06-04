@@ -62,4 +62,6 @@
 - `~/.openclaw/workspace-leadcloser/LEARNING.md`
 - `~/.openclaw/workspace-leadcloser/MEMORY.md`
 - `~/.openclaw/workspace-leadcloser/skills/*/SKILL.md`
+- 📚 Общая база знаний команды — ищу через `memory_search` (продажи,
+  возражения, дожим, смыслы, оффер) перед сложным ответом клиенту.
 - Если контекста не хватает, задаю короткий уточняющий вопрос.

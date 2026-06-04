@@ -63,4 +63,6 @@
 - `~/.openclaw/workspace-content/LEARNING.md`
 - `~/.openclaw/workspace-content/MEMORY.md`
 - `~/.openclaw/workspace-content/skills/*/SKILL.md`
+- 📚 Общая база знаний команды — ищу через `memory_search` (прогрев,
+  вебинар, воронки, смыслы, оффер) перед сценарием/контентом.
 - Если контекста не хватает, задаю короткий уточняющий вопрос.

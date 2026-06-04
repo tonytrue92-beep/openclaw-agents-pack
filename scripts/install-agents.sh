@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.04"
+INSTALLER_VERSION="2026.06.04.1"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -1853,6 +1853,18 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
 
   record_telemetry "R4_installed" "${target_id}"
 done
+
+# ═══════════════════════════════════════════════════════════════
+#  R4.5. База знаний (вики) — только Pro, общая для всех агентов
+# ═══════════════════════════════════════════════════════════════
+# Разворачиваем мини-базу знаний (выжимки: продажи/прогрев/воронки/
+# оффер/кастдев/линейка) в ~/.openclaw/knowledge и подключаем её к
+# memory_search всех агентов. Идёт вместе с полной командой (Pro).
+if [[ "$VIP_MODE" == true ]]; then
+  step_header "R4.5" "БАЗА ЗНАНИЙ (ВИКИ ДЛЯ АГЕНТОВ)"
+  setup_knowledge_base
+  record_telemetry "R4_5_knowledge_base" "ok"
+fi
 
 # ═══════════════════════════════════════════════════════════════
 #  R5. Рестарт gateway и финальная проверка

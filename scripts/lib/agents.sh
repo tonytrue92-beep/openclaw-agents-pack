@@ -388,6 +388,52 @@ disable_bonjour_for_vps() {
 # список существующих (через stdout, по одному на строку). Используется
 # неинтерактивным режимом --refresh-templates чтобы не спрашивать
 # клиента какие агенты у него стоят.
+# ─── Развернуть общую базу знаний (мини-вики) для всех агентов ──────
+#
+# Качает templates/knowledge/*.md в ~/.openclaw/knowledge, подключает
+# папку к семантическому поиску через memorySearch.extraPaths (общая
+# для ВСЕХ агентов — extraPaths на agents.defaults), переиндексирует.
+# Агенты находят эти заметки через memory_search. Только Pro (база идёт
+# вместе с полной командой) — caller гейтит по VIP_MODE.
+#
+# Сокращённые выжимки из курсовой базы: продажи, возражения, дожим,
+# смыслы, оффер, прогрев, вебинар, воронки, трафик, кастдев, линейка.
+KB_FILES="prodazhi-skript-sozvona prodazhi-vozrazheniya prodazhi-dozhim-followup prodayushchie-smysly offer-formula progrev vebinar-struktura voronki trafik kastdev produktovaya-lineyka"
+
+setup_knowledge_base() {
+  local commit_ref="${INSTALLER_COMMIT:-main}"
+  if [[ "$commit_ref" == "__COMMIT_PLACEHOLDER__" || "$commit_ref" == *dev* ]]; then
+    commit_ref="main"
+  fi
+  local kb_dir="$HOME/.openclaw/knowledge"
+  local base="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/${commit_ref}/templates/knowledge"
+
+  echo -e "   ${DIM}Разворачиваю базу знаний (вики для агентов)...${NC}"
+  mkdir -p "$kb_dir"
+
+  local f got=0
+  for f in $KB_FILES; do
+    if curl -fsSL --max-time 15 "${base}/${f}.md" -o "${kb_dir}/${f}.md" 2>/dev/null; then
+      got=$((got + 1))
+    else
+      warn "Не скачал заметку базы знаний: ${f}.md"
+    fi
+  done
+
+  # Подключаем папку к семантическому поиску ВСЕХ агентов (через defaults).
+  # extraPaths — штатный способ индексировать KB-папку помимо MEMORY.md
+  # (проверено: схема принимает agents.defaults.memorySearch.extraPaths).
+  openclaw config set agents.defaults.memorySearch.enabled true &>/dev/null || true
+  openclaw config set agents.defaults.memorySearch.extraPaths "[\"${kb_dir}\"]" --strict-json &>/dev/null || true
+
+  # Индексируем сразу, чтобы база попала в поиск с первого вопроса.
+  { openclaw memory index --force 2>&1 || true; } | tail -2 | while IFS= read -r line; do
+    echo -e "   ${DIM}${line}${NC}"
+  done
+
+  ok "База знаний развёрнута (${got}/$(echo $KB_FILES | wc -w | tr -d ' ') тем) — агенты ищут по ней через memory_search"
+}
+
 find_installed_agents() {
   local candidate
   for candidate in tech marketer producer designer coordinator copywriter leadcloser content; do
