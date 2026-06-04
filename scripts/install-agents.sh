@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.04.1"
+INSTALLER_VERSION="2026.06.04.2"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -1645,6 +1645,21 @@ fi
 step_header "R2" "TELEGRAM BOT TOKENS"
 
 explain "Создай по боту для каждого агента через ${BOLD}@BotFather${NC} в Telegram (${BOLD}/newbot${NC})."
+
+# ─── Предупреждение про flood-блок @BotFather ───────────────────
+# На Pro нужно много ботов (до 8). Если штамповать /newbot подряд,
+# Telegram может временно заблокировать создание ботов (~сутки).
+# Советуем создавать партиями по 2-3 с паузой. Установщик запрашивает
+# токены по очереди (read блокирует) — клиент может делать паузы сам.
+_bots_needed=${#AGENTS_TO_INSTALL[@]}
+echo ""
+echo -e "   ${BOLD}${YELLOW}⚠ Важно про создание ботов (нужно ${_bots_needed} шт.):${NC}"
+echo -e "   ${YELLOW}   Не создавай всех ботов подряд за минуту!${NC} Если быстро штамповать"
+echo -e "   ${YELLOW}   ботов через /newbot, Telegram может заблокировать создание новых${NC}"
+echo -e "   ${YELLOW}   ботов примерно на сутки.${NC}"
+echo -e "   ${DIM}   Безопасно: создай 2-3 бота → подожди 10-15 минут → ещё 2-3, и так далее.${NC}"
+echo -e "   ${DIM}   Вставляй токены сюда по мере создания — установщик ждёт каждый ввод.${NC}"
+echo ""
 
 # NB: не используем `declare -A` (ассоциативные массивы) — они появились
 # в bash 4.0, а macOS поставляет с /bin/bash 3.2 (Apple не обновляет
