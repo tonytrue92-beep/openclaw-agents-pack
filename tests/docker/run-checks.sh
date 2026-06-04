@@ -74,7 +74,8 @@ case "$template_count" in
   49) pass "templates/ содержит 49 md-файлов (+ базовая тройка SOUL/LEARNING/skills — wave 29)" ;;
   54) pass "templates/ содержит 54 md-файла (+ assistant демо-агент — wave 30)" ;;
   74) pass "templates/ содержит 74 md-файла (+ Pro-агенты leadcloser + content)" ;;
-  *)  fail "templates/ содержит $template_count файлов (ожидается 12/24/37/49/54/74 — проверь что ничего не забыл/не потерялось)" ;;
+  85) pass "templates/ содержит 85 md-файлов (+ база знаний knowledge/ — 11 заметок)" ;;
+  *)  fail "templates/ содержит $template_count файлов (ожидается 12/24/37/49/54/74/85 — проверь что ничего не забыл/не потерялось)" ;;
 esac
 
 echo ""

@@ -773,6 +773,31 @@ grep -q 'label="Контент-агент"' scripts/install-agents.sh \
   || fail "install-agents.sh: нет лейбла Контент-агент"
 pass "Pro-агенты: leadcloser (Лидоруб) + content (Контент) — шаблоны, скиллы, код"
 
+# ─── Test: база знаний (мини-вики) для агентов ──────────────────
+# templates/knowledge/*.md (выжимки) + подключение к memory_search всех
+# агентов через memorySearch.extraPaths; разворачивается в Pro.
+[[ -d templates/knowledge ]] || fail "нет папки templates/knowledge"
+for kb in prodazhi-skript-sozvona prodazhi-vozrazheniya prodazhi-dozhim-followup \
+          prodayushchie-smysly offer-formula progrev vebinar-struktura \
+          voronki trafik kastdev produktovaya-lineyka; do
+  [[ -f "templates/knowledge/${kb}.md" ]] \
+    || fail "нет заметки базы знаний templates/knowledge/${kb}.md"
+done
+# Knowledge-заметки — обычный markdown, БЕЗ YAML-фронтматтера (это не скиллы)
+grep -l '^---' templates/knowledge/*.md 2>/dev/null \
+  && fail "knowledge-заметки не должны иметь YAML-фронтматтер" \
+  || true
+# Механизм в коде
+grep -q 'setup_knowledge_base' scripts/lib/agents.sh \
+  || fail "agents.sh: нет функции setup_knowledge_base"
+grep -q 'memorySearch.extraPaths' scripts/lib/agents.sh \
+  || fail "agents.sh: база не подключается через memorySearch.extraPaths"
+grep -q 'KB_FILES' scripts/lib/agents.sh \
+  || fail "agents.sh: нет списка KB_FILES"
+grep -q 'setup_knowledge_base' scripts/install-agents.sh \
+  || fail "install-agents.sh: setup_knowledge_base не вызывается"
+pass "база знаний: 11 заметок + extraPaths-подключение + вызов в установщике (Pro)"
+
 # ─── Test 6.34: wave 30 trial-установщик (демо-воронка) ──────────
 # Отдельный установщик install-trial.sh — НЕ связан с install-agents.sh.
 # Ставит OpenClaw + одного assistant-агента с offer-логикой.
