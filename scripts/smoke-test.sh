@@ -590,10 +590,10 @@ pass "wave 19: платформо-aware финальный экран (macOS/Win
 # и проверяем.
 grep -q 'Base.*3 базовых агента' scripts/install-agents.sh \
   || fail "wave 20/23: «Base» в меню (3 базовых агента) отсутствует"
-grep -q 'Pro.*6 агентов' scripts/install-agents.sh \
-  || fail "wave 20/23: «Pro» в меню (6 агентов) отсутствует"
-grep -q 'Pro — 6 агентов' scripts/install-agents.sh \
-  || fail "wave 20: меню не содержит опцию «Pro — 6 агентов»"
+grep -q 'Pro.*8 агентов' scripts/install-agents.sh \
+  || fail "wave 20/23: «Pro» в меню (8 агентов) отсутствует"
+grep -q 'Pro — 8 агентов' scripts/install-agents.sh \
+  || fail "wave 20: меню не содержит опцию «Pro — 8 агентов»"
 grep -q 'Base — 3 агента' scripts/install-agents.sh \
   || fail "wave 20: меню не содержит опцию «Base — 3 агента»"
 grep -q 'Только OpenClaw' scripts/install-agents.sh \
@@ -730,6 +730,48 @@ for vip_agent in designer coordinator copywriter; do
     || fail "${vip_agent}/AGENTS.md не содержит секцию онбординга"
 done
 pass "wave 6: AGENTS.md у 3 VIP-агентов содержит Session Startup + онбординг"
+
+# ─── Test: новые Pro-агенты leadcloser (Лидоруб) + content (Контент) ─
+# Два новых VIP-агента: продажник (CRM-готовность) + контент/видео
+# (HuggingFace/Hyperframes/ElevenLabs-готовность). Проверяем шаблоны,
+# скиллы, онбординг и подключение в коде.
+for pro_agent in leadcloser content; do
+  for f in IDENTITY AGENTS SOUL LEARNING MEMORY USER; do
+    [[ -f "templates/${pro_agent}/${f}.md" ]] \
+      || fail "новый Pro-агент: отсутствует templates/${pro_agent}/${f}.md"
+  done
+  grep -q "Session Startup" "templates/${pro_agent}/AGENTS.md" \
+    || fail "${pro_agent}/AGENTS.md без Session Startup"
+  grep -qE "Первый контакт|онбординг" "templates/${pro_agent}/AGENTS.md" \
+    || fail "${pro_agent}/AGENTS.md без секции онбординга"
+done
+for skill in leadcloser/skills/deal-closing \
+             leadcloser/skills/client-replies \
+             leadcloser/skills/crm-integrations \
+             content/skills/image-generation \
+             content/skills/color-palette \
+             content/skills/video-hyperframes \
+             content/skills/voiceover-elevenlabs \
+             content/skills/video-assembly; do
+  [[ -f "templates/${skill}/SKILL.md" ]] \
+    || fail "новый Pro-агент: отсутствует templates/${skill}/SKILL.md"
+done
+# Подключение в коде
+grep -q 'leadcloser content' scripts/lib/agents.sh \
+  || fail "agents.sh: leadcloser/content не в find_installed_agents"
+grep -q 'leadcloser)  skills_list=' scripts/lib/agents.sh \
+  || fail "agents.sh: нет skills_list для leadcloser"
+grep -q 'content)     skills_list=' scripts/lib/agents.sh \
+  || fail "agents.sh: нет skills_list для content"
+grep -q 'designer|coordinator|copywriter|leadcloser|content)' scripts/lib/agents.sh \
+  || fail "agents.sh: leadcloser/content не в extras-гейтинге"
+grep -q 'copywriter leadcloser content)' scripts/install-agents.sh \
+  || fail "install-agents.sh: leadcloser/content не в VIP AGENTS_TO_INSTALL"
+grep -q 'label="Лидоруб"' scripts/install-agents.sh \
+  || fail "install-agents.sh: нет лейбла Лидоруб"
+grep -q 'label="Контент-агент"' scripts/install-agents.sh \
+  || fail "install-agents.sh: нет лейбла Контент-агент"
+pass "Pro-агенты: leadcloser (Лидоруб) + content (Контент) — шаблоны, скиллы, код"
 
 # ─── Test 6.34: wave 30 trial-установщик (демо-воронка) ──────────
 # Отдельный установщик install-trial.sh — НЕ связан с install-agents.sh.

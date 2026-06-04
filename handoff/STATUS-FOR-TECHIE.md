@@ -120,7 +120,7 @@ https://github.com/tonytrue92-beep/openclaw-agents-pack/blob/main/scripts/instal
 
    Что ставим?
 
-     1)  Pro        — 6 агентов (полный набор)  ← рекомендуется
+     1)  Pro        — 8 агентов (полный набор)  ← рекомендуется
      2)  Base       — 3 базовых агента
      3)  OpenClaw   — только движок (без агентов)
 ```
@@ -132,7 +132,7 @@ https://github.com/tonytrue92-beep/openclaw-agents-pack/blob/main/scripts/instal
 уже стоит из factory).
 
 **Если выбран Pro/Base** → запрос токена → валидация tier vs выбор:
-- Pro+VIP-токен → OK, 6 агентов
+- Pro+VIP-токен → OK, 8 агентов
 - Pro+STD-токен → red-block «нужен Pro-токен»
 - Base+STD/VIP → OK, 3 агента (Pro→Base downgrade разрешён)
 - Base+SUB → red-block

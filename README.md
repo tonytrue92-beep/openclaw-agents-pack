@@ -3,7 +3,7 @@
 **Второй установщик** для курса Антона Полякова: добавляет поверх уже работающего OpenClaw набор предустановленных AI-агентов. Каждый агент — в своём Telegram-боте.
 
 - **Standard (тариф «Стандарт»)** — 3 агента: 🔧 Технарь, 📈 Маркетолог, 🎬 Продюсер
-- **VIP (тариф «VIP»)** — 6 агентов: всё из Standard + 🎨 Дизайнер, 🧭 Координатор, ✍️ Копирайтер
+- **VIP (тариф «VIP»)** — 8 агентов: всё из Standard + 🎨 Дизайнер, 🧭 Координатор, ✍️ Копирайтер, 💰 Лидоруб (продажи / закрытие заявок), 🎥 Контент-агент (картинки + видео + озвучка)
    - VIP-агенты получают расширенные шаблоны: SOUL.md (характер), LEARNING.md (опыт), skills/ (готовые фреймворки), онбординг-протокол при первом контакте, опциональная семантическая память (embedding) и групповой режим работы в TG.
 
 > Это **надстройка** к первому установщику [openclaw-factory](https://github.com/tonytrue92-beep/openclaw-factory). Сначала нужно поставить OpenClaw оттуда, потом запустить этот установщик.
@@ -97,7 +97,7 @@ bash install-agents.sh
 - [`docs/telegram-setup.md`](./docs/telegram-setup.md) — как создать три бота через @BotFather
 - [`docs/architecture.md`](./docs/architecture.md) — как устроен роутинг bot → agent
 - [`docs/vps-install.md`](./docs/vps-install.md) — установка на VPS (через `--vps`)
-- [`docs/vip-install-guide.md`](./docs/vip-install-guide.md) — VIP-гайд (6 агентов с расширенными шаблонами)
+- [`docs/vip-install-guide.md`](./docs/vip-install-guide.md) — VIP-гайд (8 агентов с расширенными шаблонами)
 - [`docs/troubleshooting.md`](./docs/troubleshooting.md) — если что-то сломалось
 - [`CHANGELOG.md`](./CHANGELOG.md) — что нового в каждой версии
 

@@ -213,7 +213,7 @@ prepare_workspace_from_templates() {
   # без extras. Если extras не докачались — warn, установку не прерываем.
   local has_extras=false
   case "$agent_id" in
-    designer|coordinator|copywriter)
+    designer|coordinator|copywriter|leadcloser|content)
       has_extras=true ;;
     tech|marketer|producer)
       [[ "${VIP_MODE:-false}" == true ]] && has_extras=true ;;
@@ -242,6 +242,9 @@ prepare_workspace_from_templates() {
       designer)    skills_list="eachlabs-image-generation color-palette" ;;
       coordinator) skills_list="agent-collaboration-network close-loop" ;;
       copywriter)  skills_list="reef-copywriting brand-voice-profile" ;;
+      # Pro-агенты (новые): продажник + контент/видео
+      leadcloser)  skills_list="deal-closing client-replies crm-integrations" ;;
+      content)     skills_list="image-generation color-palette video-hyperframes voiceover-elevenlabs video-assembly" ;;
       # Wave 29: skills для базовой тройки (только Pro — has_extras уже
       # учёл VIP_MODE выше)
       tech)        skills_list="diagnostic-checklist safe-rollback" ;;
@@ -387,7 +390,7 @@ disable_bonjour_for_vps() {
 # клиента какие агенты у него стоят.
 find_installed_agents() {
   local candidate
-  for candidate in tech marketer producer designer coordinator copywriter; do
+  for candidate in tech marketer producer designer coordinator copywriter leadcloser content; do
     if agent_exists "$candidate"; then
       echo "$candidate"
     fi

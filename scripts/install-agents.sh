@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.02"
+INSTALLER_VERSION="2026.06.04"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -69,7 +69,7 @@ for arg in "$@"; do
       cat <<HELP
 OpenClaw Agents Pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})
 
-Установщик Standard (3 агента) и VIP (6 агентов)
+Установщик Standard (3 агента) и VIP (8 агентов)
 поверх уже работающего OpenClaw.
 
 Usage: bash install-agents.sh [OPTIONS]
@@ -77,7 +77,7 @@ Usage: bash install-agents.sh [OPTIONS]
 Options:
   --install              Пропустить меню, поставить Base-набор (3 агента)
   --course-token <token> Course-token из @AITeamVIPBot. Mandatory для свежей установки.
-                         Формат VIP-... → VIP-режим (6 агентов), STD-... → Standard (3).
+                         Формат VIP-... → VIP-режим (8 агентов), STD-... → Standard (3).
   --vip-token <token>    Backward-compat алиас для --course-token.
   --vps, --headless      VPS-режим (skip GUI, SSH-tunnel-инструкция для dashboard)
   --only <agent>         Поставить только одного: tech | marketer | producer | designer | coordinator | copywriter
@@ -917,7 +917,7 @@ if [[ "$SKIP_MENU" != true && \
   echo -e "   ${BOLD}${GREEN}  2)${NC}  ${BOLD}Base${NC}       ${DIM}— 3 базовых агента${NC}"
   echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
   echo ""
-  echo -e "   ${BOLD}${YELLOW}  3)${NC}  ${BOLD}Pro${NC}        ${DIM}— 6 агентов (полный набор)${NC}  ${GREEN}← рекомендуется${NC}"
+  echo -e "   ${BOLD}${YELLOW}  3)${NC}  ${BOLD}Pro${NC}        ${DIM}— 8 агентов (полный набор)${NC}  ${GREEN}← рекомендуется${NC}"
   echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
   echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
   if [[ "$OPENCLAW_INSTALLED" == true ]]; then
@@ -1099,7 +1099,7 @@ if [[ -n "$MAIN_CHOICE" ]]; then
         echo -e "${BOLD}${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
         echo -e "   ${BOLD}${WHITE}Что произошло:${NC}"
-        echo -e "   Ты выбрал ${BOLD}Pro${NC} (6 агентов), но твой токен — ${BOLD}${COURSE_TIER}${NC}-тарифа."
+        echo -e "   Ты выбрал ${BOLD}Pro${NC} (8 агентов), но твой токен — ${BOLD}${COURSE_TIER}${NC}-тарифа."
         echo ""
         echo -e "   ${BOLD}${WHITE}Что делать:${NC}"
         echo -e "   ${CYAN}•${NC} Если ты оплачивал ${BOLD}Pro${NC} — получи новый токен:"
@@ -1168,7 +1168,7 @@ if [[ "$COURSE_TIER" == "SUB" ]]; then
   echo -e "   ${CYAN}•${NC} Напиши ему ${BOLD}/start${NC} или просто сообщение — main-агент ответит"
   echo ""
   echo -e "   ${BOLD}${WHITE}Хочешь больше агентов?${NC}"
-  echo -e "   ${DIM}Апгрейд на Base (3 агента) или Pro (6 агентов) — пиши в саппорт-чат курса.${NC}"
+  echo -e "   ${DIM}Апгрейд на Base (3 агента) или Pro (8 агентов) — пиши в саппорт-чат курса.${NC}"
   echo -e "   ${DIM}После апгрейда получишь новый токен в @AITeamVIPBot и запустишь этот${NC}"
   echo -e "   ${DIM}установщик снова — он распознает новый тариф и поставит агентов.${NC}"
   echo ""
@@ -1186,7 +1186,7 @@ fi
 #     diagnostic/debug всё равно доступны через CLI-флаги.
 #   - VIP-tier: показываем меню. Default = VIP-набор (это и так есть
 #     у клиента по тарифу). Опции:
-#       1) VIP — 6 агентов  ← рекомендуется
+#       1) VIP — 8 агентов  ← рекомендуется
 #       2) Только Standard (3) — если клиент не хочет ставить всё
 #       3) Только один агент — для диагностики/тестов
 #       4) Диагностика — без изменений
@@ -1211,7 +1211,7 @@ if [[ "$SKIP_MENU" != true && -z "$ONLY_AGENT" ]]; then
     # Убраны «Установить только одного», «Диагностика», «Debug-bundle» —
     # это эксперт-флаги, в основном меню не нужны.
     explain "Выбери что поставить:"
-    echo -e "   ${BOLD}${YELLOW}  1)${NC}  ${BOLD}Pro — 6 агентов${NC}  ${GREEN}← рекомендуется (по тарифу)${NC}"
+    echo -e "   ${BOLD}${YELLOW}  1)${NC}  ${BOLD}Pro — 8 агентов${NC}  ${GREEN}← рекомендуется (по тарифу)${NC}"
     echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
     echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
     echo ""
@@ -1280,7 +1280,7 @@ if [[ "$VIP_MODE" == true && "$COURSE_TIER" != "VIP" ]]; then
   echo -e "${BOLD}${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
   echo ""
   echo -e "   ${BOLD}${WHITE}Что произошло:${NC}"
-  echo -e "   Запрошен Pro-набор (6 агентов), но твой токен — ${BOLD}${COURSE_TIER}${NC}-тарифа."
+  echo -e "   Запрошен Pro-набор (8 агентов), но твой токен — ${BOLD}${COURSE_TIER}${NC}-тарифа."
   echo -e "   ${COURSE_TIER}-токен даёт доступ только к Base-набору (3 агента)."
   echo ""
   echo -e "   ${BOLD}${WHITE}Что делать:${NC}"
@@ -1297,11 +1297,11 @@ fi
 AGENTS_TO_INSTALL=()
 if [[ -n "$ONLY_AGENT" ]]; then
   case "$ONLY_AGENT" in
-    tech|marketer|producer|designer|coordinator|copywriter) AGENTS_TO_INSTALL=("$ONLY_AGENT") ;;
-    *) echo "ERROR: --only должен быть tech/marketer/producer/designer/coordinator/copywriter, получено: $ONLY_AGENT"; exit 1 ;;
+    tech|marketer|producer|designer|coordinator|copywriter|leadcloser|content) AGENTS_TO_INSTALL=("$ONLY_AGENT") ;;
+    *) echo "ERROR: --only должен быть tech/marketer/producer/designer/coordinator/copywriter/leadcloser/content, получено: $ONLY_AGENT"; exit 1 ;;
   esac
 elif [[ "$VIP_MODE" == true ]]; then
-  AGENTS_TO_INSTALL=(tech marketer producer designer coordinator copywriter)
+  AGENTS_TO_INSTALL=(tech marketer producer designer coordinator copywriter leadcloser content)
 else
   AGENTS_TO_INSTALL=(tech marketer producer)
 fi
@@ -1666,6 +1666,8 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     designer)    emoji="🎨"; label="Дизайнер" ;;
     coordinator) emoji="🧭"; label="Координатор" ;;
     copywriter)  emoji="✍️"; label="Копирайтер" ;;
+    leadcloser)  emoji="💰"; label="Лидоруб" ;;
+    content)     emoji="🎥"; label="Контент-агент" ;;
   esac
 
   # Если токен передан через --config — берём оттуда как «preset»,
@@ -2017,6 +2019,8 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     designer)    emoji="🎨"; label="Дизайнер" ;;
     coordinator) emoji="🧭"; label="Координатор" ;;
     copywriter)  emoji="✍️"; label="Копирайтер" ;;
+    leadcloser)  emoji="💰"; label="Лидоруб" ;;
+    content)     emoji="🎥"; label="Контент-агент" ;;
   esac
   _usr_var="BOT_USERNAME_$agent"
   username="${!_usr_var:-неизвестно}"
@@ -2039,7 +2043,7 @@ echo ""
 # ─── wave 15: Bot-to-Bot Communication hint для VIP ──────────────
 # Telegram (май 2026) добавил Bot-to-Bot Communication Mode —
 # боты могут отвечать другим ботам напрямую без общей группы.
-# Для VIP-команды (6 агентов) это полезно: Координатор может
+# Для VIP-команды (8 агентов) это полезно: Координатор может
 # делегировать Маркетологу без посредника-группы.
 #
 # Настройка только ручная (через @BotFather), мы не можем
