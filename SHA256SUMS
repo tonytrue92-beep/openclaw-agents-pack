@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-06-04 07:22:57 UTC
-# Commit: 2878910
+# Generated: 2026-06-04 07:27:43 UTC
+# Commit: 31cdbfd
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
@@ -54,10 +54,10 @@ bd6f153f2fc564d8616ebaeb16665130be2abd1a8bfef531064fcbc82756b1a6  templates/desi
 31d5429f91b0a226621d408435f86c7826f0915d036858016b9ff2dbd07c340c  templates/designer/SOUL.md
 4bc2f80a9b5c3a74d665f418db23a4628afd77fb917e03a28898f4084a4170fc  templates/designer/USER.md
 07397eba48ebb225608ae9726e0811191f55eedc98aa6b9c5521fea6612205c3  templates/leadcloser/AGENTS.md
-7a5764cb934593b31c9337b2de2530bfaa9dd6ae8f37db4a6b12bc291bc9139d  templates/leadcloser/IDENTITY.md
+c6d8176dab59dddc51a0937316960bc4023e89aa8cbf2fc9b0b75cad7af34b1c  templates/leadcloser/IDENTITY.md
 e01bc236e718dd460f2e403a50457f03345f48acc61ee81182a59da92ba31fba  templates/leadcloser/LEARNING.md
 cafeefd152aabb9614666ec2d386368f7122bbc3db8dfea32861adf5c0c7cab8  templates/leadcloser/MEMORY.md
-e27c84dcf7f7a33cd9b07aca8976be020fb3bf8abaa6608563aff14c0e315f57  templates/leadcloser/SOUL.md
+a0851f99b5a5c1dddea5b5cb43c35124d417247fee4547adb2ee9d70929cb5cb  templates/leadcloser/SOUL.md
 9130757108b0a4a9ee6572d016994aeb907efd28fa632a9361d6252cd6fdc25d  templates/leadcloser/USER.md
 27794fb48814039bbac63b13bd91167e39d7df54dc0280ca2049b772d470b43b  templates/marketer/AGENTS.md
 b308c35c4a624022136cbe2726e74847e9e9ebfbc3033e811fab7f747d02f077  templates/marketer/IDENTITY.md
