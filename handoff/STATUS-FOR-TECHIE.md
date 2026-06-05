@@ -49,8 +49,11 @@
 ### 4️⃣ (опц.) Вернуть ChatGPT Codex-вход в factory
 
 Платный шаг «мозги» хотим через вход в ChatGPT (Codex), а не opencode-ключ.
-Я пробовал — откатил (падало на свежей машине: «No provider plugins found»
-+ нет провайдер-плагина). Нужно сделать правильно и **проверить на чистой
+Я пробовал — откатил (падало на свежей машине: «No provider plugins found»).
+**Рабочая команда уже найдена** (2026-06-05, подтверждено на свежей 2026.6.1):
+`openclaw plugins install @openclaw/codex` → `openclaw gateway restart` →
+`openclaw models auth login --provider codex --set-default` (именно `codex`,
+не `openai-codex`). Осталось вшить это в factory и **проверить на чистой
 машине** (у тебя она есть). 📄 Бриф: `handoff/codex-login-for-techie.md`.
 
 > Старые задачи ниже (wave 20 rebrand в боте, SUB-tier, HRM) — остаются,
