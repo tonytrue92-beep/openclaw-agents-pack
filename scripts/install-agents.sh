@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.04.2"
+INSTALLER_VERSION="2026.06.04.3"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -567,6 +567,32 @@ fi
 # ─── Preflight: OpenClaw + сеть ─────────────────────────────────
 preflight_openclaw || exit 1
 preflight_network_check || true
+
+# ─── Всегда подтягиваем АБСОЛЮТНО последнюю версию OpenClaw ──────
+# Установщик должен ставить самый свежий движок. Даже если OpenClaw уже
+# стоит (например, поставлен factory давно) — обновляем до latest, чтобы
+# новые фичи (база знаний/extraPaths, вход в ChatGPT Codex, фикс
+# memorySearch) точно работали. `npm install -g openclaw@latest`
+# идемпотентен (ставит или обновляет). Без npm/сети — не падаем, идём
+# с текущей версией. Сюда доходит только основной install-путь
+# (refresh/diagnose возвращаются выше).
+if command -v npm &>/dev/null; then
+  echo ""
+  echo -e "${DIM}   Подтягиваю последнюю версию OpenClaw (npm install -g openclaw@latest)...${NC}"
+  _oc_before=$(openclaw --version 2>/dev/null | head -1)
+  { npm install -g openclaw@latest 2>&1 || true; } | tail -3 | while IFS= read -r line; do
+    echo -e "   ${DIM}${line}${NC}"
+  done
+  _oc_after=$(openclaw --version 2>/dev/null | head -1)
+  if [[ -n "$_oc_after" && "$_oc_after" != "$_oc_before" ]]; then
+    ok "OpenClaw обновлён до последней версии: ${_oc_after}"
+  else
+    ok "OpenClaw уже последней версии: ${_oc_after:-$_oc_before}"
+  fi
+  unset _oc_before _oc_after
+else
+  warn "npm не найден — обновление движка пропущено, продолжаю с текущей версией."
+fi
 
 # ─── wave 10.1 hotfix: bonjour-плагин на VPS ────────────────────
 # Реальный кейс из чата клиентов: bonjour пытается анонсировать
