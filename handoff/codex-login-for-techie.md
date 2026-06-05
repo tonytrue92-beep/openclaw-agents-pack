@@ -20,26 +20,60 @@ opencode-поток. Твоя задача — вернуть Codex-вход П�
 2. **`err: command not found` → exit 127.** В `demo-install.sh` нет функции
    `err` (есть только `ok` и `warn`). Любой вызов `err` валит скрипт.
 
+## ✅ Подтверждено в проде + найдена рабочая команда (2026-06-05)
+
+Клиентка (Naila, свежий Mac, **OpenClaw 2026.6.1**) вручную попробовала
+`openclaw models auth login --provider openai-codex` — получила ровно ту же
+ошибку: `Error: No provider plugins found. Install one via openclaw plugins install`.
+
+Разобрал по своей машине, **где провайдеры есть**, какой плагин что даёт:
+
+| Плагин (npm spec) | id | Какие провайдеры | На свежей машине |
+|---|---|---|---|
+| `@openclaw/openai-provider` (**стоковый**, в `dist/extensions/openai/`) | `openai` | `openai`, **`openai-codex`** | НЕ загружен → ошибка |
+| `@openclaw/codex` (ставится отдельно) | `codex` | `codex` (Codex-managed GPT catalog) | ставится через `plugins install` |
+
+Вывод: `openai-codex` живёт в **стоковом** `@openclaw/openai-provider`, который
+на чистой 2026.6.1 почему-то не подгружается. А вот `@openclaw/codex` — это
+**отдельно устанавливаемый** Codex-провайдер (`Spec: @openclaw/codex`,
+`openclaw plugins inspect codex` → «model provider plugin with a Codex-managed
+GPT catalog»). Поэтому надёжный путь — ставить `@openclaw/codex` и логиниться
+через **`--provider codex`** (а НЕ `openai-codex`).
+
+Команда, которую дал клиентке (ждём подтверждения end-to-end):
+```bash
+openclaw plugins install @openclaw/codex
+openclaw gateway restart
+openclaw models auth login --provider codex --set-default
+```
+
 ## Что нужно сделать
 
 Заменить шаг «мозги» (сейчас opencode-ключ) на Codex-вход, но устойчиво:
 
 ### 1. Гарантировать провайдер-плагин ПЕРЕД `models auth login`
-На чистой машине выясни точную команду (кандидаты — проверь по факту):
-- `openclaw plugins install @openclaw/codex` (отдельный плагин, на моей
-  машине лежал в `~/.openclaw/npm/.../@openclaw/codex`)
-- или `openclaw plugins install <marketplace-name>` / `openclaw plugins enable <id>`
+Основной путь (см. таблицу выше) — установить **`@openclaw/codex`** и
+перезапустить gateway, чтобы плагин подгрузился:
+```bash
+openclaw plugins install @openclaw/codex   # идемпотентно
+openclaw gateway restart                    # чтобы провайдер загрузился
+```
+Проверка: после этого `openclaw plugins inspect codex` показывает провайдер
+`codex`, и `openclaw models auth login --provider codex` НЕ пишет
+«No provider plugins found».
 
-Проверка: после установки `openclaw models auth login --provider openai-codex`
-не должен писать «No provider plugins found». Идемпотентно (повторный
-запуск не ломает).
+> Если по какой-то причине нужен именно `openai-codex` — его даёт стоковый
+> `@openclaw/openai-provider`; на чистой машине проверь, грузится ли он
+> (`openclaw plugins list`), и при необходимости `openclaw plugins enable openai`.
+> Но проще и надёжнее идти через `@openclaw/codex` + `--provider codex`.
 
 ### 2. Сам вход
 ```bash
 # TTY есть при обычной установке. На --vps добавить --device-code.
-openclaw models auth login --provider openai-codex --set-default
+openclaw models auth login --provider codex --set-default
 ```
 `--set-default` сам ставит рекомендованную Codex-модель (GPT-5.4/5.5).
+(`--provider codex` — из установленного `@openclaw/codex`, а не `openai-codex`.)
 
 ### 3. Обработка ошибок — БЕЗ `err`
 Используй `warn` (есть в factory) или `echo`. Никаких `err`. На неудаче —
@@ -68,7 +102,8 @@ openclaw models auth login --provider openai-codex --set-default
 4. Проверить, что без аккаунта/при отмене — установщик НЕ падает (fallback/повтор).
 
 ## Чек-лист готовности
-- [ ] провайдер-плагин ставится/включается перед login (не «No provider plugins found»)
+- [ ] `openclaw plugins install @openclaw/codex` + `gateway restart` перед login (не «No provider plugins found»)
+- [ ] вход через `--provider codex` (не `openai-codex`)
 - [ ] нет вызовов `err` (только `warn`/`echo`)
 - [ ] fallback или мягкий повтор при неудаче входа (без exit 127)
 - [ ] `--set-default` ставит Codex-модель
