@@ -806,6 +806,14 @@ grep -q '2-3 бота' scripts/install-agents.sh \
   || fail "нет совета создавать ботов партиями по 2-3"
 pass "предупреждение про flood-блок @BotFather (создавать ботов партиями)"
 
+# ─── Test: второй установщик всегда тянет последнюю версию OpenClaw ─
+# Даже если движок стоит — обновляем до latest (чтобы новые фичи работали).
+grep -q 'Подтягиваю последнюю версию OpenClaw' scripts/install-agents.sh \
+  || fail "install-agents.sh не обновляет движок до latest перед установкой"
+grep -q 'npm install -g openclaw@latest' scripts/install-agents.sh \
+  || fail "install-agents.sh: нет npm install -g openclaw@latest"
+pass "движок: всегда подтягивается последняя версия OpenClaw (npm @latest)"
+
 # ─── Test 6.34: wave 30 trial-установщик (демо-воронка) ──────────
 # Отдельный установщик install-trial.sh — НЕ связан с install-agents.sh.
 # Ставит OpenClaw + одного assistant-агента с offer-логикой.
