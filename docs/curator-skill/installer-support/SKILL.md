@@ -42,19 +42,20 @@ created_at: 2026-06-06
 3. **Шаг:** движок / мозги-модель / Telegram-бот / агенты / «бот молчит»
 4. **Точный текст ошибки** (дословно)
 
-## Три трека → команда
+## Два трека → команда
 
-Сначала ставится **движок**, потом (для платных с агентами) — **второй
-установщик**. Это две разные команды, обязательно проговариваю.
+С `2026.06.06` платный поток — **ОДНА команда** (тариф из токена решает что
+поставится; агенты дотягиваются автоматически в той же сессии).
 
+- **Платный** (любой тариф, одна команда):
+  `bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh) --course-token <ТОКЕН>`
+  → SUB = только движок; STD = +3 агента; VIP = +8 агентов + база знаний.
 - **Тест-драйв** (TRY-токен):
   `bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-test-drive/main/scripts/install-trial.sh) --token TRY-XXXX`
-- **Платный движок** (шаг 1):
-  `bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)`
-- **Платные агенты** (шаг 2, bundled — надёжнее):
-  `bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)`
 
-Base = 3 агента, Pro = **8 агентов + база знаний**.
+Доустановить агентов вручную (если автодокачка сорвалась): bundled —
+`bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)` (токен из кэша).
+Windows: в финале предложит интерфейс Companion (`docs.openclaw.ai/platforms/windows`).
 
 ## Частые ошибки → быстрый фикс
 

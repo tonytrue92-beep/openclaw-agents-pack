@@ -71,29 +71,41 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-tes
 - Модель ставится автоматически: `opencode/deepseek-v4-flash-free`.
 - Удаление: тот же скрипт с флагом `--uninstall`.
 
-### B. Платный движок (шаг 1 — `openclaw-factory`)
+### B. Платный — ОДНА команда (тариф из токена решает) ⭐
+
+С `2026.06.06` платный клиент запускает **одну** команду (factory). Что
+поставится — решает тариф в токене: **SUB** → только движок; **STD** →
+движок + 3 агента; **VIP** → движок + 8 агентов + база знаний. Агенты
+доустанавливаются автоматически **в той же сессии** — отдельного второго
+шага больше нет (и `command not found` между шагами исчез).
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh) --course-token <ТОКЕН>
 ```
 
-- Без флагов: демо (10 шагов) → меню (Демо / Реальная установка /
-  Симуляция / VPS-гайд) → установка R1–R6.
-- `--install` — сразу реальная установка, без демо.
-- `--vps` / `--headless` — для Linux-сервера (без Homebrew/браузера,
-  автофикс bonjour, см. §4).
-- `--course-token VIP-…` — передать токен без интерактива.
+- Без `--course-token` — сначала демо/меню, токен спросит при установке.
+- `--vps` / `--headless` — для Linux-сервера (без Homebrew/браузера, автофикс bonjour, см. §6).
+- `--engine-only` — поставить **только движок** (отладка / переустановка).
 
-### C. Платные агенты (шаг 2 — `openclaw-agents-pack`)
+### C. Доустановка / обслуживание агентов (обычно НЕ нужно)
 
-**Основная команда — bundled-релиз** (один файл, без вложенных curl,
-надёжнее на VPS/корп-сетях):
+Если движок уже стоит, а агентов надо доустановить/обновить **вручную**
+(напр. автодокачка сорвалась по сети) — bundled-релиз; токен подхватится
+из кэша `~/.openclaw/course-token`, набор — по тарифу:
 
 ```bash
 bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)
 ```
 
-Полезные флаги (через raw-версию `…/main/scripts/install-agents.sh`):
+### D. Windows-интерфейс (Companion GUI)
+
+В финале установки Windows-клиенту (Git Bash / WSL) предлагается официальный
+**OpenClaw Windows Hub** — трей, командный центр, диагностика, без терминала.
+Страница загрузки: `https://docs.openclaw.ai/platforms/windows`. Опционально;
+gateway — наш стандартный. Если клиент спрашивает «что это» — удобная
+альтернатива терминалу, ставится отдельным `.exe`.
+
+Полезные флаги обслуживания (raw-версия `…/main/scripts/install-agents.sh`):
 
 ```bash
 # Обновить агентов БЕЗ потери памяти/онбординга:
