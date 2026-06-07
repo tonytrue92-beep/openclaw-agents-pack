@@ -1000,6 +1000,14 @@ grep -qF 'xdg-open "$COURSE_URL"' scripts/install-trial.sh \
   || fail "wave 44: финал не открывает сайт-продажник через xdg-open (Linux)"
 pass "wave 44: финал авто-открывает сайт полной версии в браузере"
 
+# ─── Test 6.46: Windows Companion GUI offer в финале install-agents ─
+# Антон: всем Windows-клиентам предлагать официальный OpenClaw Windows Hub.
+grep -q 'docs.openclaw.ai/platforms/windows' scripts/install-agents.sh \
+  || fail "Windows Companion: нет ссылки на страницу загрузки"
+grep -q 'OpenClaw Windows Hub' scripts/install-agents.sh \
+  || fail "Windows Companion: нет текста предложения"
+pass "Windows Companion GUI offer на месте (install-agents.sh)"
+
 rm -f /tmp/fake.json
 
 echo ""
