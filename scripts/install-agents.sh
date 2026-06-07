@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.04.3"
+INSTALLER_VERSION="2026.06.06"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -2152,6 +2152,25 @@ case "$_env_name" in
     _label="Git Bash / MSYS"
     [[ "$_env_name" == "wsl" ]] && _label="WSL"
     echo -e "   ${DIM}🪟 Гайд для ${_label}: ${CYAN}docs/windows-install-guide.md${NC}"
+    echo ""
+    # ─── Windows-интерфейс (Companion GUI) — официальное приложение OpenClaw ───
+    echo -e "   ${BOLD}${WHITE}🪟 Хочешь удобный интерфейс для Windows? (OpenClaw Windows Hub)${NC}"
+    echo -e "   ${DIM}   Трей-иконка, командный центр, диагностика — без терминала.${NC}"
+    echo -e "   ${BOLD}${WHITE}   Открыть страницу загрузки? [y/N]:${NC}"
+    read -r _companion_ans || true
+    if [[ "${_companion_ans:-}" =~ ^[Yy]$ ]]; then
+      _companion_url="https://docs.openclaw.ai/platforms/windows"
+      if   command -v cmd.exe        >/dev/null 2>&1; then cmd.exe /c start "" "$_companion_url" >/dev/null 2>&1 || true
+      elif command -v powershell.exe >/dev/null 2>&1; then powershell.exe -NoProfile -Command "Start-Process '$_companion_url'" >/dev/null 2>&1 || true
+      elif command -v explorer.exe   >/dev/null 2>&1; then explorer.exe "$_companion_url" >/dev/null 2>&1 || true
+      elif command -v start          >/dev/null 2>&1; then start "" "$_companion_url" >/dev/null 2>&1 || true
+      fi
+      echo -e "   ${GREEN}✓${NC} Страница загрузки: ${CYAN}${_companion_url}${NC}"
+      echo -e "   ${DIM}   Если не открылось — открой ссылку вручную. Прямой .exe:${NC}"
+      echo -e "   ${DIM}   …/releases/latest/download/OpenClawCompanion-Setup-x64.exe (или -arm64)${NC}"
+      unset _companion_url
+    fi
+    unset _companion_ans
     echo ""
     ;;
 esac
