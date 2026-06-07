@@ -2154,24 +2154,27 @@ case "$_env_name" in
     echo -e "   ${DIM}🪟 Гайд для ${_label}: ${CYAN}docs/windows-install-guide.md${NC}"
     echo ""
     # ─── Windows-интерфейс (Companion GUI) — официальное приложение OpenClaw ───
-    echo -e "   ${BOLD}${WHITE}🪟 Хочешь удобный интерфейс для Windows? (OpenClaw Windows Hub)${NC}"
-    echo -e "   ${DIM}   Трей-иконка, командный центр, диагностика — без терминала.${NC}"
-    echo -e "   ${BOLD}${WHITE}   Открыть страницу загрузки? [y/N]:${NC}"
-    read -r _companion_ans || true
-    if [[ "${_companion_ans:-}" =~ ^[Yy]$ ]]; then
-      _companion_url="https://docs.openclaw.ai/platforms/windows"
-      if   command -v cmd.exe        >/dev/null 2>&1; then cmd.exe /c start "" "$_companion_url" >/dev/null 2>&1 || true
-      elif command -v powershell.exe >/dev/null 2>&1; then powershell.exe -NoProfile -Command "Start-Process '$_companion_url'" >/dev/null 2>&1 || true
-      elif command -v explorer.exe   >/dev/null 2>&1; then explorer.exe "$_companion_url" >/dev/null 2>&1 || true
-      elif command -v start          >/dev/null 2>&1; then start "" "$_companion_url" >/dev/null 2>&1 || true
+    # Спрашиваем только в интерактивном терминале (в headless/CI пропускаем).
+    if [[ -t 0 ]]; then
+      echo -e "   ${BOLD}${WHITE}🪟 Хочешь удобный интерфейс для Windows? (OpenClaw Windows Hub)${NC}"
+      echo -e "   ${DIM}   Трей-иконка, командный центр, диагностика — без терминала.${NC}"
+      echo -e "   ${BOLD}${WHITE}   Открыть страницу загрузки? [y/N]:${NC}"
+      read -r _companion_ans || true
+      if [[ "${_companion_ans:-}" =~ ^[Yy]$ ]]; then
+        _companion_url="https://docs.openclaw.ai/platforms/windows"
+        if   command -v cmd.exe        >/dev/null 2>&1; then cmd.exe /c start "" "$_companion_url" >/dev/null 2>&1 || true
+        elif command -v powershell.exe >/dev/null 2>&1; then powershell.exe -NoProfile -Command "Start-Process '$_companion_url'" >/dev/null 2>&1 || true
+        elif command -v explorer.exe   >/dev/null 2>&1; then explorer.exe "$_companion_url" >/dev/null 2>&1 || true
+        elif command -v start          >/dev/null 2>&1; then start "" "$_companion_url" >/dev/null 2>&1 || true
+        fi
+        echo -e "   ${GREEN}✓${NC} Страница загрузки: ${CYAN}${_companion_url}${NC}"
+        echo -e "   ${DIM}   Если не открылось — открой ссылку вручную. Прямой .exe:${NC}"
+        echo -e "   ${DIM}   …/releases/latest/download/OpenClawCompanion-Setup-x64.exe (или -arm64)${NC}"
+        unset _companion_url
       fi
-      echo -e "   ${GREEN}✓${NC} Страница загрузки: ${CYAN}${_companion_url}${NC}"
-      echo -e "   ${DIM}   Если не открылось — открой ссылку вручную. Прямой .exe:${NC}"
-      echo -e "   ${DIM}   …/releases/latest/download/OpenClawCompanion-Setup-x64.exe (или -arm64)${NC}"
-      unset _companion_url
+      unset _companion_ans
+      echo ""
     fi
-    unset _companion_ans
-    echo ""
     ;;
 esac
 
