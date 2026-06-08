@@ -296,12 +296,22 @@ npm install -g openclaw@latest
 ```
 Если регион блокирует — VPN или DNS `1.1.1.1`.
 
-### 5.8. Скачивание зависает / `exit=28` / raw.githubusercontent тупит
+### 5.8. Скачивание зависает / `exit=28` / `curl: (56) … 504` / raw тупит
 **Не долби curl по кругу.** Для agents-pack — bundled (один файл):
 ```bash
 bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)
 ```
-Если и bundle не качается — `git clone` репо и `bash scripts/install-agents.sh`.
+**Если именно `504` на `releases/latest/download/…`** — это сбой гитхабовского
+редиректа `/latest/`. Дай **прямую ссылку по тегу** (обходит редирект):
+```bash
+bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/download/v2026.06.06/install-agents-bundled.sh)
+```
+Если и так не качается — `git clone`:
+```bash
+git clone https://github.com/tonytrue92-beep/openclaw-agents-pack && bash openclaw-agents-pack/scripts/install-agents.sh
+```
+> Объединённый установщик (factory) с `2026.06.06.1` **сам** пробует
+> latest → прямой тег → git clone, так что у платных это автоматом.
 
 ### 5.9. `openclaw onboard` виснет / зацикливается
 Мы onboard **не используем** (известный баг визарда). Если клиент сам
