@@ -171,27 +171,22 @@ bash <(curl -fsSL .../install-agents.sh) --version
 `opencode:default`. Это рабочее состояние — **бот уже отвечает**.
 
 ### Codex (ChatGPT) — опциональный апгрейд на умную модель
-Если клиент хочет более умные мозги (GPT-5.x через аккаунт ChatGPT):
+Если клиент хочет более умные мозги (GPT-5.x через аккаунт ChatGPT) —
+**одна команда** (хелпер ставится установщиком в `~/.openclaw/bin/`):
 
 ```bash
-openclaw plugins install @openclaw/codex
-openclaw gateway restart
-openclaw models auth login --provider codex --set-default
+openclaw-add-codex
 ```
+Сам ставит Codex-плагин, перезапускает gateway, логинит в ChatGPT и ставит
+модель `openai/gpt-5.5`. `openclaw-add-codex --device-code` — если браузер не открылся.
 
-Дальше клиент логинится своим ChatGPT по ссылке, которую покажет сам
-`openclaw` (бесплатного аккаунта хватает; ChatGPT Plus $20 — умнее).
-
-> ⚠️ **Важные нюансы Codex (объясняй клиенту честно):**
-> - На свежей машине `openclaw models auth login --provider openai-codex`
->   падает с `No provider plugins found` — **поэтому сначала
->   `plugins install @openclaw/codex` + `gateway restart`**, и логиниться
->   через **`--provider codex`** (не `openai-codex`).
-> - Это **апгрейд, не обязательный шаг.** У клиента уже есть рабочие
->   бесплатные мозги — если с Codex возня, можно спокойно работать на
->   бесплатной модели. Не блокер.
-> - В установщик Codex пока **не вшит** (отлаживается на чистой машине) —
->   это ручной апгрейд после установки.
+> ⚠️ **Важные нюансы (OpenClaw 2026.6.x — объясняй клиенту честно):**
+> - Вход в ChatGPT теперь через provider **`openai`**, а `openai-codex` —
+>   **legacy-имя** (отсюда `No provider plugins found`). Хелпер это уже учитывает.
+> - Это **апгрейд, не обязательный шаг.** Бесплатная модель уже работает —
+>   если с Codex возня, спокойно остаёмся на бесплатной. Не блокер.
+> - Codex берёт **все** агенты на ChatGPT-аккаунт клиента. Откат на бесплатную:
+>   `openclaw-switch-model opencode/minimax-m2.5-free`.
 
 ### Сменить модель вручную
 ```bash
@@ -225,15 +220,30 @@ export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; op
 > С factory v2026.06.04.1 установщик в финале сам прописывает nvm в профили
 > и показывает эту подсказку. На более старых — давай команду выше.
 
-### 5.2. Codex: `No provider plugins found` при подключении мозгов ⭐ СВЕЖЕЕ
+### 5.2. Codex/ChatGPT: `No provider plugins found` при подключении мозгов ⭐ СВЕЖЕЕ
 **Симптом:** `openclaw models auth login --provider openai-codex` →
-`Error: No provider plugins found. Install one via openclaw plugins install`.
+`Error: No provider plugins found`.
 
-**Причина:** на свежей машине провайдер-плагин Codex не загружен.
+**Причина (важно, OpenClaw 2026.6.x):** `openai-codex` — **legacy-имя**.
+Во-первых, нужен установленный Codex-плагин; во-вторых, вход теперь через
+provider **`openai`** (не `openai-codex`).
 
-**Фикс:** см. §4 — сначала `openclaw plugins install @openclaw/codex` →
-`openclaw gateway restart` → логин через `--provider codex`. И помни:
-бесплатная модель уже работает, Codex — апгрейд.
+**Самый простой фикс — наш хелпер (одна команда):**
+```bash
+openclaw-add-codex
+```
+(ставится установщиком в `~/.openclaw/bin/`; делает всё сам — плагин, рестарт,
+вход через `openai`, модель `openai/gpt-5.5`. Флаг `--device-code` если браузер не открылся.)
+
+**Если хелпера нет / руками:**
+```bash
+openclaw plugins install clawhub:@openclaw/codex   # или: @openclaw/codex
+openclaw plugins enable codex && openclaw plugins registry --refresh
+openclaw gateway restart
+openclaw models auth login --provider openai        # НЕ openai-codex! (+ --device-code при нужде)
+openclaw models set openai/gpt-5.5 && openclaw gateway restart
+```
+И помни: бесплатная модель уже работает, Codex — **опциональный** апгрейд.
 
 ### 5.3. Telegram блокирует создание ботов («флуд») ⭐ ВАЖНО для Pro
 **Симптом:** клиент быстро создаёт у @BotFather много ботов подряд →

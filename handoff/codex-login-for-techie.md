@@ -1,5 +1,19 @@
 # Бриф технарю — вернуть ChatGPT Codex-вход в factory (с тестом на чистой машине)
 
+> ## ✅ РЕШЕНО (2026-06-08)
+> Разобрались на машине клиента (OpenClaw **2026.6.1**): `openai-codex` —
+> **legacy provider id**. Рабочий рецепт для **2026.6.x**:
+> ```
+> openclaw plugins install clawhub:@openclaw/codex   # или: @openclaw/codex
+> openclaw plugins enable codex && openclaw plugins registry --refresh
+> openclaw gateway restart
+> openclaw models auth login --provider openai        # НЕ openai-codex! (+ --device-code если надо)
+> openclaw models set openai/gpt-5.5 && openclaw gateway restart
+> ```
+> Зашито в **opt-in хелпер `openclaw-add-codex`** (factory `2026.06.06.2`,
+> ставится в `~/.openclaw/bin/`). Клиенту — одна команда `openclaw-add-codex`.
+> На стороне бота ничего не нужно. Ниже — историческое расследование (для контекста).
+
 ## Контекст
 
 Хотим, чтобы платный установщик (**`openclaw-factory`**, шаг «мозги» / R3)

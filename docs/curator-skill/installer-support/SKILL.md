@@ -63,9 +63,11 @@ Windows: в финале предложит интерфейс Companion (`docs.
   не обновился; установка НЕ сломана. Фикс в текущем окне:
   `export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; openclaw doctor --fix`
   или открыть **новое** окно терминала.
-- **Codex `No provider plugins found`** — сначала плагин, потом логин:
-  `openclaw plugins install @openclaw/codex` → `openclaw gateway restart` →
-  `openclaw models auth login --provider codex --set-default`.
+- **Codex/ChatGPT `No provider plugins found`** — самое простое: одна команда
+  `openclaw-add-codex` (хелпер в `~/.openclaw/bin/`). Руками (2026.6.x): плагин
+  `openclaw plugins install clawhub:@openclaw/codex` → `enable codex` → `registry --refresh`
+  → `gateway restart` → вход `openclaw models auth login --provider openai`
+  (**не** `openai-codex` — legacy!) → `openclaw models set openai/gpt-5.5`.
   Codex = **опц. апгрейд**; бесплатная модель уже работает.
 - **Telegram блокирует ботов (флуд)** — создавать ботов у @BotFather
   **партиями по 2-3 с паузой** (на Pro их 8). Поймал блок — подождать ~сутки.

@@ -70,15 +70,14 @@ URL+секрет даст Антон **после деплоя Worker** (его 
   нужно 8 ботов; быстрое создание подряд → Telegram блок на ~сутки).
 - 📄 Бриф: `handoff/bot-install-commands-update-brief.md` (в этом репо).
 
-### 4️⃣ (опц.) Вернуть ChatGPT Codex-вход в factory
+### 4️⃣ ✅ Codex/ChatGPT-мозги — РЕШЕНО (хелпер `openclaw-add-codex`)
 
-Платный шаг «мозги» хотим через вход в ChatGPT (Codex), а не opencode-ключ.
-Я пробовал — откатил (падало на свежей машине: «No provider plugins found»).
-**Рабочая команда уже найдена** (2026-06-05, подтверждено на свежей 2026.6.1):
-`openclaw plugins install @openclaw/codex` → `openclaw gateway restart` →
-`openclaw models auth login --provider codex --set-default` (именно `codex`,
-не `openai-codex`). Осталось вшить это в factory и **проверить на чистой
-машине** (у тебя она есть). 📄 Бриф: `handoff/codex-login-for-techie.md`.
+Разобрались (клиент, OpenClaw 2026.6.1): `openai-codex` — **legacy provider id**.
+На 2026.6.x вход в ChatGPT — через provider **`openai`**, плюс нужен Codex-плагин.
+В factory (`2026.06.06.2`) добавлен opt-in хелпер **`openclaw-add-codex`**: ставит
+плагин (`clawhub:@openclaw/codex`→npm) → enable+refresh → restart → вход
+`--provider openai` → модель `openai/gpt-5.5`. Клиенту — одна команда.
+**На стороне бота ничего не нужно** (это локальный хелпер). 📄 `handoff/codex-login-for-techie.md`.
 
 > Старые задачи ниже (wave 20 rebrand в боте, SUB-tier, HRM) — остаются,
 > но приоритет 1-3 выше. Если делаешь rebrand — заодно закрой пункт 2.
