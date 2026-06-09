@@ -1,5 +1,8 @@
 # 🪟 Установка на Windows — рабочий путь
 
+> 📍 Это про установку **агентов** (этот pack) на Windows. Установка самого
+> движка OpenClaw — в factory: [docs/windows-install.md](https://github.com/tonytrue92-beep/openclaw-factory/blob/main/docs/windows-install.md).
+
 > ⏱ **Время:** 30-45 минут на чистой системе (включая установку Git Bash)
 > 💻 **Тестировалось на:** Windows 10 / Windows 11
 
