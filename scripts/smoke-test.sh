@@ -1021,6 +1021,23 @@ grep -q -- '-t 0' scripts/install-agents.sh \
   || fail "гейт меню не учитывает non-TTY (-t 0)"
 pass "Pro: выбор агентов (select_pro_agents) на месте + гейты"
 
+# ─── Аудит-фиксы 2026-06-09 ───
+# H1: мост VIP_TOKEN→COURSE_TOKEN в config-блоке (неинтерактивный VIP)
+grep -q 'COURSE_TOKEN="$VIP_TOKEN"' scripts/install-agents.sh \
+  || fail "H1: нет моста VIP_TOKEN→COURSE_TOKEN для --config"
+# H2: тариф-гейт покрывает leadcloser и content
+grep -q '== "leadcloser"' scripts/install-agents.sh && grep -q '== "content"' scripts/install-agents.sh \
+  || fail "H2: --only leadcloser/content не за-гейчены под VIP"
+# H4: активация шлёт sha256(полного токена), не email_hash16
+grep -q '_oc_token_sha256' scripts/lib/vip.sh \
+  || fail "H4: vip_log_activation не использует sha256 канон"
+grep -q 'vip_log_activation "$COURSE_TOKEN"' scripts/install-agents.sh \
+  || fail "H4: caller не передаёт полный токен в vip_log_activation"
+# M1: дефолт-модель не legacy openai-codex
+grep -q 'openai-codex/gpt-5.4' scripts/install-agents.sh \
+  && fail "M1: остался legacy openai-codex/gpt-5.4" || true
+pass "Аудит-фиксы H1/H2/H4/M1 на месте"
+
 rm -f /tmp/fake.json
 
 echo ""
