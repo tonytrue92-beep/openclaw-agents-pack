@@ -424,7 +424,21 @@ setup_knowledge_base() {
   # extraPaths — штатный способ индексировать KB-папку помимо MEMORY.md
   # (проверено: схема принимает agents.defaults.memorySearch.extraPaths).
   openclaw config set agents.defaults.memorySearch.enabled true &>/dev/null || true
-  openclaw config set agents.defaults.memorySearch.extraPaths "[\"${kb_dir}\"]" --strict-json &>/dev/null || true
+  # Идемпотентно: не перезаписываем, если kb_dir уже в extraPaths (повторный
+  # запуск / чтобы не плодить переиндекс). Если есть другие пути — добавляем kb_dir,
+  # не затирая их.
+  _kb_cur="$(openclaw config get agents.defaults.memorySearch.extraPaths 2>/dev/null || echo '')"
+  if [[ "$_kb_cur" != *"${kb_dir}"* ]]; then
+    if [[ "$_kb_cur" == *'['*'"'*']'* ]]; then
+      # уже есть массив с путями — аккуратно добавляем kb_dir перед закрывающей ]
+      _kb_new="${_kb_cur%]*}, \"${kb_dir}\"]"
+      openclaw config set agents.defaults.memorySearch.extraPaths "$_kb_new" --strict-json &>/dev/null \
+        || openclaw config set agents.defaults.memorySearch.extraPaths "[\"${kb_dir}\"]" --strict-json &>/dev/null || true
+    else
+      openclaw config set agents.defaults.memorySearch.extraPaths "[\"${kb_dir}\"]" --strict-json &>/dev/null || true
+    fi
+  fi
+  unset _kb_cur _kb_new
 
   # Индексируем сразу, чтобы база попала в поиск с первого вопроса.
   { openclaw memory index --force 2>&1 || true; } | tail -2 | while IFS= read -r line; do

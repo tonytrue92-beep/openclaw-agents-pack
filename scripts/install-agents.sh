@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.09"
+INSTALLER_VERSION="2026.06.09.1"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -89,7 +89,7 @@ Options:
                            BOT_TOKEN_DESIGNER=...      # для VIP
                            BOT_TOKEN_COORDINATOR=...   # для VIP
                            VIP_TOKEN=...               # для VIP
-                           AGENT_MODEL=openai-codex/gpt-5.4
+                           AGENT_MODEL=opencode/minimax-m2.5-free
                            OWNER_TG_ID=12345678
   --diagnose-only        Проверить что агенты живы (ничего не меняет)
   --collect-debug        Собрать debug-bundle для саппорта (не нужен TTY)
@@ -560,6 +560,9 @@ fi
 if [[ -n "$CONFIG_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$CONFIG_FILE"
+  # Мост: config-файл документирован с VIP_TOKEN= (см. --help), но валидатор
+  # ждёт COURSE_TOKEN. Без этого неинтерактивная VIP-установка падала.
+  [[ -z "${COURSE_TOKEN:-}" && -n "${VIP_TOKEN:-}" ]] && COURSE_TOKEN="$VIP_TOKEN"
   [[ -n "${VIP_TOKEN:-}" ]] && VIP_MODE=true
   SKIP_MENU=true
   ru "Конфиг загружен из: ${CONFIG_FILE}"
@@ -945,7 +948,8 @@ if [[ "$SKIP_MENU" != true && \
   echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
   echo ""
   echo -e "   ${BOLD}${YELLOW}  3)${NC}  ${BOLD}Pro${NC}        ${DIM}— 8 агентов (полный набор)${NC}  ${GREEN}← рекомендуется${NC}"
-  echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
+  echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер  🎨 Дизайнер"
+  echo -e "       🧭 Координатор  ✍️ Копирайтер  💰 Лидоруб  🎥 Контент-агент"
   echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
   if [[ "$OPENCLAW_INSTALLED" == true ]]; then
     echo ""
@@ -1096,8 +1100,9 @@ unset _token_mode
 # Backward-compat: VIP_TOKEN используется в остальном коде
 VIP_TOKEN="$COURSE_TOKEN"
 
-# Fire-and-forget activation log (anti-share alerting)
-vip_log_activation "$(vip_token_get_hash "$COURSE_TOKEN")" "$MACHINE_TG_ID" || true
+# Fire-and-forget аналитика установки (no-op пока VIP_ACTIVATION_ENDPOINT пуст).
+# Передаём ПОЛНЫЙ токен — хэш считается внутри как sha256 (канон, совпадает с ботом).
+vip_log_activation "$COURSE_TOKEN" "$MACHINE_TG_ID" "$COURSE_TIER" || true
 
 ok "Курс-токен подтверждён: ${BOLD}${COURSE_TIER}${NC}-тариф. TG ID: ${MACHINE_TG_ID}"
 
@@ -1239,7 +1244,8 @@ if [[ "$SKIP_MENU" != true && -z "$ONLY_AGENT" ]]; then
     # это эксперт-флаги, в основном меню не нужны.
     explain "Выбери что поставить:"
     echo -e "   ${BOLD}${YELLOW}  1)${NC}  ${BOLD}Pro — 8 агентов${NC}  ${GREEN}← рекомендуется (по тарифу)${NC}"
-    echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"
+    echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер  🎨 Дизайнер"
+    echo -e "       🧭 Координатор  ✍️ Копирайтер  💰 Лидоруб  🎥 Контент-агент"
     echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
     echo ""
     echo -e "   ${BOLD}${GREEN}  2)${NC}  ${BOLD}Base — 3 агента${NC}"
@@ -1292,7 +1298,8 @@ fi
 # Если клиент через меню выбрал «только один агент» и это VIP-агент —
 # включаем VIP_MODE для корректной работы prepare_workspace_from_templates
 # (SOUL/LEARNING/skills качаются только для VIP-ролей).
-if [[ "$ONLY_AGENT" == "designer" || "$ONLY_AGENT" == "coordinator" || "$ONLY_AGENT" == "copywriter" ]]; then
+if [[ "$ONLY_AGENT" == "designer" || "$ONLY_AGENT" == "coordinator" || "$ONLY_AGENT" == "copywriter" \
+      || "$ONLY_AGENT" == "leadcloser" || "$ONLY_AGENT" == "content" ]]; then
   VIP_MODE=true
 fi
 
@@ -1551,25 +1558,24 @@ fi
 # ═══════════════════════════════════════════════════════════════
 step_header "R1" "ВЫБОР МОДЕЛИ"
 
-DEFAULT_MODEL="openai-codex/gpt-5.4"
+DEFAULT_MODEL="opencode/minimax-m2.5-free"
 AGENT_MODEL="${AGENT_MODEL:-}"  # из --config если задан
 
 if [[ -z "$AGENT_MODEL" ]]; then
   echo ""
   echo -e "   ${BOLD}${WHITE}Выбери модель для агентов:${NC}"
   echo ""
-  echo -e "   ${BOLD}${GREEN}  1)${NC} ${GREEN}GPT-5.4 codex${NC}    ${DIM}(рекомендуется)${NC}"
-  echo -e "   ${BOLD}${GREEN}  2)${NC} ${GREEN}minimax${NC}          ${DIM}(бесплатная)${NC}"
-  echo -e "   ${BOLD}${GREEN}  3)${NC} ${DIM}Своя${NC}"
+  echo -e "   ${BOLD}${GREEN}  1)${NC} ${GREEN}minimax${NC}          ${DIM}(бесплатно, без карты — рекомендуется)${NC}"
+  echo -e "   ${BOLD}${GREEN}  2)${NC} ${DIM}Своя модель (введёшь id)${NC}"
   echo ""
-  echo -e "   ${BOLD}${WHITE}Выбор [1-3, Enter = 1]:${NC}"
-  read -r MODEL_CHOICE
+  echo -e "   ${DIM}Умные мозги ChatGPT (GPT-5.x) — отдельно ПОСЛЕ установки: ${BOLD}openclaw-add-codex${NC}"
+  echo -e "   ${BOLD}${WHITE}Выбор [1-2, Enter = 1]:${NC}"
+  read -r MODEL_CHOICE || MODEL_CHOICE=""
   case "${MODEL_CHOICE:-1}" in
-    1|"") AGENT_MODEL="openai-codex/gpt-5.4" ;;
-    2)    AGENT_MODEL="opencode/minimax-m2.5-free" ;;
-    3)
+    1|"") AGENT_MODEL="opencode/minimax-m2.5-free" ;;
+    2)
       echo -e "   ${BOLD}${WHITE}Введите id модели:${NC}"
-      read -r AGENT_MODEL
+      read -r AGENT_MODEL || AGENT_MODEL=""
       [[ -z "$AGENT_MODEL" ]] && AGENT_MODEL="$DEFAULT_MODEL"
       ;;
     *) AGENT_MODEL="$DEFAULT_MODEL" ;;
@@ -1846,7 +1852,7 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     done
     if [[ -n "$already_used_for" ]]; then
       warn "Бот @${username} уже указан для агента '${already_used_for}'."
-      echo -e "   ${DIM}Нужны ТРИ РАЗНЫХ бота — по одному на каждого агента.${NC}"
+      echo -e "   ${DIM}Нужны РАЗНЫЕ боты — по одному на каждого агента (всего ${#AGENTS_TO_INSTALL[@]}).${NC}"
       echo -e "   ${DIM}Откройте @BotFather в Telegram → /newbot → создайте ещё одного.${NC}"
       echo -e "   ${DIM}Если вы думали что ввели правильный — возможно, скопировали токен не того бота.${NC}"
       [[ -n "$CONFIG_FILE" ]] && exit 1

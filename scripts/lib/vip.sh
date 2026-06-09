@@ -35,8 +35,10 @@ MCowBQYDK2VwAyEAQIjPPB5LB1R3outrY1HMaVRVUB2tkDhHtpC8LLJ+8rA=
 EOF
 )
 
-# Endpoint для fire-and-forget логирования активации (анти-шаринг алерт)
-VIP_ACTIVATION_ENDPOINT="${VIP_ACTIVATION_ENDPOINT:-https://aiteam-vip.openclaw.ai/log/activation}"
+# Endpoint аналитики установок (Worker /activation). ПУСТО = пинг выключен
+# (Worker ещё не развёрнут). После деплоя задать сюда URL вида
+# https://aiteam-installs.<acc>.workers.dev/activation
+VIP_ACTIVATION_ENDPOINT="${VIP_ACTIVATION_ENDPOINT:-}"
 
 # ─── Определить версию токена по его форме ─────────────────────
 # stdout: "v3-vip" | "v3-std" | "v3-sub" | "v3-hrm" | "v2" | "v1" | "unknown"
@@ -331,18 +333,25 @@ vip_detect_owner_tg_id() {
   printf '%s' "${tg_id:-}"
 }
 
-# ─── Fire-and-forget логирование активации боту ───────────────
+# ─── Fire-and-forget логирование активации в Worker аналитики ──
+# Канон token_hash = sha256(ПОЛНОГО токена) — совпадает с тем, что бот шлёт в
+# /issue (иначе склейка в D1 не сойдётся). Если endpoint не задан — no-op.
+_oc_token_sha256() {
+  if command -v shasum >/dev/null 2>&1; then printf '%s' "$1" | shasum -a 256 | awk '{print $1}';
+  elif command -v sha256sum >/dev/null 2>&1; then printf '%s' "$1" | sha256sum | awk '{print $1}'; fi
+}
+# Аргументы: <ПОЛНЫЙ_токен> <tg_id> [tier]
 vip_log_activation() {
-  local token_hash="$1"
-  local tg_id="$2"
-  local os_info
+  local token="$1" tg_id="$2" tier="${3:-}"
+  [[ -z "$VIP_ACTIVATION_ENDPOINT" ]] && return 0   # endpoint не настроен → пропуск
+  local th os_info
+  th=$(_oc_token_sha256 "$token"); [[ -z "$th" ]] && return 0
   os_info=$(uname -sm 2>/dev/null | tr ' ' '-' | tr '[:upper:]' '[:lower:]' || echo "unknown")
-
   (
     curl -fsSL --max-time 3 \
       -X POST "$VIP_ACTIVATION_ENDPOINT" \
       -H 'Content-Type: application/json' \
-      -d "{\"token_hash\":\"${token_hash}\",\"tg_id\":${tg_id:-0},\"installer_version\":\"${INSTALLER_VERSION:-unknown}\",\"client_os\":\"${os_info}\"}" \
+      -d "{\"token_hash\":\"${th}\",\"tg_id\":\"${tg_id:-}\",\"installer_version\":\"${INSTALLER_VERSION:-unknown}\",\"client_os\":\"${os_info}\",\"tier\":\"${tier}\",\"track\":\"paid\"}" \
       >/dev/null 2>&1
   ) &
 }
