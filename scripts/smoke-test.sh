@@ -1008,6 +1008,19 @@ grep -q 'OpenClaw Windows Hub' scripts/install-agents.sh \
   || fail "Windows Companion: нет текста предложения"
 pass "Windows Companion GUI offer на месте (install-agents.sh)"
 
+# ─── Test 6.47: Pro — интерактивный выбор агентов ──────────────────
+grep -q 'select_pro_agents()' scripts/install-agents.sh \
+  || fail "нет функции select_pro_agents"
+grep -q 'ASSUME_ALL_AGENTS=true' scripts/install-agents.sh \
+  || fail "--install/--vps не ставят ASSUME_ALL_AGENTS"
+grep -Eq '\$VIP_MODE" == true && -z "\$ONLY_AGENT"' scripts/install-agents.sh \
+  || fail "select_pro_agents не за-гейчен (VIP + не-only)"
+grep -q 'ASSUME_ALL_AGENTS:-false' scripts/install-agents.sh \
+  || fail "гейт меню не учитывает ASSUME_ALL_AGENTS"
+grep -q -- '-t 0' scripts/install-agents.sh \
+  || fail "гейт меню не учитывает non-TTY (-t 0)"
+pass "Pro: выбор агентов (select_pro_agents) на месте + гейты"
+
 rm -f /tmp/fake.json
 
 echo ""
