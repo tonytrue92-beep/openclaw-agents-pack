@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.06"
+INSTALLER_VERSION="2026.06.09"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -150,6 +150,7 @@ ENABLE_GROUP_MODE_CHAT_ID=""
 VIP_MODE=false
 VIP_TOKEN=""
 ONLY_AGENT=""
+ASSUME_ALL_AGENTS=false   # --install / --vps → ставим всех агентов без меню выбора
 SUFFIX=""
 CONFIG_FILE=""
 # wave 12: course-token (общий для Standard и VIP). VIP_TOKEN — backward-compat alias.
@@ -196,8 +197,8 @@ trap '
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --install) SKIP_MENU=true; shift ;;
-    --vps|--headless) VPS_MODE=true; SKIP_MENU=true; shift ;;
+    --install) SKIP_MENU=true; ASSUME_ALL_AGENTS=true; shift ;;
+    --vps|--headless) VPS_MODE=true; SKIP_MENU=true; ASSUME_ALL_AGENTS=true; shift ;;
     --collect-debug) COLLECT_DEBUG_ONLY=true; shift ;;
     --diagnose-only) DIAGNOSE_ONLY=true; shift ;;
     --refresh-templates) REFRESH_TEMPLATES_ONLY=true; shift ;;
@@ -1319,6 +1320,65 @@ if [[ "$VIP_MODE" == true && "$COURSE_TIER" != "VIP" ]]; then
   exit 1
 fi
 
+# ── Pro: интерактивный выбор «сколько и каких агентов» ──
+# Переопределяет AGENTS_TO_INSTALL выбранным подмножеством. Пусто/ошибка → все 8.
+select_pro_agents() {
+  local ids=(tech marketer producer designer coordinator copywriter leadcloser content)
+  local labels=("🔧 Технарь" "📈 Маркетолог" "🎬 Продюсер" "🎨 Дизайнер" \
+                "🧭 Координатор" "✍️ Копирайтер" "💰 Лидоруб" "🎥 Контент-агент")
+  local installed=""
+  # </dev/null — чтобы openclaw НЕ съел наш stdin (иначе read ниже получит EOF)
+  installed="$(openclaw agents list </dev/null 2>/dev/null || echo "")"
+
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Каких агентов поставить? (Pro — до 8)${NC}"
+  local i mark
+  for i in "${!ids[@]}"; do
+    mark="  "
+    case "$installed" in *"${ids[$i]}"*) mark="✓ " ;; esac
+    echo -e "     $((i + 1))) ${mark}${labels[$i]}"
+  done
+  echo -e "   ${DIM}Введи номера через пробел (напр. 1 2 7) — или Enter, чтобы поставить всех 8:${NC}"
+
+  local _attempt=0 _sel n seen
+  local _chosen=()
+  while [[ $_attempt -lt 2 ]]; do
+    _attempt=$((_attempt + 1))
+    printf "   > "
+    read -r _sel || _sel=""
+    # Enter (пусто) → все 8 (AGENTS_TO_INSTALL не трогаем)
+    [[ -z "${_sel// /}" ]] && return 0
+    _chosen=()
+    seen=" "
+    for n in $_sel; do
+      if [[ "$n" =~ ^[1-8]$ ]]; then
+        case "$seen" in
+          *" $n "*) : ;;  # уже выбран — пропуск (дедуп)
+          *) _chosen+=("${ids[$((n - 1))]}"); seen="$seen$n " ;;
+        esac
+      fi
+    done
+    [[ ${#_chosen[@]} -gt 0 ]] && break
+    warn "Не распознал номера. Введи числа 1–8 через пробел (или Enter — все 8)."
+  done
+
+  # после 2 неудач — все 8
+  [[ ${#_chosen[@]} -eq 0 ]] && { warn "Ставлю всех 8."; return 0; }
+
+  AGENTS_TO_INSTALL=("${_chosen[@]}")
+
+  # подтверждение выбора
+  local _names="" id2 j
+  for id2 in "${AGENTS_TO_INSTALL[@]}"; do
+    for j in "${!ids[@]}"; do
+      [[ "${ids[$j]}" == "$id2" ]] && _names="${_names}${labels[$j]} · "
+    done
+  done
+  _names="${_names% · }"
+  echo ""
+  ok "Поставлю: ${_names} (${#AGENTS_TO_INSTALL[@]}). Дальше попрошу ${#AGENTS_TO_INSTALL[@]} бот-токен(ов)."
+}
+
 # ─── Определяем список агентов для установки ────────────────────
 AGENTS_TO_INSTALL=()
 if [[ -n "$ONLY_AGENT" ]]; then
@@ -1330,6 +1390,13 @@ elif [[ "$VIP_MODE" == true ]]; then
   AGENTS_TO_INSTALL=(tech marketer producer designer coordinator copywriter leadcloser content)
 else
   AGENTS_TO_INSTALL=(tech marketer producer)
+fi
+
+# Pro: дать клиенту выбрать сколько/каких агентов — только интерактив,
+# не при --only / --install / --vps / non-TTY (там ставим всех 8).
+if [[ "$VIP_MODE" == true && -z "$ONLY_AGENT" \
+      && "${ASSUME_ALL_AGENTS:-false}" != true && -t 0 ]]; then
+  select_pro_agents
 fi
 
 # ─── Активируем trap для auto debug-bundle на ERR ───────────────
