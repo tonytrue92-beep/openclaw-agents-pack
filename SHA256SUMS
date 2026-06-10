@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-06-10 13:07:03 UTC
-# Commit: 1d3b4a4
+# Generated: 2026-06-10 14:06:11 UTC
+# Commit: beee61e
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
@@ -11,7 +11,7 @@ a9a75deeaafb8fda86b65940d5384c785dc97c9f9721fdbfaa8791c57fa4fe5d  scripts/build-
 62e3670b11f270e6e32a6b00e26860307aa9169ec50e92f9f3e5a7dc8b8ebbf1  scripts/build-dmg.sh
 fdd5ee13a75d067198914a57d57ece71e70806bd616288cfdef4e81374a74909  scripts/demo-simulate.sh
 57f0ac432d277dfdcf6c3d805ec94af096769728632cd8ebe337cb13e5d4f519  scripts/diagnose-agents.sh
-d4c47c974615d442cb31c927770c23398f2dac8922b39d0a4a3123967f204400  scripts/install-agents.sh
+1de0b74096fcae53c18f784a544e580a3c935a31148e81b6b8bdad1754d47b7a  scripts/install-agents.sh
 c58d722a490b4af6cc2140107a11fed107434ef89c6af9c5daf0e8e6ad916e34  scripts/install-git-hooks.sh
 f8158e17b76926f4b358dc5a249c8165eb19e6692263954c18a85ca50aa853c9  scripts/security-audit.sh
 0a5020194170a3d0639ade3e36ea66c4fdb47f2fc141dae670dfba2e1177bed2  scripts/smoke-test.sh
@@ -20,9 +20,9 @@ f8158e17b76926f4b358dc5a249c8165eb19e6692263954c18a85ca50aa853c9  scripts/securi
 ba6c577acdbd8d8c10716f4e94f0475aa3bfca4dc6ee9a989980a68216db8bf7  scripts/lib/course-token.sh
 54e09d420d70c8c7ae16c07a5c46670c1388ac121eff4a94e80be8bf7d01b67b  scripts/lib/debug-bundle.sh
 ac415a7b62aabe0f90b627eb1ab46eae7b9161e13222f4d0c1db3db8816f54d7  scripts/lib/preflight.sh
-254823d67596058a74884c7a932ed61d83216828993368e1909ae7f29a99e63b  scripts/lib/telemetry.sh
+261e36dd8f6c96a7ae6625ae89562eb0d3288f8f92d07c2e1eb3f7a8bf3dc920  scripts/lib/telemetry.sh
 7d14dc9f88e0af7ae47c7b91279c5e3eae4266d79145d5fb725a0900d5639a36  scripts/lib/ui.sh
-289e5699a69fdfe2b00da7567f5cdffbcd5812556ba4c5ae8addac44d2225517  scripts/lib/vip.sh
+f9031532e54b55ca7b4fcaa92777f8b60608c09e2b45dc70a20344b4966663ca  scripts/lib/vip.sh
 44b2f6daf34c6ebc543929ed5905dd1eb825187697836f727f0def956700012b  templates/LICENSE-skills.md
 2322c21a936622d4e0666a4277b05474d1a298e211a90500a7d1a4786314b7c7  templates/assistant/AGENTS.md
 1ba252889d94180efd0bfcc01550b11871cefe19fae13bfd5c36a1dcc27dc92c  templates/assistant/IDENTITY.md

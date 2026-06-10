@@ -27,13 +27,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-fac
 VIP/STD → агенты сами; SUB → только движок. Убрать «запусти вторую команду».
 📄 Бриф: `handoff/unified-install-command-bot-brief.md`.
 
-### 🆕 B. Аналитика установок — бот шлёт `/issue` с email
+### 🆕 B. Аналитика установок — эндпоинты хостишь ТЫ + бот шлёт `/issue`
 
-Подняли Worker (кто/сколько ставил + email + тариф). Email знает только бот —
-при выдаче токена он должен слать `POST <worker>/issue` с
-`{token_hash=sha256(token), tg_id, email, tier}` (заголовок `X-Admin-Key`).
-URL+секрет даст Антон **после деплоя Worker** (его Cloudflare).
-📄 Бриф: `handoff/install-analytics-bot-brief.md`. (Worker-код: `openclaw-factory/cloudflare/`.)
+Cloudflare НЕ используем (решение Антона, 2026-06-10). Эндпоинты
+(`/issue`/`/activation`/`/stats`) поднимаешь **на своём сервере** (рядом с
+Prodamus-webhook). Готовая логика и схема: `handoff/analytics-endpoint-reference/`.
+Бот при выдаче токена шлёт `POST /issue` с
+`{token_hash=sha256(token), tg_id, email, tier}` (заголовок `X-Admin-Key`,
+секрет — твой). Когда поднимешь — URL Антону (включит пинги установщиков).
+📄 Бриф: `handoff/install-analytics-bot-brief.md`.
 
 ### ℹ️ C. Windows-интерфейс (Companion) — FYI, в боте опц.
 

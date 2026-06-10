@@ -35,9 +35,10 @@ MCowBQYDK2VwAyEAQIjPPB5LB1R3outrY1HMaVRVUB2tkDhHtpC8LLJ+8rA=
 EOF
 )
 
-# Endpoint аналитики установок (Worker /activation). ПУСТО = пинг выключен
-# (Worker ещё не развёрнут). После деплоя задать сюда URL вида
-# https://aiteam-installs.<acc>.workers.dev/activation
+# Endpoint аналитики установок (/activation на сервере технаря — Cloudflare
+# не используем, решение 2026-06-10). ПУСТО = пинг выключен. Когда технарь
+# поднимет эндпоинт (handoff/analytics-endpoint-reference/) — вписать сюда
+# его URL вида https://<его-сервер>/activation
 VIP_ACTIVATION_ENDPOINT="${VIP_ACTIVATION_ENDPOINT:-}"
 
 # ─── Определить версию токена по его форме ─────────────────────
