@@ -64,19 +64,16 @@ fi
 #      • 1 manifest LICENSE-skills.md                            =  1
 #      • ИТОГО                                                   = 37
 #
-#    Исторические значения (12 = pre-wave5, 24 = pre-wave6) оставляем
-#    валидными чтобы CI не падал на старых релизных ветках.
+#    R2-аудит: РОВНО одно ожидаемое значение. Старые ветки несут свою
+#    версию этого файла — мульти-значения только маскировали потерю файлов.
+#    При добавлении шаблонов меняй константу В ТОМ ЖЕ PR.
+EXPECTED_TEMPLATE_COUNT=85
 template_count=$(find templates -name "*.md" | wc -l | tr -d ' ')
-case "$template_count" in
-  12) pass "templates/ содержит 12 md-файлов (Standard pre-wave5)" ;;
-  24) pass "templates/ содержит 24 md-файла (VIP pre-wave6)" ;;
-  37) pass "templates/ содержит 37 md-файлов (VIP + SOUL/LEARNING/skills — wave 6)" ;;
-  49) pass "templates/ содержит 49 md-файлов (+ базовая тройка SOUL/LEARNING/skills — wave 29)" ;;
-  54) pass "templates/ содержит 54 md-файла (+ assistant демо-агент — wave 30)" ;;
-  74) pass "templates/ содержит 74 md-файла (+ Pro-агенты leadcloser + content)" ;;
-  85) pass "templates/ содержит 85 md-файлов (+ база знаний knowledge/ — 11 заметок)" ;;
-  *)  fail "templates/ содержит $template_count файлов (ожидается 12/24/37/49/54/74/85 — проверь что ничего не забыл/не потерялось)" ;;
-esac
+if [[ "$template_count" == "$EXPECTED_TEMPLATE_COUNT" ]]; then
+  pass "templates/ содержит ${template_count} md-файлов (актуальный полный набор)"
+else
+  fail "templates/ содержит ${template_count} md-файлов (ожидается ${EXPECTED_TEMPLATE_COUNT} — файлы потерялись или добавлены без обновления константы)"
+fi
 
 echo ""
 echo "=== Docker smoke — всё зелёное ==="

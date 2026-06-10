@@ -25,12 +25,17 @@ openclaw --version
 # bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)
 ```
 
-**Шаг 2 — создай три Telegram-бота через [@BotFather](https://t.me/BotFather)**:
+**Шаг 2 — получи course-token** (обязателен для свежей установки):
+`@AITeamVIPBot` → `/start` → email/телефон оплаты → бот пришлёт токен
+(`STD-…` = Base, `VIP-…` = Pro).
 
-Отправь `/newbot` трижды, получи три токена. Названия — на твой вкус
-(например: «Мой технарь», «Мой маркетолог», «Мой продюсер»).
+**Шаг 3 — создай Telegram-ботов через [@BotFather](https://t.me/BotFather)**:
 
-**Шаг 3 — запусти установщик агентов:**
+По одному `/newbot` на каждого агента, которого будешь ставить (Base — 3,
+Pro — до 8 на твой выбор). Названия — на твой вкус («Мой технарь» и т.д.).
+Не создавай всех подряд за минуту — партиями по 2-3 (флуд-лимит Telegram).
+
+**Шаг 4 — запусти установщик агентов:**
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh)
@@ -48,7 +53,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-age
 > релизным тегом. SHA256 — в файле `install-agents-bundled.sh.sha256`
 > рядом с asset'ом.
 
-Установщик спросит три токена, модель (по умолчанию `openai-codex/gpt-5.4`), проверит что OpenClaw жив, и за 3-5 минут развернёт всех трёх агентов. Напиши каждому боту — он ответит.
+Установщик спросит course-token, модель (по умолчанию бесплатная
+`opencode/minimax-m2.5-free`; умные мозги ChatGPT — потом одной командой
+`openclaw-add-codex`), на Pro даст выбрать каких агентов ставить, попросит
+бот-токены по числу выбранных — и за 3-5 минут развернёт команду. Напиши
+каждому боту — он ответит.
 
 ---
 

@@ -33,7 +33,11 @@ _course_token_load_cache() {
     perms=$(stat -f '%A' "$COURSE_TOKEN_CACHE" 2>/dev/null \
               || stat -c '%a' "$COURSE_TOKEN_CACHE" 2>/dev/null \
               || echo "?")
-    if [[ "$perms" != "600" && "$perms" != "?" ]]; then
+    if [[ "$perms" == "?" ]]; then
+      # R2-аудит: stat недоступен — раньше fail-open; теперь чиним права
+      # сами и продолжаем только если chmod удался (fail-closed).
+      chmod 600 "$COURSE_TOKEN_CACHE" 2>/dev/null || return 1
+    elif [[ "$perms" != "600" ]]; then
       # Кэш не защищён — игнорируем, чтобы не использовать скомпрометированный токен
       return 1
     fi
@@ -120,9 +124,9 @@ acquire_course_token() {
   if [[ "$mode" == "non-interactive" ]]; then
     echo "" >&2
     echo "ERROR: course-token обязателен для свежей установки." >&2
-    echo "В non-interactive режиме передайте через переменную:" >&2
-    echo "  COURSE_TOKEN=STD-... bash scripts/install-agents.sh ..." >&2
-    echo "Или флаг --course-token / --vip-token." >&2
+    echo "В non-interactive режиме передайте флагом:" >&2
+    echo "  bash scripts/install-agents.sh --install --course-token STD-..." >&2
+    echo "Или строкой COURSE_TOKEN=STD-... в файле для --config." >&2
     return 1
   fi
 

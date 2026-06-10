@@ -55,8 +55,12 @@ jobs:
       - name: Substitute commit hash into INSTALLER_COMMIT
         run: |
           commit_short=$(git rev-parse --short HEAD)
-          sed -i.bak "s/__COMMIT_PLACEHOLDER__/${commit_short}/" scripts/install-agents.sh
+          # R2-аудит: sed заякорен на строку присвоения — глобальная замена
+          # задевала guard if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]
+          sed -i.bak "s|^INSTALLER_COMMIT=\"__COMMIT_PLACEHOLDER__\"|INSTALLER_COMMIT=\"${commit_short}\"|" scripts/install-agents.sh
           rm -f scripts/install-agents.sh.bak
+          grep -q "^INSTALLER_COMMIT=\"${commit_short}\"" scripts/install-agents.sh \
+            || { echo "ERROR: подстановка INSTALLER_COMMIT не сработала"; exit 1; }
           echo "OK: INSTALLER_COMMIT = ${commit_short}"
 
       - name: Build self-contained bundle
