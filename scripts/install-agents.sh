@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.09.1"
+INSTALLER_VERSION="2026.06.10"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -80,7 +80,7 @@ Options:
                          Формат VIP-... → VIP-режим (8 агентов), STD-... → Standard (3).
   --vip-token <token>    Backward-compat алиас для --course-token.
   --vps, --headless      VPS-режим (skip GUI, SSH-tunnel-инструкция для dashboard)
-  --only <agent>         Поставить только одного: tech | marketer | producer | designer | coordinator | copywriter
+  --only <agent>         Поставить только одного: tech | marketer | producer | designer | coordinator | copywriter | leadcloser | content (последние 5 — Pro, нужен VIP-токен)
   --suffix <str>         Суффикс к id при коллизии (tech-2, marketer-2, …)
   --config <file>        env-файл для неинтерактивной установки:
                            BOT_TOKEN_TECH=...
@@ -129,9 +129,9 @@ done
 # --enable-embedding and --no-embedding still require TTY because the rest
 # of the install flow is interactive (model choice, tokens, etc.)
 if [[ "$NEEDS_TTY" == true && ! -t 0 ]]; then
-  if [[ -e /dev/tty ]]; then
-    exec < /dev/tty
-  else
+  # R2-аудит: exec может упасть (nohup/screen без tty) — ловим и даём
+  # понятное сообщение вместо generic-трапа.
+  if ! { [[ -e /dev/tty ]] && exec < /dev/tty; } 2>/dev/null; then
     echo "ERROR: скрипту нужен интерактивный терминал."
     echo "Запустите напрямую: bash <(curl -fsSL URL)"
     exit 1
@@ -165,7 +165,8 @@ COURSE_TIER=""
 # с уже отозванными токенами / другими ботами. Защищаемся: на старте
 # чистим все BOT_TOKEN_* которые могут остаться от прошлой сессии.
 unset BOT_TOKEN_TECH BOT_TOKEN_MARKETER BOT_TOKEN_PRODUCER \
-      BOT_TOKEN_DESIGNER BOT_TOKEN_COORDINATOR BOT_TOKEN_COPYWRITER 2>/dev/null || true
+      BOT_TOKEN_DESIGNER BOT_TOKEN_COORDINATOR BOT_TOKEN_COPYWRITER \
+      BOT_TOKEN_LEADCLOSER BOT_TOKEN_CONTENT 2>/dev/null || true
 
 # ─── EXIT trap — не даём тихо уйти в шелл без подсказки ───────
 #
@@ -231,7 +232,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --only)
       ONLY_AGENT="${2:-}"
-      [[ -z "$ONLY_AGENT" ]] && { echo "ERROR: --only требует значение (tech|marketer|producer|designer|coordinator|copywriter)"; exit 1; }
+      [[ -z "$ONLY_AGENT" ]] && { echo "ERROR: --only требует значение (tech|marketer|producer|designer|coordinator|copywriter|leadcloser|content)"; exit 1; }
       shift 2
       ;;
     --suffix)
@@ -563,7 +564,12 @@ if [[ -n "$CONFIG_FILE" ]]; then
   # Мост: config-файл документирован с VIP_TOKEN= (см. --help), но валидатор
   # ждёт COURSE_TOKEN. Без этого неинтерактивная VIP-установка падала.
   [[ -z "${COURSE_TOKEN:-}" && -n "${VIP_TOKEN:-}" ]] && COURSE_TOKEN="$VIP_TOKEN"
-  [[ -n "${VIP_TOKEN:-}" ]] && VIP_MODE=true
+  # R2-аудит: VIP_MODE по ПРЕФИКСУ токена (раньше любой VIP_TOKEN= в файле
+  # включал VIP_MODE — STD-токен в config получал отказ по тарифу).
+  case "${COURSE_TOKEN:-}" in
+    VIP-*) VIP_MODE=true ;;
+    *)     VIP_MODE=false ;;
+  esac
   SKIP_MENU=true
   ru "Конфиг загружен из: ${CONFIG_FILE}"
 fi
@@ -929,6 +935,25 @@ if detect_openclaw; then
   OPENCLAW_INSTALLED=true
 fi
 
+# Объединённый поток (R2-аудит): factory уже сохранил токен в кэш — тариф
+# известен ДО меню. Подставляем правильный дефолт Enter (раньше дефолт был
+# всегда Pro, и STD-клиент в чейне падал «несоответствие тарифа»).
+_cached_tier=""
+_ct="$(_course_token_load_cache 2>/dev/null || true)"
+case "${_ct:-}" in
+  VIP-*) _cached_tier="VIP" ;;
+  STD-*) _cached_tier="STD" ;;
+  SUB-*) _cached_tier="SUB" ;;
+  HRM-*) _cached_tier="HRM" ;;
+esac
+unset _ct
+_menu_default=3
+case "$_cached_tier" in
+  STD) _menu_default=2 ;;
+  SUB) _menu_default=1 ;;
+  HRM) _menu_default=4 ;;   # HRM-токен = Hermes; пункт 4 и есть его покупка
+esac
+
 if [[ "$SKIP_MENU" != true && \
       -z "$ONLY_AGENT" && \
       -z "$COURSE_TOKEN" && \
@@ -950,7 +975,6 @@ if [[ "$SKIP_MENU" != true && \
   echo -e "   ${BOLD}${YELLOW}  3)${NC}  ${BOLD}Pro${NC}        ${DIM}— 8 агентов (полный набор)${NC}  ${GREEN}← рекомендуется${NC}"
   echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер  🎨 Дизайнер"
   echo -e "       🧭 Координатор  ✍️ Копирайтер  💰 Лидоруб  🎥 Контент-агент"
-  echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
   if [[ "$OPENCLAW_INSTALLED" == true ]]; then
     echo ""
     echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Hermes${NC}     ${DIM}— супер-агент над всей командой${NC}  ${YELLOW}★${NC}"
@@ -959,15 +983,27 @@ if [[ "$SKIP_MENU" != true && \
   fi
   echo ""
   divider
+  if [[ -n "$_cached_tier" ]]; then
+    case "$_cached_tier" in
+      VIP) echo -e "   ${GREEN}✓ Твой тариф по токену: Pro — просто нажми Enter.${NC}" ;;
+      STD) echo -e "   ${GREEN}✓ Твой тариф по токену: Base — просто нажми Enter.${NC}" ;;
+      SUB) echo -e "   ${DIM}Твой тариф: OpenClaw (подписка) — доп. агенты в него не входят.${NC}" ;;
+      HRM) echo -e "   ${DIM}Твой токен — Hermes (HRM): это пункт 4. Просто нажми Enter.${NC}" ;;
+    esac
+    echo ""
+  fi
+  _vmain_tries=0
+  while :; do
+  _vmain_tries=$((_vmain_tries + 1))
   if [[ "$OPENCLAW_INSTALLED" == true ]]; then
-    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4, Enter = 3]:${NC}"
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3/4, Enter = ${_menu_default}]:${NC}"
   else
-    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = 3]:${NC}"
+    echo -e "   ${BOLD}${WHITE}Выбор [1/2/3, Enter = ${_menu_default}]:${NC}"
   fi
   echo ""
-  read -r _main_menu_input
+  read -r _main_menu_input || _main_menu_input=""
 
-  case "${_main_menu_input:-3}" in
+  case "${_main_menu_input:-$_menu_default}" in
     1)
       # OpenClaw — движок уже стоит (поставлен factory'ем на шаге 1).
       # Этот установщик ставит АГЕНТОВ — а клиент не хочет агентов.
@@ -987,10 +1023,12 @@ if [[ "$SKIP_MENU" != true && \
     2)
       MAIN_CHOICE="base"
       record_telemetry "main_menu_base" "ok"
+      break
       ;;
     3|"")
       MAIN_CHOICE="pro"
       record_telemetry "main_menu_pro" "ok"
+      break
       ;;
     4)
       if [[ "$OPENCLAW_INSTALLED" != true ]]; then
@@ -1007,12 +1045,19 @@ if [[ "$SKIP_MENU" != true && \
       exit 0
       ;;
     *)
-      echo ""
-      echo -e "   ${YELLOW}Не распознал «${_main_menu_input}». Выход.${NC}"
-      _last_exit_reason="main_menu_invalid"
-      exit 0
+      # R2-аудит: раньше тут был exit 0 — опечатка завершала установку «успехом»
+      # (и чейн factory считал, что агенты поставлены). Теперь переспрашиваем.
+      if [[ $_vmain_tries -ge 3 ]]; then
+        echo ""
+        echo -e "   ${YELLOW}Не распознал ввод трижды. Выход.${NC}"
+        _last_exit_reason="main_menu_invalid"
+        exit 1
+      fi
+      echo -e "   ${YELLOW}Не распознал «${_main_menu_input}». Введи 1, 2 или 3 (Enter = ${_menu_default}).${NC}"
+      continue
       ;;
   esac
+  done
 fi
 
 # ═══════════════════════════════════════════════════════════════
@@ -1156,7 +1201,7 @@ if [[ -n "$MAIN_CHOICE" ]]; then
         echo ""
         echo -e "   ${BOLD}${WHITE}Что делать:${NC}"
         echo -e "   ${CYAN}•${NC} Если оплачивал ${BOLD}Base${NC} — получи новый токен в ${BOLD}@AITeamVIPBot${NC}"
-        echo -e "   ${CYAN}•${NC} Если у тебя ${BOLD}OpenClaw${NC} (подписка) — запусти снова и выбери опцию 3"
+        echo -e "   ${CYAN}•${NC} Если у тебя ${BOLD}OpenClaw${NC} (подписка) — запусти снова и выбери опцию 1"
         echo ""
         _last_exit_reason="main_choice_tier_mismatch_base"
         exit 1
@@ -1209,6 +1254,20 @@ if [[ "$COURSE_TIER" == "SUB" ]]; then
   exit 0
 fi
 
+# HRM — токен Hermes-агента (отдельный SKU). Агентов Base/Pro по нему НЕТ —
+# раньше HRM проскальзывал как course-token и открывал Base-установку (R2-аудит).
+if [[ "$COURSE_TIER" == "HRM" ]]; then
+  echo ""
+  echo -e "${BOLD}${YELLOW}ℹ️  Твой токен — HRM (супер-агент Hermes).${NC}"
+  echo -e "   ${DIM}Агенты Base/Pro по нему не ставятся — HRM даёт Hermes.${NC}"
+  echo ""
+  echo -e "   ${BOLD}${WHITE}Поставить Hermes:${NC} запусти установщик ещё раз и выбери пункт ${BOLD}4 (Hermes)${NC}."
+  echo ""
+  record_telemetry "hrm_tier_graceful_exit" "ok"
+  _last_exit_reason="hrm_tier_no_agents"
+  exit 0
+fi
+
 # ═══════════════════════════════════════════════════════════════
 #  V0b. Tier-based меню (wave 14)
 # ═══════════════════════════════════════════════════════════════
@@ -1246,7 +1305,6 @@ if [[ "$SKIP_MENU" != true && -z "$ONLY_AGENT" ]]; then
     echo -e "   ${BOLD}${YELLOW}  1)${NC}  ${BOLD}Pro — 8 агентов${NC}  ${GREEN}← рекомендуется (по тарифу)${NC}"
     echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер  🎨 Дизайнер"
     echo -e "       🧭 Координатор  ✍️ Копирайтер  💰 Лидоруб  🎥 Контент-агент"
-    echo -e "       🎨 Дизайнер 🧭 Координатор ✍️  Копирайтер"
     echo ""
     echo -e "   ${BOLD}${GREEN}  2)${NC}  ${BOLD}Base — 3 агента${NC}"
     echo -e "       🔧 Технарь  📈 Маркетолог  🎬 Продюсер"

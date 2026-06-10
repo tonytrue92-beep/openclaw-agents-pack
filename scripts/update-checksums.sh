@@ -31,8 +31,9 @@ else
   exit 1
 fi
 
-# Хэшируем все скрипты + все шаблоны
-for f in scripts/*.sh scripts/lib/*.sh templates/*/*.md; do
+# Хэшируем все скрипты + ВСЕ шаблоны (включая skills/*/SKILL.md и knowledge/ —
+# R2-аудит: старый глоб templates/*/*.md пропускал 21 файл)
+for f in scripts/*.sh scripts/lib/*.sh $(find templates -name '*.md' | sort); do
   $HASHER "$f" >> "$TMP"
 done
 

@@ -44,6 +44,16 @@ for mod in "${LIB_ORDER[@]}"; do
   fi
 done
 
+# R2-аудит: обратная проверка — каждый lib/*.sh обязан быть в LIB_ORDER,
+# иначе новый модуль молча не попадёт в bundled-релиз.
+for f in "${LIB_DIR}"/*.sh; do
+  mod=$(basename "$f" .sh)
+  if [[ " ${LIB_ORDER[*]} " != *" ${mod} "* ]]; then
+    echo "ERROR: ${f} не указан в LIB_ORDER — добавь его (с учётом порядка source)" >&2
+    exit 1
+  fi
+done
+
 # Маркеры должны быть anchored на начало строки и точно соответствовать
 # bash-комментарию `# === BUNDLE_LIB_BEGIN ===`. Иначе awk поймает
 # любое упоминание в других комментариях (например в документирующем

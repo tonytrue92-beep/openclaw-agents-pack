@@ -5,10 +5,10 @@
 > Здесь всё: какие у нас продукты, какие команды давать, что входит,
 > какие модели, и — главное — **все известные ошибки и готовые фиксы**.
 >
-> 📅 **Актуально на 2026-06-06.** Текущие версии установщиков:
-> - Платный движок (`openclaw-factory`): **v2026.06.04.1**
-> - Платные агенты (`openclaw-agents-pack`): **v2026.06.04.3**
-> - Тест-драйв (`openclaw-test-drive`): **v2026.05.28.16**
+> 📅 **Актуально на 2026-06-10.** Текущие версии установщиков:
+> - Платный движок (`openclaw-factory`): **v2026.06.10**
+> - Платные агенты (`openclaw-agents-pack`): **v2026.06.10**
+> - Тест-драйв (`openclaw-test-drive`): **v2026.06.09**
 >
 > Если что-то в этой инструкции расходится с поведением установщика —
 > верь установщику и эскалируй Антону, чтобы обновить документ.
@@ -317,7 +317,8 @@ bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releas
 **Если именно `504` на `releases/latest/download/…`** — это сбой гитхабовского
 редиректа `/latest/`. Дай **прямую ссылку по тегу** (обходит редирект):
 ```bash
-bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/download/v2026.06.06/install-agents-bundled.sh)
+bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/download/v2026.06.10/install-agents-bundled.sh)
+# ↑ подставь ПОСЛЕДНИЙ тег со страницы Releases — пример может протухнуть
 ```
 Если и так не качается — `git clone`:
 ```bash

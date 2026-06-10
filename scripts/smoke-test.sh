@@ -599,10 +599,10 @@ grep -q 'Base — 3 агента' scripts/install-agents.sh \
 grep -q 'Только OpenClaw' scripts/install-agents.sh \
   || fail "wave 20: меню не содержит опцию «Только OpenClaw» (3-й пункт)"
 # Меню теперь компактное — 3 пункта без Hermes или 4 с Hermes.
-# Wave 26: порядок пунктов изменён (OpenClaw → Base → Pro → Hermes),
-# default стал Enter = 3 (Pro).
-grep -qE '\[1/2/3, Enter = 3\]|\[1/2/3/4, Enter = 3\]' scripts/install-agents.sh \
-  || fail "wave 20/26: меню не содержит [1/2/3, Enter = 3] / [1/2/3/4, Enter = 3]"
+# Wave 26: порядок пунктов (OpenClaw → Base → Pro → Hermes).
+# R2-аудит: дефолт стал ДИНАМИЧЕСКИМ (${_menu_default} по тарифу из кэша).
+grep -qE '\[1/2/3, Enter = \$\{_menu_default\}\]|\[1/2/3/4, Enter = \$\{_menu_default\}\]' scripts/install-agents.sh \
+  || fail "wave 20/26+R2: меню не содержит [1/2/3(/4), Enter = \${_menu_default}]"
 grep -q '\[1/2/3/4/5' scripts/install-agents.sh \
   && fail "wave 20: старое 5-опционное меню всё ещё на месте"
 pass "wave 20/26: публичные тарифы Base/Pro/OpenClaw + меню 3-4 пункта"
@@ -692,9 +692,13 @@ grep -q '2)${NC}  ${BOLD}Base' scripts/install-agents.sh \
   || fail "wave 26: пункт 2) не Base"
 grep -q '3)${NC}  ${BOLD}Pro' scripts/install-agents.sh \
   || fail "wave 26: пункт 3) не Pro"
-grep -q '_main_menu_input:-3' scripts/install-agents.sh \
-  || fail "wave 26: default по Enter не = 3 (Pro)"
-pass "wave 26: ladder OpenClaw→Base→Pro→Hermes (default Enter = Pro)"
+# R2-аудит: дефолт динамический — _menu_default (3=Pro если тариф не известен,
+# иначе по тарифу из кэша: STD→2, SUB→1, HRM→4).
+grep -q '_main_menu_input:-\$_menu_default' scripts/install-agents.sh \
+  || fail "wave 26+R2: default по Enter не \$_menu_default"
+grep -q '_menu_default=3' scripts/install-agents.sh \
+  || fail "wave 26+R2: базовый дефолт не 3 (Pro)"
+pass "wave 26: ladder OpenClaw→Base→Pro→Hermes (default Enter = тариф/Pro)"
 
 # ─── Test 6.32: wave 27 ANSI 3D-куб intro в Hermes ──────────────
 # Inline Python heredoc HERMES_CUBE_EOF — анимация 3.5s при выборе
@@ -851,6 +855,21 @@ grep -q 'vip_log_activation "$COURSE_TOKEN"' scripts/install-agents.sh \
 grep -q 'openai-codex/gpt-5.4' scripts/install-agents.sh \
   && fail "M1: остался legacy openai-codex/gpt-5.4" || true
 pass "Аудит-фиксы H1/H2/H4/M1 на месте"
+
+# ─── Аудит R2 (2026-06-10): чейн/меню/гейты ───
+grep -q '_cached_tier' scripts/install-agents.sh \
+  || fail "R2: нет определения тарифа из кэша перед V_MAIN"
+grep -q '_menu_default' scripts/install-agents.sh \
+  || fail "R2: дефолт меню не зависит от тарифа (Enter уводил STD в Pro)"
+grep -q '_vmain_tries' scripts/install-agents.sh \
+  || fail "R2: V_MAIN не переспрашивает при опечатке (раньше exit 0)"
+grep -q '"$COURSE_TIER" == "HRM"' scripts/install-agents.sh \
+  || fail "R2: нет graceful-exit для HRM-токена"
+grep -q 'BOT_TOKEN_LEADCLOSER' scripts/install-agents.sh \
+  || fail "R2: stale-env unset не покрывает LEADCLOSER/CONTENT"
+[[ "$(grep -c 'Дизайнер 🧭 Координатор' scripts/install-agents.sh)" == "0" ]] \
+  || fail "R2: дубль-строка агентов в Pro-меню всё ещё на месте"
+pass "Аудит R2: кэш-дефолт меню + retry + HRM + unset + меню без дублей"
 
 rm -f /tmp/fake.json
 
