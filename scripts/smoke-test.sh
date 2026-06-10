@@ -871,6 +871,28 @@ grep -q 'BOT_TOKEN_LEADCLOSER' scripts/install-agents.sh \
   || fail "R2: дубль-строка агентов в Pro-меню всё ещё на месте"
 pass "Аудит R2: кэш-дефолт меню + retry + HRM + unset + меню без дублей"
 
+# ─── Аудит R3 (live-фиксы) ───
+# agent_exists: строгая граница, без \b/\s (BSD) и без ci-fallback
+grep -q '\[\[:space:\](\]' scripts/lib/agents.sh \
+  || fail "R3: agent_exists не использует портируемую границу [[:space:](]"
+grep -q 'grep -qiE' scripts/lib/agents.sh \
+  && fail "R3: остался case-insensitive fallback в agent_exists" || true
+# функц-тест паттерна на суффиксе (та самая live-грабля tech vs tech-2)
+printf -- "- tech-2 (Технарь-2)\n" | grep -qE "^[-* ] ?tech([[:space:](]|$)" \
+  && fail "R3: паттерн agent_exists ловит tech-2 по запросу tech" || true
+printf -- "- tech (Технарь)\n" | grep -qE "^[-* ] ?tech([[:space:](]|$)" \
+  || fail "R3: паттерн agent_exists НЕ ловит реальную строку '- tech (Технарь)'"
+printf -- "- coordinator (default) (Координатор)\n" | grep -qE "^[-* ] ?coordinator([[:space:](]|$)" \
+  || fail "R3: паттерн agent_exists НЕ ловит '- coordinator (default) (…)'"
+# дубль-бот против установленных + suffix-strip + FRESH-уточнение
+grep -q '_existing_bot_map' scripts/install-agents.sh \
+  || fail "R3: нет проверки бота против уже установленных агентов"
+[[ "$(grep -c "sed -E 's/-\[0-9\]+\$//'" scripts/install-agents.sh)" == "2" ]] \
+  || fail "R3: suffix-strip для refresh не в двух местах"
+grep -q 'это доустановка' scripts/install-agents.sh \
+  || fail "R3: FRESH-сценарий не различает доустановку"
+pass "Аудит R3: agent_exists (live-граница) + дубль-бот vs установленные + suffix-refresh"
+
 rm -f /tmp/fake.json
 
 echo ""

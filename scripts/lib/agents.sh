@@ -41,8 +41,13 @@ agent_exists() {
   if ! command -v openclaw &>/dev/null; then
     return 1
   fi
-  openclaw agents list 2>/dev/null | grep -qE "^[- *] ?${agent_id}\b|^\s*${agent_id}\s" || \
-    openclaw agents list 2>/dev/null | grep -qiE "\b${agent_id}\b"
+  # R3-аудит (live-тест на macOS/BSD grep): старый паттерн ложно ловил
+  # суффиксы (`tech` совпадал с `tech-2` — \b считает «-» границей),
+  # `\s` в BSD ERE не работает, а case-insensitive fallback матчил id в
+  # любом месте вывода (пути и т.п.). Формат строки `agents list`:
+  # «- <id> (Имя)» или «- <id> (default) (Имя)» → после id идёт пробел/«(».
+  openclaw agents list 2>/dev/null \
+    | grep -qE "^[-* ] ?${agent_id}([[:space:](]|$)"
 }
 
 # ─── Добавить Telegram-канал с заданным accountId + token ───────
