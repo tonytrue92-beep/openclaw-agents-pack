@@ -70,7 +70,7 @@ ensure_telemetry_consent() {
   echo ""
   echo -e "   ${BOLD}${WHITE}Разрешить анонимную телеметрию установки?${NC}"
   echo -e "   ${DIM}Помогает улучшать установщик. Имена, ключи, IP — не собираем.${NC}"
-  echo -e "   ${DIM}Пока Worker не задеплоен — пишется ТОЛЬКО локально в:${NC}"
+  echo -e "   ${DIM}Пишется ТОЛЬКО локально (никуда не отправляется) в:${NC}"
   echo -e "   ${DIM}   ${TELEMETRY_LOG}${NC}"
   echo ""
   echo -e "   ${BOLD}${WHITE}Разрешить? [y/N]:${NC}"
