@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.10"
+INSTALLER_VERSION="2026.06.10.1"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -471,7 +471,9 @@ if [[ "$REFRESH_TEMPLATES_ONLY" == true ]]; then
       continue
     fi
     echo -e "${BOLD}${CYAN}━━━ ${agent} ━━━${NC}"
-    prepare_workspace_from_templates "$agent" "$workspace_dir" "refresh" || {
+    # R3-аудит: суффиксованный id (tech-2) → шаблоны лежат по роли (tech)
+    _role=$(printf '%s' "$agent" | sed -E 's/-[0-9]+$//')
+    prepare_workspace_from_templates "$_role" "$workspace_dir" "refresh" || {
       warn "Не получилось обновить ${agent} — продолжаю со следующим"
     }
     echo ""
@@ -1500,8 +1502,16 @@ done
 CLEANUP_EXISTING=false  # ставим true если в R4 надо сначала снести старых
 
 if [[ ${#EXISTING_AGENTS[@]} -eq 0 ]]; then
-  # Сценарий FRESH
-  echo -e "   ${GREEN}✓${NC} Свежая установка — агентов в системе ещё нет"
+  # Сценарий FRESH (или доустановка непересекающегося набора — R3-аудит:
+  # раньше при других установленных агентах это маскировалось под «свежую»)
+  _all_installed="$(find_installed_agents 2>/dev/null | tr '\n' ' ')"
+  if [[ -n "${_all_installed// /}" ]]; then
+    echo -e "   ${GREEN}✓${NC} Выбранные агенты ещё не установлены — это доустановка"
+    echo -e "   ${DIM}   (в системе уже есть: ${_all_installed})${NC}"
+  else
+    echo -e "   ${GREEN}✓${NC} Свежая установка — агентов в системе ещё нет"
+  fi
+  unset _all_installed
   record_telemetry "R0_fresh" "ok"
 
 elif [[ ${#MISSING_AGENTS[@]} -eq 0 ]]; then
@@ -1543,7 +1553,9 @@ elif [[ ${#MISSING_AGENTS[@]} -eq 0 ]]; then
             continue
           fi
           echo -e "${BOLD}${CYAN}━━━ ${aid} ━━━${NC}"
-          prepare_workspace_from_templates "$aid" "$workspace_dir" "refresh" || {
+          # R3-аудит: суффиксованный id (tech-2) → шаблоны лежат по роли (tech)
+          _role=$(printf '%s' "$aid" | sed -E 's/-[0-9]+$//')
+          prepare_workspace_from_templates "$_role" "$workspace_dir" "refresh" || {
             warn "Не получилось обновить ${aid} — продолжаю со следующим"
           }
           echo ""
@@ -1569,7 +1581,7 @@ else
   echo ""
   echo -e "   ${BOLD}${WHITE}🔼 Обнаружен апгрейд (не полная, но частичная установка):${NC}"
   echo ""
-  echo -e "   ${GREEN}Уже установлены${NC} ${DIM}(будут сохранены):${NC}"
+  echo -e "   ${GREEN}Уже установлены${NC} ${DIM}(будут сохранены; обновить их шаблоны — --refresh-templates):${NC}"
   for aid in "${EXISTING_AGENTS[@]}"; do
     echo -e "      ${GREEN}✓${NC} ${aid}"
   done
@@ -1829,6 +1841,13 @@ echo ""
 # Чтение: var="BOT_TOKEN_$agent"; value="${!var}"
 # Работает в bash 3.2+.
 
+# R3-аудит (live): probe отдаёт «- Telegram <agent>: … bot:@<username>» —
+# собираем юзернеймы ботов УЖЕ установленных агентов, чтобы поймать повторное
+# использование занятого бота (раньше ловили только дубли в рамках сессии).
+# Best-effort: если gateway не отвечает — карта пустая, проверка пропускается.
+_existing_bot_map="$(openclaw channels status --probe 2>/dev/null \
+    | sed -nE 's/^- Telegram ([A-Za-z0-9_-]+):.*bot:@([A-Za-z0-9_]+).*/\2 \1/p')"
+
 for agent in "${AGENTS_TO_INSTALL[@]}"; do
   emoji=""; label=""
   case "$agent" in
@@ -1922,6 +1941,27 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
         exit 1
       fi
       continue
+    fi
+
+    # 2b. R3-аудит: …и против ботов УЖЕ установленных агентов (не только
+    # введённых в этой сессии). Повторный ввод того же бота для ТОГО ЖЕ
+    # агента (переустановка) — разрешён.
+    if [[ -n "${_existing_bot_map:-}" ]]; then
+      _ex_owner=$(printf '%s\n' "$_existing_bot_map" | awk -v u="$username" '$1==u{print $2; exit}')
+      if [[ -n "$_ex_owner" && "$_ex_owner" != "$agent" ]]; then
+        warn "Бот @${username} уже привязан к установленному агенту '${_ex_owner}'."
+        echo -e "   ${DIM}Каждому агенту — свой бот. Создайте нового: @BotFather → /newbot.${NC}"
+        [[ -n "$CONFIG_FILE" ]] && exit 1
+        echo ""
+        echo -e "   ${BOLD}${WHITE}Попробовать другой токен? [Y/n]:${NC}"
+        read -r retry
+        if [[ "$retry" == "n" || "$retry" == "N" ]]; then
+          echo -e "   ${DIM}Прервано. Создайте отдельного бота для ${label} и запустите снова.${NC}"
+          exit 1
+        fi
+        continue
+      fi
+      unset _ex_owner
     fi
 
     # Всё ок — сохраняем и выходим из цикла к следующему агенту
