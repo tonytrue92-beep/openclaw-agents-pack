@@ -6,6 +6,26 @@
 
 ---
 
+## 2026-06-10.3 — ХОТФИКС по живому саппорту (день реальных установок)
+
+### Fixed (P0)
+- **Мёртвая дефолт-модель.** OpenClaw переименовал провайдер `opencode` →
+  `opencode-go`; старые `opencode/minimax-m2.5-free` больше не существуют
+  («Unknown model» у клиентов). Дефолт везде → **`opencode-go/deepseek-v4-flash`**.
+- **R1.5 (умная память) — топ-краш дня:** дефолт теперь «Нет» (Enter), любые
+  ошибки embedding/индексации НЕ валят установку (warn + продолжаем);
+  включить позже: `--enable-embedding`.
+- **«Disable N unavailable skills?» → No → Setup cancelled:** перед установкой
+  агентов превентивно `openclaw doctor --fix --yes`.
+- `--collect-debug` / `--diagnose-only` теперь явно пишут «⚠ Это НЕ установка»
+  + команду реальной установки (клиенты путали).
+- curator-guide: новые сценарии (Unknown model, R1.5, doctor, WSL systemd /
+  сеть / init→VPS) + актуальные имена моделей.
+
+`INSTALLER_VERSION 2026.06.10.2 → 2026.06.10.3`
+
+---
+
 ## 2026-06-10.2 — Аналитика: Cloudflare убран, эндпоинты → сервер технаря
 
 ### Changed

@@ -893,6 +893,19 @@ grep -q 'это доустановка' scripts/install-agents.sh \
   || fail "R3: FRESH-сценарий не различает доустановку"
 pass "Аудит R3: agent_exists (live-граница) + дубль-бот vs установленные + suffix-refresh"
 
+# ─── Хотфикс по саппорт-данным 2026-06-10 ───
+grep -q 'opencode-go/deepseek-v4-flash' scripts/install-agents.sh \
+  || fail "hotfix: дефолт-модель не opencode-go/deepseek-v4-flash"
+grep -q 'opencode/minimax-m2.5-free' scripts/install-agents.sh \
+  && fail "hotfix: остался мёртвый opencode/minimax-m2.5-free" || true
+grep -q 'Выбор \[1/2, Enter = 2\]:.*$' scripts/install-agents.sh \
+  || fail "hotfix: R1.5 дефолт не «Нет» (Enter=2)"
+grep -q 'doctor --fix --yes' scripts/install-agents.sh \
+  || fail "hotfix: нет превентивного doctor --fix --yes перед агентами"
+[[ "$(grep -c 'Это НЕ установка' scripts/install-agents.sh)" == "2" ]] \
+  || fail "hotfix: collect-debug/diagnose не предупреждают «это НЕ установка»"
+pass "Хотфикс 2026-06-10: модель opencode-go + R1.5 skip-default + doctor + read-only метки"
+
 rm -f /tmp/fake.json
 
 echo ""

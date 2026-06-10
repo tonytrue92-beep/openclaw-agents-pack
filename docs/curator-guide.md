@@ -47,7 +47,7 @@
 ### Чем тест-драйв отличается от платного
 
 - Тест-драйв = **«тупо далее-далее»**: модель захардкожена
-  (`opencode/deepseek-v4-flash-free`, бесплатно), меню выбора нет,
+  (`opencode-go/deepseek-v4-flash`, бесплатно), меню выбора нет,
   минимум трения для не-технического клиента. В финале **открывается
   сайт-продажник** (serditov.tonytrue.pro) — это апселл в платный продукт.
 - Платный = полный контроль: выбор тарифа (Base/Pro), 8 агентов, база
@@ -68,7 +68,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-tes
 
 - Спросит **один** opencode.ai API-ключ (бесплатный, **карта не нужна**) —
   он нужен даже для бесплатной модели.
-- Модель ставится автоматически: `opencode/deepseek-v4-flash-free`.
+- Модель ставится автоматически: `opencode-go/deepseek-v4-flash`.
 - Удаление: тот же скрипт с флагом `--uninstall`.
 
 ### B. Платный — ОДНА команда (тариф из токена решает) ⭐
@@ -165,8 +165,8 @@ bash <(curl -fsSL .../install-agents.sh) --version
 
 ### По умолчанию — бесплатная модель, без карты
 Все наши установщики ставят **бесплатную модель opencode.ai**:
-- factory / Base / Pro: `opencode/minimax-m2.5-free`
-- тест-драйв: `opencode/deepseek-v4-flash-free`
+- factory / Base / Pro: `opencode-go/deepseek-v4-flash`
+- тест-драйв: `opencode-go/deepseek-v4-flash`
 
 Нужен **бесплатный API-ключ opencode.ai** (формат `sk-…`, **карта не
 нужна**). Регистрация на https://opencode.ai → создать ключ. Ключ пишется
@@ -189,7 +189,7 @@ openclaw-add-codex
 > - Это **апгрейд, не обязательный шаг.** Бесплатная модель уже работает —
 >   если с Codex возня, спокойно остаёмся на бесплатной. Не блокер.
 > - Codex берёт **все** агенты на ChatGPT-аккаунт клиента. Откат на бесплатную:
->   `openclaw-switch-model opencode/minimax-m2.5-free`.
+>   `openclaw-switch-model opencode-go/deepseek-v4-flash`.
 
 ### Сменить модель вручную
 ```bash
@@ -346,6 +346,38 @@ openclaw gateway restart
 **Это была наша внутренняя бага — исправлена в v2026.06.02+.** Если
 клиент видит её на свежей установке Pro — у него старая версия:
 переустанови agents-pack из `releases/latest` (bundled). Сообщи Антону.
+
+### 5.13a. `Unknown model: opencode/minimax-m2.5-free` ⭐ НОВОЕ (2026-06-10)
+**Причина:** OpenClaw обновился — провайдер переименован `opencode` → **`opencode-go`**,
+старые модели (`opencode/minimax-m2.5-free`, `opencode/deepseek-v4-flash-free`)
+больше не существуют. Бьёт и старые установки после апдейта движка.
+**Фикс (одной командой):**
+```bash
+openclaw-switch-model opencode-go/deepseek-v4-flash
+```
+Если ключ opencode не подхватился (401) — перевыпустить профиль:
+`openclaw-factory-reauth` (тот же ключ с opencode.ai подойдёт). Альтернатива —
+умные мозги OpenAI: `openclaw models auth login --provider openai` (бесплатный
+ChatGPT-аккаунт; актуальная линия Антона).
+
+### 5.13b. agents-pack падает на R1.5 (embedding) ⭐ топ-краш 2026-06-10
+**Причина:** «умная память» требует OpenAI-ключ с billing (зарубежная карта).
+С `2026.06.10.3` дефолт R1.5 = **без памяти** (Enter), а ошибки embedding не
+валят установку. Старым клиентам: `--install --no-embedding`. Включить позже:
+`--enable-embedding`.
+
+### 5.13c. «Disable N unavailable skills?» → No → Setup cancelled
+**Причина:** интерактивный вопрос openclaw при битом конфиге; ответ No отменял
+установку. С `2026.06.10.3` установщик превентивно гоняет `openclaw doctor
+--fix --yes`. Старым клиентам: выполнить это руками и перезапустить установщик.
+
+### 5.13d. Windows/WSL — выжимка саппорта
+- `bash <(curl …)` в **PowerShell** не работает (символ `<`) → WSL/Ubuntu или Git Bash.
+- Gateway в WSL требует **systemd**: в `/etc/wsl.conf` → `[boot]\nsystemd=true`,
+  затем `wsl --shutdown`; проверка `ps -p 1 -o comm=` = systemd.
+- Если после фиксов PID 1 всё равно `init` (старый Windows) — не мучить, **вести на VPS**.
+- Пропал интернет после `wsl --install`: `ipconfig /flushdns`, `netsh winsock reset`,
+  `netsh int ip reset`, перезагрузка.
 
 ### 5.13. Конфиг-ошибки: `Unrecognized key` / `plugin not found`
 ```bash
