@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.10.2"
+INSTALLER_VERSION="2026.06.10.3"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -89,7 +89,7 @@ Options:
                            BOT_TOKEN_DESIGNER=...      # для VIP
                            BOT_TOKEN_COORDINATOR=...   # для VIP
                            VIP_TOKEN=...               # для VIP
-                           AGENT_MODEL=opencode/minimax-m2.5-free
+                           AGENT_MODEL=opencode-go/deepseek-v4-flash
                            OWNER_TG_ID=12345678
   --diagnose-only        Проверить что агенты живы (ничего не меняет)
   --collect-debug        Собрать debug-bundle для саппорта (не нужен TTY)
@@ -329,6 +329,8 @@ if [[ "$COLLECT_DEBUG_ONLY" == true ]]; then
   echo -e "${BOLD}${CYAN}📦 Сбор debug-bundle для саппорта${NC}"
   echo -e "${DIM}   agents-pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
   echo -e "${DIM}   ℹ️  Курс-токен не запрашивается — read-only режим.${NC}"
+  echo -e "${BOLD}${YELLOW}   ⚠ Это НЕ установка (только диагностика). Для установки агентов:${NC}"
+  echo -e "${GREEN}   bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)${NC}"
   collect_debug_bundle "manual (user ran --collect-debug)"
   exit 0
 fi
@@ -385,7 +387,8 @@ echo ""
 # ─── --diagnose-only: быстрая проверка без изменений ────────────
 if [[ "$DIAGNOSE_ONLY" == true ]]; then
   echo -e "${DIM}   ℹ️  Курс-токен не запрашивается — read-only режим.${NC}"
-  echo -e "${DIM}   Если хочешь установить новых агентов — запусти команду без флагов.${NC}"
+  echo -e "${BOLD}${YELLOW}   ⚠ Это НЕ установка (только проверка). Для установки агентов:${NC}"
+  echo -e "${GREEN}   bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)${NC}"
   echo ""
   # scripts/diagnose-agents.sh делает всю работу; если его нет — fallback
   DIAG_SCRIPT="${SCRIPT_DIR}/diagnose-agents.sh"
@@ -1628,21 +1631,21 @@ fi
 # ═══════════════════════════════════════════════════════════════
 step_header "R1" "ВЫБОР МОДЕЛИ"
 
-DEFAULT_MODEL="opencode/minimax-m2.5-free"
+DEFAULT_MODEL="opencode-go/deepseek-v4-flash"
 AGENT_MODEL="${AGENT_MODEL:-}"  # из --config если задан
 
 if [[ -z "$AGENT_MODEL" ]]; then
   echo ""
   echo -e "   ${BOLD}${WHITE}Выбери модель для агентов:${NC}"
   echo ""
-  echo -e "   ${BOLD}${GREEN}  1)${NC} ${GREEN}minimax${NC}          ${DIM}(бесплатно, без карты — рекомендуется)${NC}"
+  echo -e "   ${BOLD}${GREEN}  1)${NC} ${GREEN}DeepSeek${NC}         ${DIM}(opencode-go, бесплатно, без карты — рекомендуется)${NC}"
   echo -e "   ${BOLD}${GREEN}  2)${NC} ${DIM}Своя модель (введёшь id)${NC}"
   echo ""
   echo -e "   ${DIM}Умные мозги ChatGPT (GPT-5.x) — отдельно ПОСЛЕ установки: ${BOLD}openclaw-add-codex${NC}"
   echo -e "   ${BOLD}${WHITE}Выбор [1-2, Enter = 1]:${NC}"
   read -r MODEL_CHOICE || MODEL_CHOICE=""
   case "${MODEL_CHOICE:-1}" in
-    1|"") AGENT_MODEL="opencode/minimax-m2.5-free" ;;
+    1|"") AGENT_MODEL="opencode-go/deepseek-v4-flash" ;;
     2)
       echo -e "   ${BOLD}${WHITE}Введите id модели:${NC}"
       read -r AGENT_MODEL || AGENT_MODEL=""
@@ -1720,13 +1723,16 @@ else
     "   ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
 
   echo -e "   ${BOLD}${WHITE}Подключить умную память?${NC}"
-  echo -e "   ${CYAN}1)${NC} ${BOLD}Да${NC} ${DIM}(рекомендуется)${NC}  ${GREEN}← по умолчанию${NC}"
-  echo -e "   ${CYAN}2)${NC} Нет"
+  echo -e "   ${CYAN}1)${NC} Да ${DIM}(нужен OpenAI-ключ с billing — зарубежная карта)${NC}"
+  echo -e "   ${CYAN}2)${NC} ${BOLD}Нет — установить без памяти${NC}  ${GREEN}← по умолчанию${NC}"
+  echo -e "   ${DIM}      (включить позже одной командой: --enable-embedding)${NC}"
   echo ""
-  echo -e "   ${BOLD}${WHITE}Выбор [1/2, Enter = 1]:${NC}"
-  read -r EMB_CHOICE
+  echo -e "   ${BOLD}${WHITE}Выбор [1/2, Enter = 2]:${NC}"
+  read -r EMB_CHOICE || EMB_CHOICE=""
 
-  case "${EMB_CHOICE:-1}" in
+  # Саппорт-данные 2026-06-10: дефолт «Да» валил установку у клиентов без
+  # зарубежной карты. Теперь дефолт — без embedding (включается позже).
+  case "${EMB_CHOICE:-2}" in
     1)
       echo ""
       echo -e "   ${BOLD}${WHITE}Использовать тот же ключ что для chat-модели?${NC}"
@@ -1840,6 +1846,12 @@ echo ""
 # Запись: printf -v "BOT_TOKEN_$agent" '%s' "$token"
 # Чтение: var="BOT_TOKEN_$agent"; value="${!var}"
 # Работает в bash 3.2+.
+
+# Саппорт 2026-06-10: интерактивный вопрос openclaw («Disable N unavailable
+# skills?» → No → Setup cancelled, exit=1) ронял установку агентов. Превентивно
+# чиним конфиг сами, отвечая Yes на всё. Безопасно и идемпотентно.
+echo -e "   ${DIM}Профилактика конфига: openclaw doctor --fix (авто-Yes)...${NC}"
+openclaw doctor --fix --yes &>/dev/null || true
 
 # R3-аудит (live): probe отдаёт «- Telegram <agent>: … bot:@<username>» —
 # собираем юзернеймы ботов УЖЕ установленных агентов, чтобы поймать повторное
@@ -2056,8 +2068,10 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
       write_embedding_env_key "$EMBEDDING_KEY"
       EMBEDDING_ENV_WRITTEN=true
     fi
-    enable_embedding_for_agent "$target_id"
-    index_agent_memory "$target_id"
+    enable_embedding_for_agent "$target_id" \
+      || warn "Embedding для ${target_id} не включился — продолжаю (включишь позже: --enable-embedding)"
+    index_agent_memory "$target_id" \
+      || warn "Индексация памяти ${target_id} не удалась — не критично"
   fi
 
   # 4.7 Забываем токен

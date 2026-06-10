@@ -79,7 +79,7 @@ add_telegram_channel() {
 # Args:
 #   $1 = agent_id (tech / marketer / producer)
 #   $2 = workspace dir (~/.openclaw/workspace-<id>)
-#   $3 = model id (opencode/minimax-m2.5-free или выбранная)
+#   $3 = model id (opencode-go/deepseek-v4-flash или выбранная)
 #   $4 = telegram account_id (обычно == agent_id)
 create_agent_with_bind() {
   local agent_id="$1"
