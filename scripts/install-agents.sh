@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.10.3"
+INSTALLER_VERSION="2026.06.11"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -771,7 +771,8 @@ HERMES_CUBE_EOF
   echo ""
 
   # ── 1. Запрос HRM-токена ────────────────────────────────────────
-  echo -e "   ${BOLD}${WHITE}Hermes — это платный SKU.${NC} Получи HRM-токен в ${BOLD}@AITeamVIPBot${NC} (/start)."
+  echo -e "   ${BOLD}${WHITE}Hermes входит в Pro (VIP).${NC} Если у тебя Pro — токен подхватится сам."
+  echo -e "   ${DIM}Отдельный HRM-токен (без Pro) — в ${BOLD}@AITeamVIPBot${NC}${DIM} (/start).${NC}"
   echo ""
 
   local machine_tg_id
@@ -783,10 +784,22 @@ HERMES_CUBE_EOF
   fi
 
   local hrm_token=""
+
+  # Решение Антона 2026-06-11: Hermes включён в Pro. Если в кэше лежит
+  # валидный VIP-токен — зачитываем его, токен заново не спрашиваем.
+  local _hermes_cached=""
+  _hermes_cached="$(_course_token_load_cache 2>/dev/null || true)"
+  if [[ "$_hermes_cached" == VIP-* ]]; then
+    if verify_vip_token "$_hermes_cached" "$machine_tg_id"; then
+      echo -e "   ${GREEN}✓ У тебя Pro (VIP) — Hermes включён в твой тариф.${NC}"
+      hrm_token="$_hermes_cached"
+    fi
+  fi
+
   local attempts=0
-  while [[ $attempts -lt 3 ]]; do
+  while [[ -z "$hrm_token" && $attempts -lt 3 ]]; do
     attempts=$((attempts + 1))
-    echo -e "   ${BOLD}${WHITE}Вставь HRM-токен (попытка ${attempts}/3):${NC}"
+    echo -e "   ${BOLD}${WHITE}Вставь HRM- или VIP-токен (попытка ${attempts}/3):${NC}"
     read -r hrm_token
 
     # Wave 17 санитизация — те же правила что для course-token
@@ -803,9 +816,9 @@ HERMES_CUBE_EOF
       continue
     fi
 
-    if [[ ! "$hrm_token" =~ ^HRM- ]]; then
-      warn "HRM-токен должен начинаться с «HRM-». Это отдельный SKU от VIP/STD."
-      echo -e "   ${DIM}Получи в @AITeamVIPBot — он выдаст HRM-... для платных Hermes-юзеров.${NC}"
+    if [[ ! "$hrm_token" =~ ^(HRM|VIP)- ]]; then
+      warn "Нужен токен «HRM-...» или Pro-токен «VIP-...» (Base/подписка не дают Hermes)."
+      echo -e "   ${DIM}Pro-клиентам Hermes включён; отдельный HRM — в @AITeamVIPBot.${NC}"
       continue
     fi
 
@@ -830,7 +843,7 @@ HERMES_CUBE_EOF
 
   if [[ -z "$hrm_token" ]]; then
     echo ""
-    echo -e "${BOLD}${RED}   ✗  HRM-токен не подтверждён за 3 попытки. Отказ.${NC}"
+    echo -e "${BOLD}${RED}   ✗  Hermes-доступ не подтверждён за 3 попытки (нужен VIP- или HRM-токен). Отказ.${NC}"
     record_telemetry "hermes_token_rejected" "ok"
     return 1
   fi
@@ -984,7 +997,7 @@ if [[ "$SKIP_MENU" != true && \
     echo ""
     echo -e "   ${BOLD}${MAGENTA}  4)${NC}  ${BOLD}Hermes${NC}     ${DIM}— супер-агент над всей командой${NC}  ${YELLOW}★${NC}"
     echo -e "       ${DIM}Анализирует твою OpenClaw-установку и оркестрирует агентов${NC}"
-    echo -e "       ${DIM}Требует отдельный HRM-токен (платный SKU)${NC}"
+    echo -e "       ${DIM}Входит в Pro (VIP) · отдельно — по HRM-токену${NC}"
   fi
   echo ""
   divider
