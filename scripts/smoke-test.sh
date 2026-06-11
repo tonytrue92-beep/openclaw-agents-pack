@@ -910,3 +910,13 @@ rm -f /tmp/fake.json
 
 echo ""
 echo "=== All smoke tests passed ==="
+
+# ─── Hermes в Pro (решение Антона 2026-06-11) ───
+grep -q 'hrm_token" =~ \^(HRM|VIP)-' scripts/install-agents.sh \
+  || fail "hermes: префикс-гейт не принимает VIP-"
+grep -q 'У тебя Pro (VIP) — Hermes включён' scripts/install-agents.sh \
+  || fail "hermes: нет авто-зачёта VIP из кэша"
+grep -q 'Вставь HRM- или VIP-токен' scripts/install-agents.sh \
+  || fail "hermes: промпт не предлагает VIP"
+pass "Hermes доступен по VIP (кэш-автозачёт + ручной ввод), HRM остался"
+
