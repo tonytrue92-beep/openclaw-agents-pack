@@ -920,3 +920,18 @@ grep -q 'Вставь HRM- или VIP-токен' scripts/install-agents.sh \
   || fail "hermes: промпт не предлагает VIP"
 pass "Hermes доступен по VIP (кэш-автозачёт + ручной ввод), HRM остался"
 
+# ─── Политика моделей + auth-bridge (решения Антона 2026-06-11) ───
+grep -q 'Модель агентов наследуется' scripts/install-agents.sh \
+  || fail "R1: нет наследования модели"
+grep -q '1) ${GREEN}DeepSeek' scripts/install-agents.sh \
+  && fail "R1: осталось меню выбора модели" || true
+grep -q 'Перевести всех агентов на ChatGPT' scripts/install-agents.sh \
+  || fail "финал: нет GPT-оффера"
+grep -q 'Auth централизованный' scripts/lib/preflight.sh \
+  || fail "preflight: нет central-auth ветки"
+grep -q 'OC_CENTRAL_AUTH' scripts/lib/agents.sh \
+  || fail "copy_auth: не central-aware"
+grep -q "printf 'y" scripts/lib/agents.sh \
+  || fail "delete: нет fallback для CLI без --yes"
+pass "Политика моделей (наследование+GPT-оффер) и auth-bridge на месте"
+
