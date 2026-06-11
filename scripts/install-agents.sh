@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.11"
+INSTALLER_VERSION="2026.06.11.2"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -1647,25 +1647,14 @@ step_header "R1" "ВЫБОР МОДЕЛИ"
 DEFAULT_MODEL="opencode-go/deepseek-v4-flash"
 AGENT_MODEL="${AGENT_MODEL:-}"  # из --config если задан
 
+# Решение Антона 2026-06-11: установщик не предлагает и не рекомендует
+# модели. Агенты наследуют модель системы (что стоит у main); сменить
+# можно после установки самостоятельно (openclaw-switch-model <id>).
 if [[ -z "$AGENT_MODEL" ]]; then
-  echo ""
-  echo -e "   ${BOLD}${WHITE}Выбери модель для агентов:${NC}"
-  echo ""
-  echo -e "   ${BOLD}${GREEN}  1)${NC} ${GREEN}DeepSeek${NC}         ${DIM}(opencode-go, бесплатно, без карты — рекомендуется)${NC}"
-  echo -e "   ${BOLD}${GREEN}  2)${NC} ${DIM}Своя модель (введёшь id)${NC}"
-  echo ""
-  echo -e "   ${DIM}Умные мозги ChatGPT (GPT-5.x) — отдельно ПОСЛЕ установки: ${BOLD}openclaw-add-codex${NC}"
-  echo -e "   ${BOLD}${WHITE}Выбор [1-2, Enter = 1]:${NC}"
-  read -r MODEL_CHOICE || MODEL_CHOICE=""
-  case "${MODEL_CHOICE:-1}" in
-    1|"") AGENT_MODEL="opencode-go/deepseek-v4-flash" ;;
-    2)
-      echo -e "   ${BOLD}${WHITE}Введите id модели:${NC}"
-      read -r AGENT_MODEL || AGENT_MODEL=""
-      [[ -z "$AGENT_MODEL" ]] && AGENT_MODEL="$DEFAULT_MODEL"
-      ;;
-    *) AGENT_MODEL="$DEFAULT_MODEL" ;;
-  esac
+  _sys_model="$(openclaw config get agents.defaults.model.primary 2>/dev/null </dev/null | tr -d '\n\" ' )"
+  AGENT_MODEL="${_sys_model:-$DEFAULT_MODEL}"
+  echo -e "   ${DIM}Модель агентов наследуется от твоей системы: ${BOLD}${AGENT_MODEL}${NC}"
+  echo -e "   ${DIM}Сменить после установки: ${BOLD}openclaw-switch-model <id модели>${NC}"
 fi
 ok "Модель: ${AGENT_MODEL}"
 record_telemetry "R1_model_chosen" "ok"
@@ -2290,6 +2279,28 @@ done
 echo -e "   ${CYAN}3.${NC} Сменить модель у всех: ${GREEN}openclaw-switch-model${NC}"
 echo -e "   ${CYAN}4.${NC} Проверить здоровье: ${GREEN}bash <(curl ...) --diagnose-only${NC}"
 echo ""
+
+# ─── Оффер: мозги ChatGPT для всех агентов (решение Антона 2026-06-11) ───
+# Интерактив и не VPS: предлагаем перевести всех агентов на GPT-5.5 через
+# вход в обычный ChatGPT-аккаунт (браузер). Enter = да.
+if [[ "${VPS_MODE:-false}" != true && -t 0 ]]; then
+  _ADDCODEX="$(command -v openclaw-add-codex 2>/dev/null || echo "$HOME/.openclaw/bin/openclaw-add-codex")"
+  echo -e "   ${BOLD}${WHITE}Перевести всех агентов на ChatGPT (GPT-5.5)?${NC}"
+  echo -e "   ${DIM}Понадобится вход в твой аккаунт ChatGPT в браузере (1 минута).${NC}"
+  echo -e "   ${BOLD}${WHITE}[Y/n, Enter = да]:${NC}"
+  read -r _gpt_offer || _gpt_offer="n"
+  if [[ "${_gpt_offer:-y}" =~ ^[YyДд]?$ ]]; then
+    if [[ -x "$_ADDCODEX" ]]; then
+      "$_ADDCODEX" || warn "Переход на ChatGPT не завершился — можно повторить позже: openclaw-add-codex"
+    else
+      warn "Хелпер openclaw-add-codex не найден на этой машине."
+      echo -e "   ${DIM}Запусти позже в новом терминале: ${BOLD}openclaw-add-codex${NC}"
+    fi
+  else
+    echo -e "   ${DIM}Ок. Позже: ${BOLD}openclaw-add-codex${NC}${DIM} (ChatGPT) или ${BOLD}openclaw-switch-model <id>${NC}${DIM} (любая модель).${NC}"
+  fi
+  echo ""
+fi
 
 # ─── wave 15: Bot-to-Bot Communication hint для VIP ──────────────
 # Telegram (май 2026) добавил Bot-to-Bot Communication Mode —

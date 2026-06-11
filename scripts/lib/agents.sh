@@ -113,7 +113,11 @@ copy_auth_profile_from_main() {
   local dst="${dst_dir}/auth-profiles.json"
 
   if [[ ! -f "$src" ]]; then
-    warn "Не найден auth-profile в main — агент ${agent_id} может не иметь доступа к opencode"
+    if [[ "${OC_CENTRAL_AUTH:-false}" == true ]]; then
+      echo -e "   ${GREEN}✓${NC} Auth централизованный — копирование для ${agent_id} не требуется"
+      return 0
+    fi
+    warn "Не найден auth-profile в main — агент ${agent_id} может не иметь доступа к модели"
     return 1
   fi
 
@@ -716,7 +720,8 @@ cleanup_agent_completely() {
   local agent_id="$1"
 
   # 1. Agent из OpenClaw registry
-  openclaw agents delete "$agent_id" --yes &>/dev/null || true
+  openclaw agents delete "$agent_id" --yes &>/dev/null \
+    || printf 'y\n' | openclaw agents delete "$agent_id" &>/dev/null || true
 
   # 2. Telegram channel account с тем же id (accountId у нас всегда == agent_id)
   openclaw channels remove --channel telegram --account "$agent_id" --yes &>/dev/null || true

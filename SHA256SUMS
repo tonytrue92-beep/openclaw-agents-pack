@@ -1,6 +1,6 @@
 # SHA-256 checksums for OpenClaw Agents Pack
-# Generated: 2026-06-11 12:46:54 UTC
-# Commit: 686a487
+# Generated: 2026-06-11 13:45:16 UTC
+# Commit: 33092b1
 #
 # Verify a downloaded script matches the committed version:
 #   curl -fsSL <raw-url> | shasum -a 256
@@ -11,15 +11,15 @@ a9a75deeaafb8fda86b65940d5384c785dc97c9f9721fdbfaa8791c57fa4fe5d  scripts/build-
 62e3670b11f270e6e32a6b00e26860307aa9169ec50e92f9f3e5a7dc8b8ebbf1  scripts/build-dmg.sh
 fdd5ee13a75d067198914a57d57ece71e70806bd616288cfdef4e81374a74909  scripts/demo-simulate.sh
 57f0ac432d277dfdcf6c3d805ec94af096769728632cd8ebe337cb13e5d4f519  scripts/diagnose-agents.sh
-0b08b603c8a6f6b6e70db152e43d29a5508453df03f145d6f22c6a103d0d3eb6  scripts/install-agents.sh
+abccefa5e39387b5cc3e8066840db49a2941716f82075928887bd5e8a28860b4  scripts/install-agents.sh
 c58d722a490b4af6cc2140107a11fed107434ef89c6af9c5daf0e8e6ad916e34  scripts/install-git-hooks.sh
 f8158e17b76926f4b358dc5a249c8165eb19e6692263954c18a85ca50aa853c9  scripts/security-audit.sh
-0250f3db7c7fa23cd290805c9d7a40c2d064bb390c14b8be484ac1f62480d884  scripts/smoke-test.sh
+f13266def5403e311ec17ac67cea61dfb006753ce0c41d66e758ebe6c4bb9c57  scripts/smoke-test.sh
 80886361d39c6c4c31ba10b894a567a21ef812291a71878261e57ab09d674e2b  scripts/update-checksums.sh
-ced41bc82d2e68e715794b5eefda295083c715af5a963fdd58e37684a72e2c73  scripts/lib/agents.sh
+77e0dc71c370ccbb2db475321e5311e1449e6598f0019cf0c3716291a54ef183  scripts/lib/agents.sh
 ba6c577acdbd8d8c10716f4e94f0475aa3bfca4dc6ee9a989980a68216db8bf7  scripts/lib/course-token.sh
 54e09d420d70c8c7ae16c07a5c46670c1388ac121eff4a94e80be8bf7d01b67b  scripts/lib/debug-bundle.sh
-ac415a7b62aabe0f90b627eb1ab46eae7b9161e13222f4d0c1db3db8816f54d7  scripts/lib/preflight.sh
+2bc9cc882ab6dbabdab0bf2a2984e7aa64923f3fe481a4b98433364cc2d6063d  scripts/lib/preflight.sh
 261e36dd8f6c96a7ae6625ae89562eb0d3288f8f92d07c2e1eb3f7a8bf3dc920  scripts/lib/telemetry.sh
 7d14dc9f88e0af7ae47c7b91279c5e3eae4266d79145d5fb725a0900d5639a36  scripts/lib/ui.sh
 f9031532e54b55ca7b4fcaa92777f8b60608c09e2b45dc70a20344b4966663ca  scripts/lib/vip.sh

@@ -205,6 +205,21 @@ preflight_openclaw() {
   fi
 
   if [[ ! -f "$main_auth" ]]; then
+    # OpenClaw 2026.6.x хранит auth централизованно в ~/.openclaw/openclaw.json
+    # (auth.profiles) — per-agent файла может законно не быть (живой кейс:
+    # 8 рабочих агентов без единого per-agent auth-файла). Тогда копирование
+    # не требуется вовсе.
+    if python3 - "$HOME/.openclaw/openclaw.json" <<'PYEOF' 2>/dev/null
+import json,sys
+d=json.load(open(sys.argv[1]))
+p=(d.get("auth") or {}).get("profiles") or {}
+sys.exit(0 if isinstance(p,dict) and len(p)>0 else 1)
+PYEOF
+    then
+      echo -e "   ${GREEN}✓${NC} Auth централизованный (OpenClaw 2026.6.x) — per-agent файл не требуется"
+      export OC_CENTRAL_AUTH=true
+      return 0
+    fi
     warn "Не найден auth-profile основного агента (${main_auth})"
     echo -e "   ${DIM}Это значит, у вас ещё нет настроенного API-ключа модели.${NC}"
     echo -e "   ${DIM}Сначала пройдите реальную установку в первом установщике:${NC}"
