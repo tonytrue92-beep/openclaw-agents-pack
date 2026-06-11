@@ -83,7 +83,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-tes
 bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh) --course-token <ТОКЕН>
 ```
 
-- Без `--course-token` — сначала демо/меню, токен спросит при установке.
+- Без `--course-token` — меню из 3 пунктов (с 2026.06.11 демо/симуляции нет):
+  **1) Установить OpenClaw** (Enter) · **2) Установить AI-команду агентов**
+  (движок уже стоит) · **3) VPS 24/7**. Токен спросит при установке.
 - `--vps` / `--headless` — для Linux-сервера (без Homebrew/браузера, автофикс bonjour, см. §6).
 - `--engine-only` — поставить **только движок** (отладка / переустановка).
 
