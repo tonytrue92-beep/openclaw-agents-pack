@@ -52,6 +52,9 @@ print_windows_hints() {
 
   local env_name="$1"
   local label="Git Bash / MSYS"
+  echo -e "   ${BOLD}${YELLOW}⚠ Windows: основной путь — WSL/Ubuntu.${NC}"
+  echo -e "   ${DIM}Если в Git Bash видишь «TG ID должен быть числом» / code 5 / «format token» —${NC}"
+  echo -e "   ${DIM}это среда, не токен: открой WSL и запусти ту же команду там.${NC}"
   [[ "$env_name" == "wsl" ]] && label="WSL (Linux подсистема)"
 
   echo ""
