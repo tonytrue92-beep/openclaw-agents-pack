@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.11.3"
+INSTALLER_VERSION="2026.06.12"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -1522,7 +1522,8 @@ if [[ ${#EXISTING_AGENTS[@]} -eq 0 ]]; then
   # раньше при других установленных агентах это маскировалось под «свежую»)
   _all_installed="$(find_installed_agents 2>/dev/null | tr '\n' ' ')"
   if [[ -n "${_all_installed// /}" ]]; then
-    echo -e "   ${GREEN}✓${NC} Выбранные агенты ещё не установлены — это доустановка"
+    echo -e "   ${GREEN}✓${NC} Нашёл следы прошлой установки — это доустановка."
+    echo -e "   ${DIM}Следы ≠ принятый токен; безопасный путь — доустановить недостающее (Enter).${NC}"
     echo -e "   ${DIM}   (в системе уже есть: ${_all_installed})${NC}"
   else
     echo -e "   ${GREEN}✓${NC} Свежая установка — агентов в системе ещё нет"
@@ -1712,6 +1713,8 @@ else
     "" \
     "Без памяти каждый разговор начинается с нуля." \
     "" \
+    "${BOLD}Это НЕ подписка ChatGPT и не вход через браузер${NC} — нужен отдельный" \
+    "API-ключ с platform.openai.com (sk-…) с подключённым billing." \
     "Стоит в среднем ${BOLD}\$15/месяц${NC} (платишь напрямую OpenAI)." \
     "Нужна ${BOLD}иностранная карта${NC} — российские не работают." \
     "" \
@@ -2154,7 +2157,7 @@ if [[ ${#INSTALLED_LIST[@]} -gt 0 ]]; then
     echo -e "   ${DIM}  2. Бот не заблокирован тобой в Telegram${NC}"
     echo -e "   ${DIM}  3. api.telegram.org не блокируется фаерволом / VPN${NC}"
     echo -e "   ${DIM}  4. Запусти: ${GREEN}openclaw channels status --probe${NC}"
-    echo -e "   ${DIM}  5. Логи gateway: ${GREEN}openclaw logs --tail 50 --follow${NC}"
+    echo -e "   ${DIM}  5. Диагностика для саппорта: ${GREEN}bash <(curl ...) --collect-debug${NC}"
     echo -e "   ${DIM}  6. Если в логах видишь ${BOLD}CIAO PROBING CANCELLED${NC}${DIM} (mDNS) или${NC}"
     echo -e "   ${DIM}     gateway циклически рестартится — выключи bonjour:${NC}"
     echo -e "   ${DIM}     ${GREEN}openclaw config set plugins.entries.bonjour.enabled false${NC}"
@@ -2285,6 +2288,7 @@ if [[ "${VPS_MODE:-false}" != true && -t 0 ]]; then
   fi
   echo -e "   ${BOLD}${WHITE}Перевести всех агентов на ChatGPT (GPT-5.5)?${NC}"
   echo -e "   ${DIM}Понадобится вход в твой аккаунт ChatGPT в браузере (1 минута).${NC}"
+  echo -e "   ${DIM}Совет: тариф ChatGPT Pro — Plus быстро упирается в лимиты GPT-5.5.${NC}"
   echo -e "   ${BOLD}${WHITE}[Y/n, Enter = да]:${NC}"
   read -r _gpt_offer || _gpt_offer="n"
   if [[ "${_gpt_offer:-y}" =~ ^[YyДд]?$ ]]; then
