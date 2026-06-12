@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.11.2"
+INSTALLER_VERSION="2026.06.11.3"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -1642,21 +1642,15 @@ fi
 # ═══════════════════════════════════════════════════════════════
 #  R1. Выбор модели
 # ═══════════════════════════════════════════════════════════════
-step_header "R1" "ВЫБОР МОДЕЛИ"
-
+# R1 (тихий): никаких упоминаний моделей в процессе установки (решение
+# Антона 2026-06-11). Агенты наследуют модель системы; если она не задана —
+# техдефолт в конфиг (невидимо), модель клиент выбирает ПОСЛЕ установки.
 DEFAULT_MODEL="opencode-go/deepseek-v4-flash"
 AGENT_MODEL="${AGENT_MODEL:-}"  # из --config если задан
-
-# Решение Антона 2026-06-11: установщик не предлагает и не рекомендует
-# модели. Агенты наследуют модель системы (что стоит у main); сменить
-# можно после установки самостоятельно (openclaw-switch-model <id>).
 if [[ -z "$AGENT_MODEL" ]]; then
   _sys_model="$(openclaw config get agents.defaults.model.primary 2>/dev/null </dev/null | tr -d '\n\" ' )"
   AGENT_MODEL="${_sys_model:-$DEFAULT_MODEL}"
-  echo -e "   ${DIM}Модель агентов наследуется от твоей системы: ${BOLD}${AGENT_MODEL}${NC}"
-  echo -e "   ${DIM}Сменить после установки: ${BOLD}openclaw-switch-model <id модели>${NC}"
 fi
-ok "Модель: ${AGENT_MODEL}"
 record_telemetry "R1_model_chosen" "ok"
 
 # ═══════════════════════════════════════════════════════════════
@@ -2285,6 +2279,10 @@ echo ""
 # вход в обычный ChatGPT-аккаунт (браузер). Enter = да.
 if [[ "${VPS_MODE:-false}" != true && -t 0 ]]; then
   _ADDCODEX="$(command -v openclaw-add-codex 2>/dev/null || echo "$HOME/.openclaw/bin/openclaw-add-codex")"
+  if [[ "${OC_NO_AUTH_YET:-false}" == true ]]; then
+    echo -e "   ${BOLD}${YELLOW}🧠 Остался один шаг — выбрать модель (мозги).${NC}"
+    echo -e "   ${DIM}Боты уже в Telegram, отвечать начнут после подключения модели.${NC}"
+  fi
   echo -e "   ${BOLD}${WHITE}Перевести всех агентов на ChatGPT (GPT-5.5)?${NC}"
   echo -e "   ${DIM}Понадобится вход в твой аккаунт ChatGPT в браузере (1 минута).${NC}"
   echo -e "   ${BOLD}${WHITE}[Y/n, Enter = да]:${NC}"
@@ -2297,7 +2295,7 @@ if [[ "${VPS_MODE:-false}" != true && -t 0 ]]; then
       echo -e "   ${DIM}Запусти позже в новом терминале: ${BOLD}openclaw-add-codex${NC}"
     fi
   else
-    echo -e "   ${DIM}Ок. Позже: ${BOLD}openclaw-add-codex${NC}${DIM} (ChatGPT) или ${BOLD}openclaw-switch-model <id>${NC}${DIM} (любая модель).${NC}"
+    echo -e "   ${DIM}Ок. Позже: ${BOLD}openclaw-add-codex${NC}${DIM} (ChatGPT) · ${BOLD}openclaw models auth login --provider <имя>${NC}${DIM} (другой провайдер) · ${BOLD}openclaw-switch-model <id>${NC}${DIM} (модель у всех).${NC}"
   fi
   echo ""
 fi

@@ -113,8 +113,7 @@ copy_auth_profile_from_main() {
   local dst="${dst_dir}/auth-profiles.json"
 
   if [[ ! -f "$src" ]]; then
-    if [[ "${OC_CENTRAL_AUTH:-false}" == true ]]; then
-      echo -e "   ${GREEN}✓${NC} Auth централизованный — копирование для ${agent_id} не требуется"
+    if [[ "${OC_CENTRAL_AUTH:-false}" == true || "${OC_NO_AUTH_YET:-false}" == true ]]; then
       return 0
     fi
     warn "Не найден auth-profile в main — агент ${agent_id} может не иметь доступа к модели"

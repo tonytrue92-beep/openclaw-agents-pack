@@ -921,8 +921,14 @@ grep -q 'Вставь HRM- или VIP-токен' scripts/install-agents.sh \
 pass "Hermes доступен по VIP (кэш-автозачёт + ручной ввод), HRM остался"
 
 # ─── Политика моделей + auth-bridge (решения Антона 2026-06-11) ───
-grep -q 'Модель агентов наследуется' scripts/install-agents.sh \
-  || fail "R1: нет наследования модели"
+grep -q 'R1 (тихий)' scripts/install-agents.sh \
+  || fail "R1: не тихий"
+grep -q 'step_header "R1" "ВЫБОР МОДЕЛИ"' scripts/install-agents.sh \
+  && fail "R1: заголовок «ВЫБОР МОДЕЛИ» вернулся" || true
+grep -q 'OC_NO_AUTH_YET' scripts/lib/preflight.sh \
+  || fail "preflight: нет no-auth-tolerant ветки"
+grep -q 'Остался один шаг — выбрать модель' scripts/install-agents.sh \
+  || fail "финал: нет пояснения про модель"
 grep -q '1) ${GREEN}DeepSeek' scripts/install-agents.sh \
   && fail "R1: осталось меню выбора модели" || true
 grep -q 'Перевести всех агентов на ChatGPT' scripts/install-agents.sh \
