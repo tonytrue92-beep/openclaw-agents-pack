@@ -220,20 +220,21 @@ PYEOF
       export OC_CENTRAL_AUTH=true
       return 0
     fi
-    warn "Не найден auth-profile основного агента (${main_auth})"
-    echo -e "   ${DIM}Это значит, у вас ещё нет настроенного API-ключа модели.${NC}"
-    echo -e "   ${DIM}Сначала пройдите реальную установку в первом установщике:${NC}"
-    echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
-    return 1
+    # Решение Антона 2026-06-11: установка идёт без ключей/моделей.
+    # Auth нет нигде — не стопаем: агенты ставятся, модель клиент
+    # подключает после установки (финал покажет команды).
+    echo -e "   ${DIM}ℹ Модель ещё не подключена — это нормально: выберешь её после установки.${NC}"
+    export OC_NO_AUTH_YET=true
+    return 0
   fi
 
   if [[ ! -s "$main_auth" ]]; then
-    warn "auth-profile основного агента ПУСТОЙ (${main_auth})"
-    echo -e "   ${DIM}Это значит первый установщик не довёл main до конца.${NC}"
-    echo -e "   ${BOLD}${YELLOW}Не лечите файл вручную${NC} ${DIM}— это приведёт к 401 у новых агентов.${NC}"
-    echo -e "   ${BOLD}Перезапустите первый установщик и доведите до момента когда main отвечает в Telegram:${NC}"
-    echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
-    return 1
+    # Пустой файл = мусор от прерванной установки. Убираем в бэкап и идём
+    # дальше без auth — модель клиент подключит после установки.
+    mv "$main_auth" "${main_auth}.broken-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+    echo -e "   ${DIM}ℹ Пустой auth-файл убран в бэкап. Модель выберешь после установки.${NC}"
+    export OC_NO_AUTH_YET=true
+    return 0
   fi
 
   # wave 11 P0 fix: путь передаётся через sys.argv, не через heredoc-
