@@ -5,6 +5,11 @@
 > **Актуально на 2026-06-11.** Версии: движок-установщик `2026.06.11`,
 > агенты `2026.06.10.3`, тест-драйв `2026.06.10`.
 
+
+> 🔒 **С 2026-06-14: репозитории закрыты, доставка только через защищённый
+> сервер по токену.** Команду установки клиент берёт из **@AITeamVIPBot**.
+> Старые команды с `raw.githubusercontent.com` / `releases/...` не работают (404).
+
 ---
 
 ## 1. Что мы устанавливаем (картина целиком)
@@ -69,13 +74,15 @@ ChatGPT-аккаунт пригодится **в самом финале**: ус
 
 ### Шаг 1. Команда
 
-Клиент открывает Terminal и вставляет команду из бота (бот подставляет токен):
+Команду установки клиент берёт **из @AITeamVIPBot после оплаты** — она содержит
+токен и идёт через защищённый сервер (бот подставляет токен сам):
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh) --course-token ТОКЕН
+COURSE_TOKEN=<ТОКЕН> IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/factory.sh") --course-token "$COURSE_TOKEN"'
 ```
 
-Если запустил без токена — не страшно: появится меню, токен спросят позже.
+⚠️ Старые `raw.githubusercontent.com`-команды не работают (репозитории закрыты) —
+клиент всегда берёт актуальную команду из бота.
 
 ### Шаг 2. Главное меню (если команда без токена)
 
@@ -207,7 +214,7 @@ openclaw-add-codex
 Обновить агентов без потери памяти (когда выходит апдейт):
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --refresh-templates
+COURSE_TOKEN=<ТОКЕН> IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/agents.sh") --refresh-templates --course-token "$COURSE_TOKEN"'
 ```
 
 Память (MEMORY), ответы онбординга (USER) и привязки ботов не трогаются.
@@ -235,7 +242,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-age
 (секреты в нём замаскированы автоматически) и передай Антону/технарю:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --collect-debug
+COURSE_TOKEN=<ТОКЕН> IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/agents.sh") --collect-debug'
 ```
 
 Файл появится: `~/openclaw-agents-pack-debug-*.zip`.
@@ -262,11 +269,9 @@ systemd=true`, потом `wsl --shutdown`); если после `wsl --install`
 ## 9. Команды-памятка куратора
 
 ```bash
-# Основная установка (бот выдаёт с токеном):
-bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh) --course-token ТОКЕН
-
-# Только агенты, если движок уже стоит (или пункт 2 меню):
-bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)
+# Основная установка — клиент берёт готовую команду из @AITeamVIPBot (с токеном).
+# Обновление/обслуживание — через сервер с токеном (IP_BASE=https://api.tonytrue.pro/ip):
+#   COURSE_TOKEN=<ТОКЕН> IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/agents.sh") --refresh-templates --course-token "$COURSE_TOKEN"' 
 
 # Универсальный фикс: повторить ту же команду установки (ничего не ломает)
 
@@ -280,8 +285,7 @@ openclaw doctor --fix --yes
 openclaw-add-codex
 openclaw-switch-model opencode-go/deepseek-v4-flash
 
-# Debug-архив для эскалации:
-bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --collect-debug
+# Debug-архив для эскалации (через сервер с токеном клиента — см. раздел 7).
 ```
 
 ---
