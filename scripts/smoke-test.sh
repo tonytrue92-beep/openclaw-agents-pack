@@ -941,3 +941,16 @@ grep -q "printf 'y" scripts/lib/agents.sh \
   || fail "delete: нет fallback для CLI без --yes"
 pass "Политика моделей (наследование+GPT-оффер) и auth-bridge на месте"
 
+# ─── IP-gated доставка (шов IP_BASE, 2026-06-14) ───
+grep -q 'ip_dl()' scripts/install-agents.sh || fail "ip_dl не определён в install-agents.sh"
+grep -q 'ip_dl()' scripts/lib/agents.sh || fail "ip_dl fallback не определён в lib/agents.sh"
+grep -q 'IP_BASE="${IP_BASE:-}"' scripts/install-agents.sh || fail "IP_BASE дефолт не пустой (сломает текущие установки)"
+# Authorization шлётся ТОЛЬКО в gateway-ветке (если IP_BASE задан), НЕ на github:
+grep -A4 'ip_dl()' scripts/install-agents.sh | grep -q 'Authorization: Bearer' || fail "нет Authorization в gateway-ветке"
+grep -c 'raw.githubusercontent' scripts/lib/agents.sh >/dev/null
+# github-ветка (else) не должна нести Authorization: точная строка curl "$2"
+grep -qE 'curl -fsSL --max-time 20 "\$2" -o "\$3"' scripts/install-agents.sh \
+  || fail "github-ветка ip_dl изменена (ждём curl без -H Authorization на \$2)"
+grep -q 'ip_dl "openclaw-agents-pack/templates/knowledge' scripts/lib/agents.sh || fail "KB не через ip_dl"
+pass "IP-gated доставка: ip_dl шов (gateway+Bearer / github без заголовка), KB+templates routed"
+

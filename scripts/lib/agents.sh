@@ -5,6 +5,20 @@
 #
 # Ожидает что ui.sh уже подключён.
 
+# ─── IP-доставка: fallback-определение для standalone-использования ──
+# (при запуске через install-agents.sh helper уже определён выше)
+if ! declare -f ip_dl >/dev/null 2>&1; then
+  IP_BASE="${IP_BASE:-}"
+  _ip_token() { printf '%s' "${COURSE_TOKEN:-${VIP_TOKEN:-$(cat "$HOME/.openclaw/course-token" 2>/dev/null || true)}}"; }
+  ip_dl() {
+    if [[ -n "$IP_BASE" ]]; then
+      curl -fsSL --max-time 20 -H "Authorization: Bearer $(_ip_token)" "${IP_BASE%/}/assets/$1" -o "$3" 2>/dev/null
+    else
+      curl -fsSL --max-time 20 "$2" -o "$3" 2>/dev/null
+    fi
+  }
+fi
+
 # ─── Валидация Telegram bot token через getMe ───────────────────
 #
 # Возвращает:
@@ -194,7 +208,7 @@ prepare_workspace_from_templates() {
     if [[ "$mode" == "refresh" && -f "$dst" ]]; then
       cp "$dst" "${backup_dir}/${md}.md" 2>/dev/null || true
     fi
-    if curl -fsSL --max-time 10 "${base}/${md}.md" -o "$dst" 2>/dev/null; then
+    if ip_dl "openclaw-agents-pack/templates/${agent_id}/${md}.md" "${base}/${md}.md" "$dst"; then
       echo -e "   ${GREEN}✓${NC} ${agent_id}/${md}.md"
     else
       warn "Не смог скачать ${agent_id}/${md}.md — проверьте сеть"
@@ -237,7 +251,7 @@ prepare_workspace_from_templates() {
       if [[ "$mode" == "refresh" && -f "$extra_dst" ]]; then
         cp "$extra_dst" "${backup_dir}/${extra}.md" 2>/dev/null || true
       fi
-      if curl -fsSL --max-time 10 "${base}/${extra}.md" -o "$extra_dst" 2>/dev/null; then
+      if ip_dl "openclaw-agents-pack/templates/${agent_id}/${extra}.md" "${base}/${extra}.md" "$extra_dst"; then
         echo -e "   ${GREEN}✓${NC} ${agent_id}/${extra}.md"
       else
         warn "Не скачал ${agent_id}/${extra}.md — агент будет работать в базовом режиме"
@@ -270,9 +284,7 @@ prepare_workspace_from_templates() {
     for skill in $skills_list; do
       local skill_dir="${workspace_dir}/skills/${skill}"
       mkdir -p "$skill_dir"
-      if curl -fsSL --max-time 10 \
-           "${base}/skills/${skill}/SKILL.md" \
-           -o "${skill_dir}/SKILL.md" 2>/dev/null; then
+      if ip_dl "openclaw-agents-pack/templates/${agent_id}/skills/${skill}/SKILL.md" "${base}/skills/${skill}/SKILL.md" "${skill_dir}/SKILL.md"; then
         echo -e "   ${GREEN}✓${NC} ${agent_id}/skills/${skill}/SKILL.md"
       else
         warn "Не скачал skill ${skill} для ${agent_id} — не критично"
@@ -421,7 +433,7 @@ setup_knowledge_base() {
 
   local f got=0
   for f in $KB_FILES; do
-    if curl -fsSL --max-time 15 "${base}/${f}.md" -o "${kb_dir}/${f}.md" 2>/dev/null; then
+    if ip_dl "openclaw-agents-pack/templates/knowledge/${f}.md" "${base}/${f}.md" "${kb_dir}/${f}.md"; then
       got=$((got + 1))
     else
       warn "Не скачал заметку базы знаний: ${f}.md"
