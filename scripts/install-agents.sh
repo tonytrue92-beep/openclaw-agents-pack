@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.12"
+INSTALLER_VERSION="2026.06.14"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -259,6 +259,23 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # используются `scripts/build-bundle.sh` чтобы заменить весь этот блок на
 # inline-контент lib/*.sh при сборке self-contained `install-agents-bundled.sh`.
 # Не удалять и не переименовывать без обновления build-bundle.sh.
+# ─── IP-доставка (token-gated, 2026-06-14) ───────────────────────
+# IP_BASE пуст (по умолчанию) → качаем с публичного GitHub raw, как сейчас,
+# поведение НЕ меняется. IP_BASE задан (команда из бота) → качаем через
+# token-gated gateway, Authorization шлём ТОЛЬКО туда (github raw на чужой
+# Bearer отдаёт 404 — проверено 2026-06-14).
+IP_BASE="${IP_BASE:-}"
+_ip_token() {
+  printf '%s' "${COURSE_TOKEN:-${VIP_TOKEN:-$(cat "$HOME/.openclaw/course-token" 2>/dev/null || true)}}"
+}
+ip_dl() {  # $1=путь под /assets/ (gateway)  $2=полный github-url  $3=dest
+  if [[ -n "$IP_BASE" ]]; then
+    curl -fsSL --max-time 20 -H "Authorization: Bearer $(_ip_token)" "${IP_BASE%/}/assets/$1" -o "$3" 2>/dev/null
+  else
+    curl -fsSL --max-time 20 "$2" -o "$3" 2>/dev/null
+  fi
+}
+
 # === BUNDLE_LIB_BEGIN ===
 if [[ -d "${SCRIPT_DIR}/lib" ]]; then
   # shellcheck disable=SC1091
@@ -284,7 +301,7 @@ else
   fi
   _LIB_BASE="https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/${_LIB_COMMIT}/scripts/lib"
   for _mod in ui preflight telemetry debug-bundle agents vip course-token; do
-    if ! curl -fsSL --max-time 10 "${_LIB_BASE}/${_mod}.sh" -o "${_LIB_TMP}/${_mod}.sh"; then
+    if ! ip_dl "openclaw-agents-pack/scripts/lib/${_mod}.sh" "${_LIB_BASE}/${_mod}.sh" "${_LIB_TMP}/${_mod}.sh"; then
       # wave 9 BUG-06: localized curl-error message с хост-разделением
       # и подсказкой про git clone fallback. До этой точки ui.sh ещё
       # не подключён, поэтому plain-text без цветов.
