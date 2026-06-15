@@ -1906,9 +1906,30 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     else
       echo ""
       echo -e "   ${BOLD}${WHITE}${emoji} Токен бота для ${label}:${NC}"
-      echo -e "   ${DIM}(символы не отображаются при вводе — это нормально)${NC}"
-      read -rs token
+      echo -e "   ${DIM}(вставьте токен и нажмите Enter; символы не отображаются — это нормально)${NC}"
+
+      # Читаем именно из управляющего терминала. В объединённом factory→agents
+      # потоке stdin иногда уже не тот fd, откуда пользователь реально вводит
+      # текст; `read` тогда тихо получает пустую строку и клиент видит ложное
+      # «Токен пустой». /dev/tty убирает зависимость от stdin/pipe/eval.
+      if [[ -r /dev/tty ]]; then
+        IFS= read -r -s token </dev/tty || token=""
+      else
+        IFS= read -r -s token || token=""
+      fi
       echo ""
+      token="$(normalize_telegram_bot_token "$token")"
+
+      # Если скрытый ввод всё равно получил 0 символов — даём безопасный
+      # fallback с видимым вводом. Это не печатает токен в логи, но позволяет
+      # человеку убедиться, что вставка реально попала в терминал.
+      if [[ -z "$token" && -r /dev/tty ]]; then
+        warn "Скрытый ввод получил 0 символов — похоже, вставка не попала в терминал."
+        echo -e "   ${DIM}Вставьте токен ещё раз. Сейчас символы будут видны на экране; это нормально.${NC}"
+        IFS= read -r token </dev/tty || token=""
+        echo ""
+        token="$(normalize_telegram_bot_token "$token")"
+      fi
     fi
 
     # Нормализуем именно введённое значение: BotFather/Telegram Desktop иногда
