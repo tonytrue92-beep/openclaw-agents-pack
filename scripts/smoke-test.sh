@@ -51,6 +51,15 @@ else
   fail "validate_telegram_token с invalid token вернул rc=$rc (ожидается 1)"
 fi
 
+# 2026-06-15: ручной getMe с `tr -d` проходил, а установщик валил токен,
+# если из буфера приехал CR/пробел или клиент обернул токен кавычками.
+cleaned_tg_token="$(normalize_telegram_bot_token $'  <1234567890:ABC_def-XYZ\r>  ')"
+if [[ "$cleaned_tg_token" == "1234567890:ABC_def-XYZ" ]]; then
+  pass "normalize_telegram_bot_token чистит CR/пробелы и copy-paste-обёртки"
+else
+  fail "normalize_telegram_bot_token вернул неожиданный результат: '$cleaned_tg_token'"
+fi
+
 # ─── Test 3: agent_exists не крашится ───
 set +e
 agent_exists "nonexistent-agent-xyz" >/dev/null 2>&1
