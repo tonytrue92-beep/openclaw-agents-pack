@@ -21,11 +21,26 @@ fi
 
 # ─── Валидация Telegram bot token через getMe ───────────────────
 #
+# @BotFather иногда копирует токен с невидимым CR/пробелом, а клиенты
+# могут случайно обернуть его в кавычки/угловые скобки. Ручная проверка
+# через `tr -d '\r\n '` тогда даёт ok:true, а установщик без нормализации
+# ложно валит getMe. Нормализуем до URL-запроса и до сохранения в конфиг.
+normalize_telegram_bot_token() {
+  local token="${1:-}"
+  token="$(printf '%s' "$token" | tr -d '[:space:]')"
+  token="${token#<}"; token="${token%>}"
+  token="${token#\"}"; token="${token%\"}"
+  token="${token#\'}"; token="${token%\'}"
+  printf '%s' "$token"
+}
+
 # Возвращает:
 #   0 + echo "<bot_username>" — токен рабочий
 #   1 — токен невалидный / сеть не отвечает
 validate_telegram_token() {
-  local token="$1"
+  local token
+  token="$(normalize_telegram_bot_token "${1:-}")"
+  [[ -z "$token" ]] && return 1
   local response
   response=$(curl --max-time 5 -s "https://api.telegram.org/bot${token}/getMe" 2>/dev/null)
 

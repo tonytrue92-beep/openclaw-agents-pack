@@ -1911,6 +1911,11 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
       echo ""
     fi
 
+    # Нормализуем именно введённое значение: BotFather/Telegram Desktop иногда
+    # кладут в буфер невидимый CR/пробел, из-за чего ручной `getMe` после `tr`
+    # проходит, а установщик ложно ругается на токен.
+    token="$(normalize_telegram_bot_token "$token")"
+
     # Считаем "пустой" в т.ч. строку из пробелов — клиент в config мог
     # написать BOT_TOKEN_TECH=" " что технически не пусто но бесполезно.
     if [[ -z "$(echo "$token" | tr -d '[:space:]')" ]]; then
