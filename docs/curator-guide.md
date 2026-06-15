@@ -78,7 +78,7 @@ ChatGPT-аккаунт пригодится **в самом финале**: ус
 токен и идёт через защищённый сервер (бот подставляет токен сам):
 
 ```bash
-COURSE_TOKEN=<ТОКЕН> IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/factory.sh") --course-token "$COURSE_TOKEN"'
+COURSE_TOKEN=ВАШ_ТОКЕН IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/factory.sh") --course-token "$COURSE_TOKEN"'
 ```
 
 ⚠️ Старые `raw.githubusercontent.com`-команды не работают (репозитории закрыты) —
@@ -214,7 +214,7 @@ openclaw-add-codex
 Обновить агентов без потери памяти (когда выходит апдейт):
 
 ```bash
-COURSE_TOKEN=<ТОКЕН> IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/agents.sh") --refresh-templates --course-token "$COURSE_TOKEN"'
+COURSE_TOKEN=ВАШ_ТОКЕН IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/agents.sh") --refresh-templates --course-token "$COURSE_TOKEN"'
 ```
 
 Память (MEMORY), ответы онбординга (USER) и привязки ботов не трогаются.
@@ -243,7 +243,7 @@ COURSE_TOKEN=<ТОКЕН> IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(cu
 (секреты в нём замаскированы автоматически) и передай Антону/технарю:
 
 ```bash
-COURSE_TOKEN=<ТОКЕН> IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/agents.sh") --collect-debug'
+COURSE_TOKEN=ВАШ_ТОКЕН IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/agents.sh") --collect-debug'
 ```
 
 Файл появится: `~/openclaw-agents-pack-debug-*.zip`.
@@ -272,7 +272,7 @@ systemd=true`, потом `wsl --shutdown`); если после `wsl --install`
 ```bash
 # Основная установка — клиент берёт готовую команду из @AITeamVIPBot (с токеном).
 # Обновление/обслуживание — через сервер с токеном (IP_BASE=https://api.tonytrue.pro/ip):
-#   COURSE_TOKEN=<ТОКЕН> IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/agents.sh") --refresh-templates --course-token "$COURSE_TOKEN"' 
+#   COURSE_TOKEN=ВАШ_ТОКЕН IP_BASE=https://api.tonytrue.pro/ip bash -c 'bash <(curl -fsSL -H "Authorization: Bearer $COURSE_TOKEN" "$IP_BASE/installers/agents.sh") --refresh-templates --course-token "$COURSE_TOKEN"' 
 
 # Универсальный фикс: повторить ту же команду установки (ничего не ломает)
 
