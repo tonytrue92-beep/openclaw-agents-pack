@@ -60,6 +60,12 @@ else
   fail "normalize_telegram_bot_token вернул неожиданный результат: '$cleaned_tg_token'"
 fi
 
+grep -q 'read -r -s token </dev/tty' scripts/install-agents.sh \
+  || fail "install-agents.sh не читает bot token напрямую из /dev/tty (ложный empty token в factory→agents потоке)"
+grep -q 'Скрытый ввод получил 0 символов' scripts/install-agents.sh \
+  || fail "install-agents.sh не даёт visible fallback, если masked read вернул пустой токен"
+pass "Telegram bot token ввод устойчив к pipe/stdin и даёт fallback при пустом hidden-read"
+
 # ─── Test 3: agent_exists не крашится ───
 set +e
 agent_exists "nonexistent-agent-xyz" >/dev/null 2>&1
