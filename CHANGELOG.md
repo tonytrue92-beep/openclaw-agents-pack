@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-06-16 — Пин OpenClaw 2026.6.6 (не @latest)
+
+- **Движок ставится запиненной версией `openclaw@2026.6.6`, НЕ `@latest`.**
+  Апстрим-релизы прилетали клиентам автоматом и ломали установки (2026.6.6 →
+  device-identity; opencode→opencode-go → Unknown model). Введена точка
+  `OPENCLAW_VERSION="${OPENCLAW_VERSION:-2026.6.6}"`: если factory передал версию
+  через env (чейн) — наследуем, иначе дефолт 2026.6.6 (синхронно с factory).
+  smoke-guard не даёт вернуться на `@latest`. Бамп — вручную, обе репы.
+
 ## 2026-06-16 — Мёртвые github-fallback'ы → @AITeamVIPBot
 
 - Установщик агентов печатал в ошибках/fallback'ах мёртвые github-команды
