@@ -289,9 +289,7 @@ grep -q 'SKIP_AUTH_PROFILE_CHECK' scripts/lib/preflight.sh \
   || fail "preflight.sh не имеет SKIP_AUTH_PROFILE_CHECK guard для refresh-templates (wave 9 BUG-05)"
 grep -q 'SKIP_AUTH_PROFILE_CHECK=true' scripts/install-agents.sh \
   || fail "--refresh-templates entry не выставляет SKIP_AUTH_PROFILE_CHECK=true (wave 9 BUG-05 guard)"
-# BUG-06: git clone fallback message
-grep -q 'git clone https://github.com/tonytrue92-beep/openclaw-agents-pack' scripts/install-agents.sh \
-  || fail "install-agents.sh не показывает git clone fallback при curl-сбое (wave 9 BUG-06)"
+# (wave 9 BUG-06 git-clone fallback убран 2026-06-16 — репо private, см. ассерт «нет мёртвых github-команд»)
 # BUG-03: Telegram self-test после R5
 grep -q 'telegram_channel_self_test' scripts/lib/agents.sh \
   || fail "telegram_channel_self_test не объявлена (wave 9 BUG-03)"
