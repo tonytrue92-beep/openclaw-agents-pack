@@ -2426,5 +2426,5 @@ case "$_env_name" in
     ;;
 esac
 
-echo -e "   ${DIM}📖 Подробнее: https://github.com/tonytrue92-beep/openclaw-agents-pack${NC}"
+echo -e "   ${DIM}📖 Вопросы и поддержка: @AITeamVIPBot${NC}"
 echo ""
