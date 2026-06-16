@@ -823,13 +823,16 @@ grep -q '2-3 бота' scripts/install-agents.sh \
   || fail "нет совета создавать ботов партиями по 2-3"
 pass "предупреждение про flood-блок @BotFather (создавать ботов партиями)"
 
-# ─── Test: второй установщик всегда тянет последнюю версию OpenClaw ─
-# Даже если движок стоит — обновляем до latest (чтобы новые фичи работали).
-grep -q 'Подтягиваю последнюю версию OpenClaw' scripts/install-agents.sh \
-  || fail "install-agents.sh не обновляет движок до latest перед установкой"
-grep -q 'npm install -g openclaw@latest' scripts/install-agents.sh \
-  || fail "install-agents.sh: нет npm install -g openclaw@latest"
-pass "движок: всегда подтягивается последняя версия OpenClaw (npm @latest)"
+# ─── Test: второй установщик ставит ЗАПИНЕННУЮ версию OpenClaw (НЕ @latest) ─
+# Апстрим @latest ломал клиентов (2026.6.6 device-identity; opencode-go rename).
+grep -q '^OPENCLAW_VERSION=' scripts/install-agents.sh \
+  || fail "install-agents.sh: нет пина OPENCLAW_VERSION — вернулись на плавающую версию"
+if grep -q 'npm install -g openclaw@latest' scripts/install-agents.sh; then
+  fail "install-agents.sh: остался openclaw@latest — апстрим снова будет ломать клиентов"
+fi
+grep -q 'npm install -g "openclaw@${OPENCLAW_VERSION}"' scripts/install-agents.sh \
+  || fail "install-agents.sh: установка движка не через пин OPENCLAW_VERSION"
+pass "движок: ставится запиненная версия OpenClaw (OPENCLAW_VERSION, не @latest)"
 
 # ─── Test 6.46: Windows Companion GUI offer в финале install-agents ─
 # Антон: всем Windows-клиентам предлагать официальный OpenClaw Windows Hub.

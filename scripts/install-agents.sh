@@ -49,6 +49,13 @@ fi
 INSTALLER_VERSION="2026.06.16"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
+# ─── ПИН ВЕРСИИ OpenClaw ──────────────────────────────────────────────────
+# Ставим КОНКРЕТНУЮ версию, НЕ @latest. Апстрим-релизы прилетали клиентам
+# автоматом и ломали установки (2026.6.6 → device-identity; opencode-go rename).
+# Если factory передал OPENCLAW_VERSION через env (чейн) — наследуем; иначе
+# дефолт 2026.6.6 (синхронно с factory). Бамп — вручную, обе репы. Единая точка.
+OPENCLAW_VERSION="${OPENCLAW_VERSION:-2026.6.6}"
+
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
   _script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null) || _script_dir=""
   if [[ -n "$_script_dir" && -d "${_script_dir}/../.git" ]] && command -v git &>/dev/null; then
@@ -595,18 +602,16 @@ preflight_openclaw || exit 1
 preflight_network_check || true
 
 # ─── Всегда подтягиваем АБСОЛЮТНО последнюю версию OpenClaw ──────
-# Установщик должен ставить самый свежий движок. Даже если OpenClaw уже
-# стоит (например, поставлен factory давно) — обновляем до latest, чтобы
-# новые фичи (база знаний/extraPaths, вход в ChatGPT Codex, фикс
-# memorySearch) точно работали. `npm install -g openclaw@latest`
-# идемпотентен (ставит или обновляет). Без npm/сети — не падаем, идём
-# с текущей версией. Сюда доходит только основной install-путь
-# (refresh/diagnose возвращаются выше).
+# Установщик ставит ЗАПИНЕННУЮ версию движка (OPENCLAW_VERSION, НЕ @latest),
+# чтобы апстрим-релизы не ломали клиентов. Даже если OpenClaw уже стоит —
+# приводим к пину (npm install -g openclaw@<пин> идемпотентен: ставит или
+# выравнивает версию). Без npm/сети — не падаем, идём с текущей версией.
+# Сюда доходит только основной install-путь (refresh/diagnose возвращаются выше).
 if command -v npm &>/dev/null; then
   echo ""
-  echo -e "${DIM}   Подтягиваю последнюю версию OpenClaw (npm install -g openclaw@latest)...${NC}"
+  echo -e "${DIM}   Ставлю OpenClaw ${OPENCLAW_VERSION} (npm install -g openclaw@${OPENCLAW_VERSION})...${NC}"
   _oc_before=$(openclaw --version 2>/dev/null | head -1)
-  { npm install -g openclaw@latest 2>&1 || true; } | tail -3 | while IFS= read -r line; do
+  { npm install -g "openclaw@${OPENCLAW_VERSION}" 2>&1 || true; } | tail -3 | while IFS= read -r line; do
     echo -e "   ${DIM}${line}${NC}"
   done
   _oc_after=$(openclaw --version 2>/dev/null | head -1)
