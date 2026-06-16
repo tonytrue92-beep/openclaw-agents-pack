@@ -969,3 +969,10 @@ grep -qE 'curl -fsSL --max-time 20 "\$2" -o "\$3"' scripts/install-agents.sh \
 grep -q 'ip_dl "openclaw-agents-pack/templates/knowledge' scripts/lib/agents.sh || fail "KB не через ip_dl"
 pass "IP-gated доставка: ip_dl шов (gateway+Bearer / github без заголовка), KB+templates routed"
 
+# ─── Нет мёртвых github-команд в печати (private-репо → 404) ───
+for f in scripts/install-agents.sh scripts/lib/preflight.sh; do
+  if grep -qE 'echo.*(releases/latest/download/install-agents-bundled|raw\.githubusercontent.*(demo-install|install-agents.sh)|git clone https://github.com/tonytrue92-beep/openclaw-agents)' "$f"; then
+    echo "FAIL: $f печатает мёртвую github-команду (404 на private)"; exit 1; fi
+done
+echo "OK: нет мёртвых github-fallback'ов в печати (всё → @AITeamVIPBot/локально)"
+

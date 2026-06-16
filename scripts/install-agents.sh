@@ -46,7 +46,7 @@ fi
 # Обновляется при каждом значимом коммите. INSTALLER_COMMIT подставляется
 # через sed в release-workflow; если скрипт запущен из рабочей копии —
 # runtime-fallback на git rev-parse.
-INSTALLER_VERSION="2026.06.14"
+INSTALLER_VERSION="2026.06.16"
 INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
@@ -191,7 +191,7 @@ trap '
     echo "Если выше в терминале нет понятной ошибки — соберите debug-bundle"
     echo "и пришлите в саппорт. Одна команда:"
     echo ""
-    echo "  bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --collect-debug"
+    echo "  (команда из @AITeamVIPBot с флагом --collect-debug)"
     echo ""
   fi
 ' EXIT
@@ -317,19 +317,13 @@ else
       echo "  • Слишком медленное соединение (10 сек на файл не хватило)"
       echo "  • Указанный коммит (${_LIB_COMMIT}) не существует на GitHub"
       echo ""
-      echo "Рабочее решение №1 — self-contained bundle (один файл, без nested curl):"
-      echo ""
-      echo "    bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)"
-      echo ""
-      echo "Рабочее решение №2 — git clone репозитория и запустить локально:"
-      echo ""
-      echo "    git clone https://github.com/tonytrue92-beep/openclaw-agents-pack"
-      echo "    cd openclaw-agents-pack"
-      echo "    bash scripts/install-agents.sh"
-      echo ""
-      echo "Bundled-версия минует raw.githubusercontent (использует release CDN)."
-      echo "Все остальные эндпоинты (Telegram API, OpenAI API) — отдельная"
-      echo "проверка, см. вывод установщика дальше."
+      echo "Что делать:"
+      echo "  1. Проверь интернет. Если включён VPN — ВЫКЛЮЧИ его (сервер в РФ,"
+      echo "     с заграничным VPN до него бывает не достучаться) и повтори."
+      echo "  2. Запусти ту же команду из @AITeamVIPBot ещё раз — она продолжит"
+      echo "     с того места и доустановит недостающее."
+      echo "  3. Старые команды с github (releases / git clone / raw) больше НЕ"
+      echo "     работают — репозитории закрыты. Только команда из бота."
       echo ""
       exit 1
     fi
@@ -347,7 +341,7 @@ if [[ "$COLLECT_DEBUG_ONLY" == true ]]; then
   echo -e "${DIM}   agents-pack v${INSTALLER_VERSION} (${INSTALLER_COMMIT})${NC}"
   echo -e "${DIM}   ℹ️  Курс-токен не запрашивается — read-only режим.${NC}"
   echo -e "${BOLD}${YELLOW}   ⚠ Это НЕ установка (только диагностика). Для установки агентов:${NC}"
-  echo -e "${GREEN}   bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)${NC}"
+  echo -e "${GREEN}   запусти команду из @AITeamVIPBot${NC}"
   collect_debug_bundle "manual (user ran --collect-debug)"
   exit 0
 fi
@@ -405,7 +399,7 @@ echo ""
 if [[ "$DIAGNOSE_ONLY" == true ]]; then
   echo -e "${DIM}   ℹ️  Курс-токен не запрашивается — read-only режим.${NC}"
   echo -e "${BOLD}${YELLOW}   ⚠ Это НЕ установка (только проверка). Для установки агентов:${NC}"
-  echo -e "${GREEN}   bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh)${NC}"
+  echo -e "${GREEN}   запусти команду из @AITeamVIPBot${NC}"
   echo ""
   # scripts/diagnose-agents.sh делает всю работу; если его нет — fallback
   DIAG_SCRIPT="${SCRIPT_DIR}/diagnose-agents.sh"
@@ -1414,7 +1408,7 @@ if [[ "$VIP_MODE" == true && "$COURSE_TIER" != "VIP" ]]; then
   echo -e "   ${CYAN}•${NC} Если ты оплатил ${BOLD}Pro${NC} — получи новый токен:"
   echo -e "     ${BOLD}@AITeamVIPBot${NC} → /start → email/phone оплаты"
   echo -e "   ${CYAN}•${NC} Если оплачивал ${BOLD}Base${NC} — запусти без флагов Pro-режима:"
-  echo -e "     ${GREEN}bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releases/latest/download/install-agents-bundled.sh) --install${NC}"
+  echo -e "     ${GREEN}запусти команду из @AITeamVIPBot (с Base-токеном)${NC}"
   echo ""
   _last_exit_reason="tier_mismatch"
   exit 1
@@ -2249,7 +2243,7 @@ if [[ $INSTALLED_COUNT -ge 2 && -z "$CONFIG_FILE" && "$VPS_MODE" != true ]]; the
     if [[ -z "$GROUP_CHAT_ID" ]]; then
       echo ""
       echo -e "   ${YELLOW}Отложено.${NC} Когда будешь готов — выполни:"
-      echo -e "   ${BOLD}${CYAN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --enable-group-mode <chat_id>${NC}"
+      echo -e "   ${DIM}запусти команду из @AITeamVIPBot, добавив в конце:${NC} ${BOLD}${CYAN}--enable-group-mode <chat_id>${NC}"
       record_telemetry "R5b_postponed" "ok"
     elif [[ ! "$GROUP_CHAT_ID" =~ ^-?[0-9]+$ ]]; then
       warn "Не похоже на chat_id (должно быть число, может быть отрицательным). Пропускаю."
