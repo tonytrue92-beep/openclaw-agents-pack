@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-06-16 — Мёртвые github-fallback'ы → @AITeamVIPBot
+
+- Установщик агентов печатал в ошибках/fallback'ах мёртвые github-команды
+  (releases/latest/download/install-agents-bundled.sh, git clone, raw
+  install-agents/demo-install) — все 404 после приватизации репо. Это сбивало
+  VPS-клиентов и саппорт. Заменено: сетевой блок lib-bootstrap, collect-debug/
+  diagnose, tier-mismatch, group-mode, preflight (Windows/WSL/no-OpenClaw/auth)
+  → «команда из @AITeamVIPBot» или локальные команды (openclaw status/doctor).
+
 ## 2026-06-12 — По фидбеку дня
 
 - Подсказка логов: `--tail` (нет в новых CLI) → стабильный `--collect-debug`.

@@ -64,9 +64,7 @@ print_windows_hints() {
   echo -e "   ${DIM}  2. OpenClaw на Windows ставится официальным installer'ом${NC}"
   echo -e "   ${DIM}     (НЕ bash-скриптом factory). После установки команды${NC}"
   echo -e "   ${DIM}     запускаются как ${BOLD}openclaw.cmd${NC}${DIM}.${NC}"
-  echo -e "   ${DIM}  3. Если raw.githubusercontent тупит — скачайте репо:${NC}"
-  echo -e "   ${DIM}     ${BOLD}git clone https://github.com/tonytrue92-beep/openclaw-agents-pack${NC}"
-  echo -e "   ${DIM}     ${BOLD}cd openclaw-agents-pack && bash scripts/install-agents.sh${NC}"
+  echo -e "   ${DIM}  3. Установочную команду всегда бери из ${BOLD}@AITeamVIPBot${NC}${DIM} (с токеном).${NC}"
   echo -e "   ${DIM}  4. Не смешивайте среды: если запустили в Git Bash —${NC}"
   echo -e "   ${DIM}     все диагностические команды (которые установщик${NC}"
   echo -e "   ${DIM}     просит выполнить) тоже в Git Bash, не в PowerShell.${NC}"
@@ -147,14 +145,14 @@ preflight_openclaw() {
     elif [[ "$env_name" == "wsl" ]]; then
       echo -e "   ${BOLD}В WSL можно использовать обычный bash-скрипт factory:${NC}"
       echo ""
-      echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
+      echo -e "      ${GREEN}запусти команду установки из @AITeamVIPBot${NC}"
       echo ""
       echo -e "   ${DIM}Альтернатива — поставить нативно на Windows и запускать наш скрипт${NC}"
       echo -e "   ${DIM}отсюда (WSL увидит openclaw.exe из Windows PATH).${NC}"
     else
       echo -e "   ${BOLD}Сначала нужно установить сам OpenClaw:${NC}"
       echo ""
-      echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
+      echo -e "      ${GREEN}запусти команду установки из @AITeamVIPBot${NC}"
     fi
 
     echo ""
@@ -175,7 +173,7 @@ preflight_openclaw() {
     warn "Gateway не отвечает (status не вернул 'running')."
     echo -e "   ${DIM}Попробуйте: ${GREEN}openclaw gateway restart${NC}${DIM}, затем запустите этот установщик снова.${NC}"
     echo -e "   ${DIM}Или запустите диагностику:${NC}"
-    echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh) --diagnose-only${NC}"
+    echo -e "      ${GREEN}openclaw status --all${NC}${DIM}  (локальная диагностика, без скачивания)${NC}"
     return 2
   fi
 
@@ -256,7 +254,7 @@ except Exception:
     warn "auth-profile невалидный (битый JSON или пустой объект {})"
     echo -e "   ${DIM}Кто-то редактировал файл вручную, или установщик упал на половине.${NC}"
     echo -e "   ${BOLD}${YELLOW}Не лечите вручную${NC} ${DIM}— перезапустите первый установщик начисто:${NC}"
-    echo -e "      ${GREEN}bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh)${NC}"
+      echo -e "      ${GREEN}запусти команду установки из @AITeamVIPBot${NC}"
     return 1
   fi
 
