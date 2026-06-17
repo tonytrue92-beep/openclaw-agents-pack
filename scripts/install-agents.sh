@@ -1768,7 +1768,7 @@ else
             echo -e "   ${DIM}Где взять ключ: ${CYAN}https://platform.openai.com/api-keys${NC}"
             echo -e "   ${DIM}Карта зарубежная: ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
             echo -e "   ${BOLD}${WHITE}OpenAI API-ключ (sk-...):${NC}"
-            read -rs EMBEDDING_KEY
+            read -r EMBEDDING_KEY
             echo ""
           fi
           ;;
@@ -1776,7 +1776,7 @@ else
           echo -e "   ${DIM}Где взять ключ: ${CYAN}https://platform.openai.com/api-keys${NC}"
           echo -e "   ${DIM}Карта зарубежная: ${CYAN}https://t.me/WantToPayBot?start=w17851188--GUSNM${NC}"
           echo -e "   ${BOLD}${WHITE}OpenAI API-ключ для embedding (sk-...):${NC}"
-          read -rs EMBEDDING_KEY
+          read -r EMBEDDING_KEY
           echo ""
           ;;
         *)
@@ -1905,26 +1905,27 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     else
       echo ""
       echo -e "   ${BOLD}${WHITE}${emoji} Токен бота для ${label}:${NC}"
-      echo -e "   ${DIM}(вставьте токен и нажмите Enter; символы не отображаются — это нормально)${NC}"
+      echo -e "   ${DIM}(вставьте токен и нажмите Enter; символы видны на экране — это нормально)${NC}"
 
       # Читаем именно из управляющего терминала. В объединённом factory→agents
       # потоке stdin иногда уже не тот fd, откуда пользователь реально вводит
       # текст; `read` тогда тихо получает пустую строку и клиент видит ложное
       # «Токен пустой». /dev/tty убирает зависимость от stdin/pipe/eval.
+      # Видимый ввод (символы на экране) — клиент сам видит, что вставка попала
+      # в терминал; решение Антона для всех токенов установщика, как в factory.
       if [[ -r /dev/tty ]]; then
-        IFS= read -r -s token </dev/tty || token=""
+        IFS= read -r token </dev/tty || token=""
       else
-        IFS= read -r -s token || token=""
+        IFS= read -r token || token=""
       fi
       echo ""
       token="$(normalize_telegram_bot_token "$token")"
 
-      # Если скрытый ввод всё равно получил 0 символов — даём безопасный
-      # fallback с видимым вводом. Это не печатает токен в логи, но позволяет
-      # человеку убедиться, что вставка реально попала в терминал.
+      # Если ввод всё равно получил 0 символов (stdin не tty в factory→agents
+      # потоке) — повторяем чтение прямо из /dev/tty.
       if [[ -z "$token" && -r /dev/tty ]]; then
-        warn "Скрытый ввод получил 0 символов — похоже, вставка не попала в терминал."
-        echo -e "   ${DIM}Вставьте токен ещё раз. Сейчас символы будут видны на экране; это нормально.${NC}"
+        warn "Ввод получил 0 символов — похоже, вставка не попала в терминал."
+        echo -e "   ${DIM}Вставьте токен ещё раз (символы видны на экране — это нормально).${NC}"
         IFS= read -r token </dev/tty || token=""
         echo ""
         token="$(normalize_telegram_bot_token "$token")"
