@@ -17,11 +17,15 @@ triggers:
   - GPT
   - VPS
   - Windows
-version: 2026.06.15
+  - GitHub
+  - raw.githubusercontent.com
+  - getMe returned 401
+  - auth refresh
+version: 2026.06.17
 author: openclaw-agents-pack
 license: MIT
 created_at: 2026-06-06
-updated_at: 2026-06-15
+updated_at: 2026-06-17
 ---
 
 # Installer Support — сопровождение установки OpenClaw + AI-команды (AI TEAM 2.0)
@@ -75,11 +79,42 @@ updated_at: 2026-06-15
 - `401` без токена — нормальная защита `/ip`, а не падение сервера.
 - После технического фикса установщиков клиент обычно просто ждёт минуту и повторяет ту же свежую команду: autosync доставляет изменения на `/ip` gateway.
 
-## Основная команда
+## Свежие кейсы 2026-06-17: что отвечать клиенту
+
+### `Username for 'https://github.com'` / `raw.githubusercontent.com` / `scripts/lib/ui.sh`
+
+Если движок уже поставился, но на доустановке Base/Pro-агентов терминал просит GitHub username/password или пишет, что не смог скачать `scripts/lib/ui.sh`, это почти всегда старая команда или старая цепочка installer → agents, которая ушла в GitHub вместо `/ip` gateway.
+
+**Ответ клиенту:** не вводить GitHub-логин/пароль, нажать `Ctrl+C`, взять **свежую команду** из `@AITeamVIPBot` и запустить заново. Старую команду из предыдущего сообщения не использовать. Установщик пропустит уже готовый движок и доустановит агентов.
+
+### `Telegram bot token unauthorized` / `getMe returned 401`
+
+Это проблема BotFather-токена, не course-token. Клиент должен взять свежий API token в @BotFather → `/mybots` → нужный бот → `API Token`. Вставлять токен вида `123456:ABC...`, без username, пробелов и кавычек. Если токен был показан в чате/на скрине — лучше `Revoke current token` и вставить новый.
+
+### Модель `opencode-go/deepseek-v4-flash`, а клиент хотел GPT
+
+Это дефолт бесплатной установки, не поломка. После того как боты отвечают, GPT подключается командой:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-factory/main/scripts/demo-install.sh) --course-token ТОКЕН
+openclaw-add-codex
 ```
+
+Если после GPT бот молчит: `openclaw gateway restart`, 30 секунд, `/new`.
+
+### OpenAI/Codex 401 после GPT: `token invalidated`, `auth refresh request timed out`, старый `privaterelay`
+
+Первый фикс:
+
+```bash
+openclaw models auth login --provider openai --device-code
+openclaw gateway restart
+```
+
+Если после нового входа в логах всё равно старый Apple Private Relay / старый email — это stale auth-profile, эскалировать технарю. Не просить клиента присылать auth-файлы, токены или полный конфиг.
+
+## Основная команда
+
+Основную команду клиент берёт только из `@AITeamVIPBot` после оплаты. Не печатать её вручную и не заменять на сторонние `curl ... | bash`.
 
 Если запустили без токена — это не ошибка: появится меню, токен спросят позже. Обычный клиент в меню жмёт Enter на пункте установки OpenClaw. Если OpenClaw уже стоит и нужны только агенты — пункт 2. VPS 24/7 — пункт 3 или та же команда с `--vps` по инструкции установщика.
 
@@ -96,7 +131,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-fac
 
 ## Универсальный фикс №1
 
-Если установка оборвалась, сеть упала, терминал закрыли, агенты не доехали: **запустить ту же основную команду ещё раз и жать Enter по шагам**. Установщик безопасно увидит уже готовые части и продолжит недостающее. Не советую полный сброс, пока повторный запуск не попробовали.
+Если установка оборвалась, сеть упала, терминал закрыли, агенты не доехали: **если команда свежая — запустить ту же основную команду ещё раз и жать Enter по шагам**. Если была ошибка GitHub/raw или технарь только что правил бота — сначала взять новую команду из `@AITeamVIPBot`, старую из чата не использовать. Установщик безопасно увидит уже готовые части и продолжит недостающее. Не советую полный сброс, пока повторный запуск не попробовали.
 
 ## GPT-мозги после установки
 
@@ -110,15 +145,17 @@ openclaw-add-codex
 
 Обновить агентов без потери памяти:
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --refresh-templates
-```
+Брать актуальную команду обновления только из `@AITeamVIPBot` или у технаря.
 
 ## Быстрые фиксы
 
 - `zsh: parse error near newline` — вручную вставили плейсхолдер/угловые скобки, терминал сломал команду. Взять свежую готовую команду из `@AITeamVIPBot`, не редактировать токен руками, запустить снова.
 - `command not found: openclaw` — закрыть/открыть Terminal и повторить команду; если не помогло, установщик сам поправит Node 22/nvm.
 - `curl: (28)` или зависло на сети — Ctrl+C, проверить VPN/Wi‑Fi, запустить ту же команду снова.
+- `Username for 'https://github.com'` / `Password for 'https://github.com'` / `raw.githubusercontent.com` на доустановке агентов — старая команда ушла в GitHub вместо `/ip`. Ничего в GitHub не вводить, `Ctrl+C`, взять свежую команду из `@AITeamVIPBot` и запустить заново; старую команду из старого сообщения не использовать.
+- `ERROR: не смог скачать scripts/lib/ui.sh` — тот же класс ошибки: agents installer не дошёл через gateway. Свежая команда из `@AITeamVIPBot`; если повторяется на свежей команде — скрин + эскалация.
+- `Telegram bot token unauthorized` / `getMe returned 401` — неверный/отозванный BotFather API token. В @BotFather взять новый `API Token`; если токен светился, `Revoke current token`; вставить токен без username/пробелов/кавычек.
+- После `openclaw-add-codex`: `Your authentication token has been invalidated` / `auth refresh request timed out` — перелогинить OpenAI: `openclaw models auth login --provider openai --device-code`, затем `openclaw gateway restart` и `/new`; если цепляется старый `privaterelay`, эскалировать технарю.
 - Ошибка на «умной памяти» — перезапуск, на вопросе памяти Enter = нет.
 - `Unknown model: opencode/minimax…` — `openclaw-switch-model opencode-go/deepseek-v4-flash`.
 - `Disable N unavailable skills?` и установка отменилась — `openclaw doctor --fix --yes`, затем повторить установку.
@@ -133,9 +170,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-age
 
 Если не помогли вводные + повторный запуск + быстрый фикс, проси debug-архив. Секреты маскируются автоматически:
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/tonytrue92-beep/openclaw-agents-pack/main/scripts/install-agents.sh) --collect-debug
-```
+Команду сбора debug брать из актуального установщика/`@AITeamVIPBot` или у технаря. Старые raw GitHub команды не давать.
 
 Файл: `~/openclaw-agents-pack-debug-*.zip`.
 
