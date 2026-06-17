@@ -60,11 +60,20 @@ else
   fail "normalize_telegram_bot_token вернул неожиданный результат: '$cleaned_tg_token'"
 fi
 
-grep -q 'read -r -s token </dev/tty' scripts/install-agents.sh \
+grep -q 'read -r token </dev/tty' scripts/install-agents.sh \
   || fail "install-agents.sh не читает bot token напрямую из /dev/tty (ложный empty token в factory→agents потоке)"
-grep -q 'Скрытый ввод получил 0 символов' scripts/install-agents.sh \
-  || fail "install-agents.sh не даёт visible fallback, если masked read вернул пустой токен"
-pass "Telegram bot token ввод устойчив к pipe/stdin и даёт fallback при пустом hidden-read"
+if grep -qE 'read -r -s +token|read -rs +token' scripts/install-agents.sh; then
+  fail "install-agents.sh: bot token читается скрыто (-s) — должен быть ВИДИМЫМ (решение Антона)"
+fi
+grep -q 'Ввод получил 0 символов' scripts/install-agents.sh \
+  || fail "install-agents.sh не даёт retry при пустом вводе токена"
+pass "Telegram bot token: ВИДИМЫЙ ввод из /dev/tty + retry при пустом (устойчив к pipe/stdin)"
+
+# Все токены/ключи установщика вводятся ВИДИМО (решение Антона, как в factory)
+if grep -qE 'read -rs |read -r -s ' scripts/install-agents.sh; then
+  fail "install-agents.sh: остался скрытый ввод (-s) токена/ключа — все должны быть видимыми"
+fi
+pass "все токены/ключи (bot token, OpenAI/embedding) вводятся видимо — нет read -s"
 
 # ─── Test 3: agent_exists не крашится ───
 set +e
