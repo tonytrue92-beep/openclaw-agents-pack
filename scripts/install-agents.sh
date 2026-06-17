@@ -1953,10 +1953,16 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     echo -e "   ${DIM}Проверяю токен через Telegram API...${NC}"
     username=$(validate_telegram_token "$token" || echo "")
     if [[ -z "$username" ]]; then
-      warn "Токен не прошёл проверку getMe. Возможные причины:"
-      echo -e "   ${DIM}   • вы случайно скопировали не весь токен (обрезан)${NC}"
-      echo -e "   ${DIM}   • токен недействителен — проверьте в @BotFather → /mybots${NC}"
-      echo -e "   ${DIM}   • нет интернета / корпоративный firewall${NC}"
+      warn "Токен не прошёл проверку getMe."
+      if [[ -n "${TG_TOKEN_ERROR:-}" ]]; then
+        echo -e "   ${YELLOW}Причина:${NC} ${TG_TOKEN_ERROR}"
+      fi
+      echo ""
+      echo -e "   ${DIM}Что проверить:${NC}"
+      echo -e "   ${DIM}   • нужен именно API Token из @BotFather, не username/ссылка/название бота${NC}"
+      echo -e "   ${DIM}   • формат токена: 1234567890:ABC...${NC}"
+      echo -e "   ${DIM}   • если токен попал на скрин/в чат — в @BotFather сделай Revoke/Generate new token${NC}"
+      echo -e "   ${DIM}   • для каждого агента нужен отдельный бот и отдельный токен${NC}"
       [[ -n "$CONFIG_FILE" ]] && exit 1
       echo ""
       echo -e "   ${BOLD}${WHITE}Попробовать ввести другой токен? [Y/n]:${NC}"

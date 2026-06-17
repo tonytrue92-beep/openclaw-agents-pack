@@ -37,26 +37,77 @@ normalize_telegram_bot_token() {
 # Возвращает:
 #   0 + echo "<bot_username>" — токен рабочий
 #   1 — токен невалидный / сеть не отвечает
+#
+# При ошибке пишет человекочитаемую причину в TG_TOKEN_ERROR без вывода
+# самого токена. Это важно для саппорта: `getMe не прошёл` без причины
+# заставляет клиентов гонять установщик по кругу, хотя чаще всего токен
+# просто отозван/обрезан/вставлен username вместо API Token.
 validate_telegram_token() {
   local token
+  TG_TOKEN_ERROR=""
   token="$(normalize_telegram_bot_token "${1:-}")"
-  [[ -z "$token" ]] && return 1
-  local response
-  response=$(curl --max-time 5 -s "https://api.telegram.org/bot${token}/getMe" 2>/dev/null)
+
+  if [[ -z "$token" ]]; then
+    TG_TOKEN_ERROR="пустой ввод — токен не попал в терминал"
+    return 1
+  fi
+
+  if [[ "$token" == @* || "$token" == http://* || "$token" == https://* || "$token" == *"t.me/"* ]]; then
+    TG_TOKEN_ERROR="похоже, вставлен username/ссылка на бота, а нужен API Token из @BotFather"
+    return 1
+  fi
+
+  if [[ "$token" != *:* ]]; then
+    TG_TOKEN_ERROR="в токене нет двоеточия — нужен формат 1234567890:ABC... из @BotFather"
+    return 1
+  fi
+
+  local response http_code body
+  response=$(curl --max-time 8 -sS -w '\n%{http_code}' "https://api.telegram.org/bot${token}/getMe" 2>/dev/null || true)
 
   if [[ -z "$response" ]]; then
+    TG_TOKEN_ERROR="Telegram API не ответил — проверь интернет/VPN/firewall и попробуй ещё раз"
+    return 1
+  fi
+
+  http_code=$(printf '%s\n' "$response" | tail -1)
+  body=$(printf '%s\n' "$response" | sed '$d')
+
+  if [[ "$http_code" != "200" ]]; then
+    local desc
+    desc=$(printf '%s' "$body" | python3 -c 'import json,sys
+try:
+    d=json.load(sys.stdin)
+    print(d.get("description") or d.get("error") or "")
+except Exception:
+    print("")' 2>/dev/null || true)
+    case "$http_code" in
+      401) TG_TOKEN_ERROR="Telegram API вернул 401 Unauthorized — токен неверный или отозван. Возьми свежий API Token в @BotFather" ;;
+      404) TG_TOKEN_ERROR="Telegram API вернул 404 — токен похож на неправильный формат/обрезан" ;;
+      000) TG_TOKEN_ERROR="не удалось подключиться к Telegram API — проверь интернет/VPN/firewall" ;;
+      *)   TG_TOKEN_ERROR="Telegram API вернул HTTP ${http_code}${desc:+: ${desc}}" ;;
+    esac
     return 1
   fi
 
   # Парсим JSON через python3 (гарантированно есть на macOS/Linux с Node 22)
-  if ! echo "$response" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('ok') else 1)" 2>/dev/null; then
+  if ! printf '%s' "$body" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('ok') else 1)" 2>/dev/null; then
+    local desc
+    desc=$(printf '%s' "$body" | python3 -c 'import json,sys
+try:
+    d=json.load(sys.stdin)
+    print(d.get("description") or "ответ Telegram без ok:true")
+except Exception:
+    print("непонятный JSON от Telegram")' 2>/dev/null || true)
+    TG_TOKEN_ERROR="${desc:-Telegram не подтвердил токен}"
     return 1
   fi
 
   local username
-  username=$(echo "$response" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['result']['username'])" 2>/dev/null)
+  username=$(printf '%s' "$body" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['result']['username'])" 2>/dev/null)
 
   if [[ -z "$username" ]]; then
+    TG_TOKEN_ERROR="Telegram ответил ok:true, но username бота не найден"
     return 1
   fi
 
