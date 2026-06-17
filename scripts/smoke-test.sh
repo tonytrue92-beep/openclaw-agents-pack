@@ -42,13 +42,23 @@ pass "redact_secrets маскирует sk-, TG tokens, Bearer"
 # (мы не можем реально дёргать api.telegram.org в CI без токена, поэтому
 # просто проверяем что функция не крашится на пустом вводе)
 set +e
-output=$(validate_telegram_token "fake-token-123" 2>&1)
+validate_telegram_token "fake-token-123" >/tmp/validate_fake.out 2>&1
 rc=$?
 set -e
-if [[ "$rc" == "1" ]]; then
-  pass "validate_telegram_token корректно возвращает 1 на невалидный токен"
+if [[ "$rc" == "1" && "$TG_TOKEN_ERROR" == *"двоеточия"* ]]; then
+  pass "validate_telegram_token корректно возвращает 1 и причину на невалидный токен"
 else
-  fail "validate_telegram_token с invalid token вернул rc=$rc (ожидается 1)"
+  fail "validate_telegram_token invalid: rc=$rc reason='$TG_TOKEN_ERROR'"
+fi
+
+set +e
+validate_telegram_token "@some_bot" >/tmp/validate_username.out 2>&1
+rc=$?
+set -e
+if [[ "$rc" == "1" && "$TG_TOKEN_ERROR" == *"username/ссылка"* ]]; then
+  pass "validate_telegram_token объясняет, что username/link — не API Token"
+else
+  fail "validate_telegram_token username/link: rc=$rc reason='$TG_TOKEN_ERROR'"
 fi
 
 # 2026-06-15: ручной getMe с `tr -d` проходил, а установщик валил токен,
