@@ -75,6 +75,14 @@ if grep -qE 'read -rs |read -r -s ' scripts/install-agents.sh; then
 fi
 pass "все токены/ключи (bot token, OpenAI/embedding) вводятся видимо — нет read -s"
 
+# git не должен интерактивно спрашивать GitHub-логин (приватные репо → фишинг-вид)
+grep -q '^export GIT_TERMINAL_PROMPT=0' scripts/install-agents.sh \
+  || fail "install-agents.sh: нет GIT_TERMINAL_PROMPT=0 — git может спросить GitHub-логин"
+if grep -qE 'git clone .*github\.com/tonytrue92-beep' scripts/install-agents.sh; then
+  fail "install-agents.sh: git clone приватного репо — git попросит GitHub-логин"
+fi
+pass "git не спросит GitHub-логин (GIT_TERMINAL_PROMPT=0, нет git clone приватного репо)"
+
 # ─── Test 3: agent_exists не крашится ───
 set +e
 agent_exists "nonexistent-agent-xyz" >/dev/null 2>&1

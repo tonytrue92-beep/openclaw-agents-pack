@@ -56,6 +56,12 @@ INSTALLER_COMMIT="__COMMIT_PLACEHOLDER__"
 # дефолт 2026.6.6 (синхронно с factory). Бамп — вручную, обе репы. Единая точка.
 OPENCLAW_VERSION="${OPENCLAW_VERSION:-2026.6.6}"
 
+# git НИКОГДА не должен интерактивно спрашивать логин. На приватных репо любой
+# git к github.com (npm-from-git, плагин, случайный clone) выводит «Username for
+# 'https://github.com':» → клиенты принимают за фишинг. =0 → git сразу падает.
+# (При чейне из factory уже унаследовано; дублируем для standalone-запуска.)
+export GIT_TERMINAL_PROMPT=0
+
 if [[ "$INSTALLER_COMMIT" == "__COMMIT_PLACEHOLDER__" ]]; then
   _script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null) || _script_dir=""
   if [[ -n "$_script_dir" && -d "${_script_dir}/../.git" ]] && command -v git &>/dev/null; then
