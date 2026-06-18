@@ -282,11 +282,19 @@ _ip_token() {
   printf '%s' "${COURSE_TOKEN:-${VIP_TOKEN:-$(cat "$HOME/.openclaw/course-token" 2>/dev/null || true)}}"
 }
 ip_dl() {  # $1=путь под /assets/ (gateway)  $2=полный github-url  $3=dest
-  if [[ -n "$IP_BASE" ]]; then
-    curl -fsSL --max-time 20 -H "Authorization: Bearer $(_ip_token)" "${IP_BASE%/}/assets/$1" -o "$3" 2>/dev/null
-  else
-    curl -fsSL --max-time 20 "$2" -o "$3" 2>/dev/null
-  fi
+  # 3 попытки с паузой: РФ-origin без CDN иногда моргает (curl 28). Без ретраев
+  # один блип терял файл — агент вставал без IDENTITY.md, база знаний неполной.
+  # --connect-timeout 10: мёртвый коннект (VPN→РФ) падает быстро, не висит 25с.
+  local _try _rc=1
+  for _try in 1 2 3; do
+    if [[ -n "$IP_BASE" ]]; then
+      curl -fsSL --connect-timeout 10 --max-time 25 -H "Authorization: Bearer $(_ip_token)" "${IP_BASE%/}/assets/$1" -o "$3" 2>/dev/null && { _rc=0; break; }
+    else
+      curl -fsSL --connect-timeout 10 --max-time 25 "$2" -o "$3" 2>/dev/null && { _rc=0; break; }
+    fi
+    [[ $_try -lt 3 ]] && sleep 2
+  done
+  return $_rc
 }
 
 # === BUNDLE_LIB_BEGIN ===
@@ -319,13 +327,13 @@ else
       # и подсказкой про git clone fallback. До этой точки ui.sh ещё
       # не подключён, поэтому plain-text без цветов.
       echo ""
-      echo "ERROR: не смог скачать scripts/lib/${_mod}.sh с GitHub raw."
-      echo "       Хост: raw.githubusercontent.com"
+      echo "ERROR: не смог скачать scripts/lib/${_mod}.sh с сервера доставки."
+      echo "       Источник: gateway @AITeamVIPBot (или GitHub raw — без токена)"
       echo "       Commit: ${_LIB_COMMIT}"
-      echo "       Timeout: 10 сек"
+      echo "       3 попытки × 25 сек — не удалось"
       echo ""
       echo "Возможные причины:"
-      echo "  • raw.githubusercontent.com временно недоступен или режется фаерволом"
+      echo "  • сервер доставки временно недоступен или режется фаерволом"
       echo "  • Корпоративный VPN / прокси не пропускает HTTPS к GitHub"
       echo "  • Слишком медленное соединение (10 сек на файл не хватило)"
       echo "  • Указанный коммит (${_LIB_COMMIT}) не существует на GitHub"
@@ -2084,9 +2092,10 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     # wave 11 P1: при сбое сети (curl упал) останавливаем установку
     # текущего агента вместо тихого продолжения. Иначе workspace
     # будет частично заполнен и агент будет работать криво.
-    warn "Не получилось загрузить шаблоны для ${agent}."
-    echo -e "   ${DIM}Возможно raw.githubusercontent.com временно недоступен.${NC}"
-    echo -e "   ${DIM}Пропущенные файлы можно дозалить вручную через --refresh-templates.${NC}"
+    warn "Не получилось загрузить часть шаблонов для ${agent} (сеть моргнула)."
+    echo -e "   ${DIM}Сервер доставки в РФ — если включён VPN, выключи его и повтори.${NC}"
+    echo -e "   ${DIM}Дозалить недостающее: команда из @AITeamVIPBot с --refresh-templates${NC}"
+    echo -e "   ${DIM}(MEMORY не теряется).${NC}"
     record_telemetry "R4_template_fetch_failed" "${target_id}"
     # Не делаем `exit 1` — даём установщику попытаться продолжить
     # с этим агентом (возможно у него уже есть workspace от прошлого

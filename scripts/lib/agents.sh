@@ -11,11 +11,18 @@ if ! declare -f ip_dl >/dev/null 2>&1; then
   IP_BASE="${IP_BASE:-}"
   _ip_token() { printf '%s' "${COURSE_TOKEN:-${VIP_TOKEN:-$(cat "$HOME/.openclaw/course-token" 2>/dev/null || true)}}"; }
   ip_dl() {
-    if [[ -n "$IP_BASE" ]]; then
-      curl -fsSL --max-time 20 -H "Authorization: Bearer $(_ip_token)" "${IP_BASE%/}/assets/$1" -o "$3" 2>/dev/null
-    else
-      curl -fsSL --max-time 20 "$2" -o "$3" 2>/dev/null
-    fi
+    # 3 попытки с паузой (РФ-origin без CDN моргает; curl 28). Совпадает с
+    # canonical ip_dl в install-agents.sh — см. комментарий там.
+    local _try _rc=1
+    for _try in 1 2 3; do
+      if [[ -n "$IP_BASE" ]]; then
+        curl -fsSL --connect-timeout 10 --max-time 25 -H "Authorization: Bearer $(_ip_token)" "${IP_BASE%/}/assets/$1" -o "$3" 2>/dev/null && { _rc=0; break; }
+      else
+        curl -fsSL --connect-timeout 10 --max-time 25 "$2" -o "$3" 2>/dev/null && { _rc=0; break; }
+      fi
+      [[ $_try -lt 3 ]] && sleep 2
+    done
+    return $_rc
   }
 fi
 
@@ -475,12 +482,20 @@ setup_knowledge_base() {
   fi
   unset _kb_cur _kb_new
 
-  # Индексируем сразу, чтобы база попала в поиск с первого вопроса.
-  { openclaw memory index --force 2>&1 || true; } | tail -2 | while IFS= read -r line; do
-    echo -e "   ${DIM}${line}${NC}"
-  done
-
-  ok "База знаний развёрнута (${got}/$(echo $KB_FILES | wc -w | tr -d ' ') тем) — агенты ищут по ней через memory_search"
+  # Индексируем сразу — НО только если embedding реально подключён. Без него
+  # `openclaw memory index` лезет на api.openai.com и таймаутит 10с×retry
+  # (клиент отказался от умной памяти → ключа нет). Заметки и так доступны
+  # целиком; индекс нужен лишь для семантического поиска.
+  local _kb_total; _kb_total=$(echo $KB_FILES | wc -w | tr -d ' ')
+  if [[ "${EMBEDDING_ENABLED:-false}" == true ]]; then
+    { openclaw memory index --force 2>&1 || true; } | tail -2 | while IFS= read -r line; do
+      echo -e "   ${DIM}${line}${NC}"
+    done
+    ok "База знаний развёрнута (${got}/${_kb_total} тем) — агенты ищут по ней через memory_search"
+  else
+    echo -e "   ${DIM}Индексация пропущена (умная память не подключена) — заметки читаются целиком.${NC}"
+    ok "База знаний развёрнута (${got}/${_kb_total} тем) — агенты читают её целиком"
+  fi
 }
 
 find_installed_agents() {

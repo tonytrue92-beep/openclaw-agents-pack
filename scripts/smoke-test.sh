@@ -978,14 +978,20 @@ pass "Политика моделей (наследование+GPT-оффер) 
 grep -q 'ip_dl()' scripts/install-agents.sh || fail "ip_dl не определён в install-agents.sh"
 grep -q 'ip_dl()' scripts/lib/agents.sh || fail "ip_dl fallback не определён в lib/agents.sh"
 grep -q 'IP_BASE="${IP_BASE:-}"' scripts/install-agents.sh || fail "IP_BASE дефолт не пустой (сломает текущие установки)"
-# Authorization шлётся ТОЛЬКО в gateway-ветке (если IP_BASE задан), НЕ на github:
-grep -A4 'ip_dl()' scripts/install-agents.sh | grep -q 'Authorization: Bearer' || fail "нет Authorization в gateway-ветке"
-grep -c 'raw.githubusercontent' scripts/lib/agents.sh >/dev/null
+# Authorization шлётся ТОЛЬКО в gateway-ветке (если IP_BASE задан), НЕ на github.
+# grep -F по точной сигнатуре curl (без grep -A — busybox-safe):
+grep -qF 'Authorization: Bearer $(_ip_token)" "${IP_BASE%/}/assets/' scripts/install-agents.sh \
+  || fail "нет Authorization в gateway-ветке ip_dl"
 # github-ветка (else) не должна нести Authorization: точная строка curl "$2"
-grep -qE 'curl -fsSL --max-time 20 "\$2" -o "\$3"' scripts/install-agents.sh \
+grep -qF 'curl -fsSL --connect-timeout 10 --max-time 25 "$2" -o "$3"' scripts/install-agents.sh \
   || fail "github-ветка ip_dl изменена (ждём curl без -H Authorization на \$2)"
+# ip_dl делает РЕТРАИ (РФ-origin без CDN моргает; без них терялись шаблоны/KB):
+grep -q 'for _try in 1 2 3' scripts/install-agents.sh \
+  || fail "ip_dl без ретраев — один блип сети снова потеряет шаблоны агента"
+grep -q 'for _try in 1 2 3' scripts/lib/agents.sh \
+  || fail "ip_dl fallback (lib/agents.sh) без ретраев"
 grep -q 'ip_dl "openclaw-agents-pack/templates/knowledge' scripts/lib/agents.sh || fail "KB не через ip_dl"
-pass "IP-gated доставка: ip_dl шов (gateway+Bearer / github без заголовка), KB+templates routed"
+pass "IP-gated доставка: ip_dl шов (gateway+Bearer / github без заголовка) + ретраи, KB+templates routed"
 
 # ─── Нет мёртвых github-команд в печати (private-репо → 404) ───
 for f in scripts/install-agents.sh scripts/lib/preflight.sh; do
