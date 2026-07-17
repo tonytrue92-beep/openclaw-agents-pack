@@ -9,14 +9,14 @@
 umask 077
 
 #
-# ─── Единственный поддерживаемый формат: OC4 ────────────────────
+# ─── Единственный поддерживаемый формат: OC5 ────────────────────
 #
-#   OC4-<TIER>-<email_hash16>-<tg_user_id>-<signature_b64url>
+#   OC5-<TIER>-<email_hash16>-<tg_user_id>-<nonce24>-<signature_b64url>
 #
 # TIER ∈ {VIP, STD, SUB, HRM}; подпись Ed25519 покрывает строку
-# "OC4|<TIER>|<email_hash16>|<tg_user_id>". Prefix version and exact Telegram
-# owner are cryptographically bound. v1/v2/v3 intentionally revoked and never
-# fall back: customers obtain a new token from @AITeamVIPBot.
+# "OC5|<TIER>|<email_hash16>|<tg_user_id>|<nonce24>". Prefix version, exact
+# Telegram owner and fresh nonce are cryptographically bound. Online status is
+# mandatory: it enforces revocation and the seven-day credential lifetime.
 
 # Публичный ключ бота (Ed25519). Приватный ключ — у @AITeamVIPBot на VPS.
 VIP_PUBLIC_KEY_PEM=$(cat <<'EOF'
@@ -31,22 +31,23 @@ EOF
 # поднимет эндпоинт (handoff/analytics-endpoint-reference/) — вписать сюда
 # его URL вида https://<его-сервер>/activation
 VIP_ACTIVATION_ENDPOINT="${VIP_ACTIVATION_ENDPOINT:-}"
+VIP_TOKEN_STATUS_URL="https://api.tonytrue.pro/ip/verify"
 
 # ─── Проверить форму единственной принятой версии ───────────────
-# stdout: "oc4" | "unknown"
+# stdout: "oc5" | "unknown"
 vip_token_version() {
   local token="$1"
-  if [[ "$token" =~ ^OC4-(VIP|STD|SUB|HRM)-[A-F0-9]{16}-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
-    printf 'oc4'
+  if [[ "$token" =~ ^OC5-(VIP|STD|SUB|HRM)-[A-F0-9]{16}-[0-9]{5,15}-[A-F0-9]{24}-[A-Za-z0-9_-]{80,100}$ ]]; then
+    printf 'oc5'
   else
     printf 'unknown'
   fi
 }
 
-# ─── Извлечь подписанный tg_user_id из OC4-токена ───────────────
+# ─── Извлечь подписанный tg_user_id из OC5-токена ───────────────
 vip_token_get_expected_tg() {
   local token="$1"
-  if [[ "$token" =~ ^OC4-(VIP|STD|SUB|HRM)-[A-F0-9]{16}-([0-9]{5,15})-[A-Za-z0-9_-]{80,100}$ ]]; then
+  if [[ "$token" =~ ^OC5-(VIP|STD|SUB|HRM)-[A-F0-9]{16}-([0-9]{5,15})-[A-F0-9]{24}-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf '%s' "${BASH_REMATCH[2]}"
     return 0
   fi
@@ -56,7 +57,7 @@ vip_token_get_expected_tg() {
 # ─── Извлечь email_hash16 (для fire-and-forget логирования) ─────
 vip_token_get_hash() {
   local token="$1"
-  if [[ "$token" =~ ^OC4-(VIP|STD|SUB|HRM)-([A-F0-9]{16})-[0-9]{5,15}-[A-Za-z0-9_-]{80,100}$ ]]; then
+  if [[ "$token" =~ ^OC5-(VIP|STD|SUB|HRM)-([A-F0-9]{16})-[0-9]{5,15}-[A-F0-9]{24}-[A-Za-z0-9_-]{80,100}$ ]]; then
     printf '%s' "${BASH_REMATCH[2]}"
     return 0
   fi
@@ -72,7 +73,7 @@ vip_token_get_hash() {
 #   • HRM — Hermes: super-agent (отдельный SKU), wave 25
 course_token_get_tier() {
   local token="$1"
-  if [[ "$token" =~ ^OC4-(VIP|STD|SUB|HRM)- ]]; then
+  if [[ "$token" =~ ^OC5-(VIP|STD|SUB|HRM)- ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
     return 0
   fi
@@ -89,6 +90,7 @@ course_token_get_tier() {
 #   3  — tg_user_id в токене не совпадает с tg_id машины (шаринг)
 #   4  — ошибка декодирования base64 signature
 #   5  — подпись недействительна (токен повреждён или подделан)
+#   6  — онлайн-проверка не пройдена (отзыв, истечение, недоступен сервис)
 verify_vip_token() {
   local token="$1"
   local machine_tg_id="$2"
@@ -97,8 +99,9 @@ verify_vip_token() {
   version=$(vip_token_version "$token")
 
   case "$version" in
-    oc4)
-      _verify_oc4 "$token" "$machine_tg_id"
+    oc5)
+      _verify_oc5 "$token" "$machine_tg_id" || return $?
+      vip_verify_token_online "$token"
       return $?
       ;;
     *)
@@ -152,26 +155,41 @@ JS
   return 5
 }
 
-# ─── OC4 verification ───────────────────────────────────────────
-_verify_oc4() {
+# ─── OC5 verification ───────────────────────────────────────────
+_verify_oc5() {
   local token="$1"
   local machine_tg_id="$2"
 
-  local prefix hash_part tg_part sig_part
+  local prefix hash_part tg_part nonce_part sig_part
   prefix=$(printf '%s' "$token" | cut -d'-' -f2)
   hash_part=$(printf '%s' "$token" | cut -d'-' -f3)
   tg_part=$(printf '%s' "$token" | cut -d'-' -f4)
-  sig_part=$(printf '%s' "$token" | cut -d'-' -f5-)
+  nonce_part=$(printf '%s' "$token" | cut -d'-' -f5)
+  sig_part=$(printf '%s' "$token" | cut -d'-' -f6-)
 
   if [[ -n "$machine_tg_id" && "$tg_part" != "$machine_tg_id" ]]; then
     return 3
   fi
 
-  _verify_ed25519_signature "OC4|${prefix}|${hash_part}|${tg_part}" "$sig_part"
+  _verify_ed25519_signature "OC5|${prefix}|${hash_part}|${tg_part}|${nonce_part}" "$sig_part"
   local rc=$?
   [[ $rc -eq 4 ]] && return 4
   [[ $rc -eq 0 ]] && return 0
   return 5
+}
+
+vip_verify_token_online() {
+  local token="$1" response
+  response=$(mktemp -t vip-token-status.XXXXXX) || return 6
+  chmod 600 "$response" 2>/dev/null || true
+  if curl -fsS --proto '=https' --tlsv1.2 --connect-timeout 10 --max-time 20 \
+       -H "Authorization: Bearer ${token}" "$VIP_TOKEN_STATUS_URL" -o "$response" 2>/dev/null \
+     && grep -qE '"ok"[[:space:]]*:[[:space:]]*true' "$response"; then
+    rm -f "$response"
+    return 0
+  fi
+  rm -f "$response"
+  return 6
 }
 
 # ─── Утилита: декодирование base64url в бинарный файл ──────────

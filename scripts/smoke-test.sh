@@ -105,14 +105,14 @@ if ps -p "$HB_PID" &>/dev/null; then
 fi
 pass "heartbeat стартует и корректно останавливается"
 
-# ─── Test 5: OC4 token rotation ──────────────────────────────────
+# ─── Test 5: OC5 token rotation ──────────────────────────────────
 # Runtime crypto uses an ephemeral key in the dedicated test, so no active
 # production token is committed as a fixture.
 # shellcheck disable=SC1091
 source scripts/lib/vip.sh
 
-bash tests/token-rotation-test.sh || fail "OC4 token-rotation behavioral test failed"
-pass "OC4 token rotation rejects legacy formats and enforces signed owner"
+bash tests/token-rotation-test.sh || fail "OC5 token-rotation behavioral test failed"
+pass "OC5 token rotation rejects legacy formats and enforces signed owner"
 
 # A syntactically valid old token must fail as a revoked format, regardless of
 # whether its retired signature was once valid.
@@ -123,7 +123,7 @@ verify_vip_token "$REVOKED_V3_TOKEN" "123456789"
 rc=$?
 set -e
 [[ "$rc" == "2" ]] || fail "legacy v3 token must return revoked-format rc=2, got rc=$rc"
-pass "legacy v1/v2/v3 formats are rejected after the OC4 cutover"
+pass "legacy v1/v2/v3/OC4 formats are rejected after the OC5 cutover"
 
 # ─── Test 6: wave 6 шаблоны на месте — SOUL / LEARNING / skills ───
 # Для 3 VIP-агентов должны существовать расширенные шаблоны.
@@ -364,10 +364,12 @@ grep -q 'acquire_course_token' scripts/lib/course-token.sh \
   || fail "acquire_course_token не объявлена (wave 12)"
 grep -q 'course_token_get_tier' scripts/lib/vip.sh \
   || fail "course_token_get_tier не объявлена в vip.sh (wave 12)"
-grep -q '_verify_oc4' scripts/lib/vip.sh \
-  || fail "_verify_oc4 не объявлена в vip.sh (OC4 tier-aware)"
-grep -q 'OC4-(VIP|STD|SUB|HRM)' scripts/lib/vip.sh \
-  || fail "vip.sh не распознаёт OC4 tier-префикс"
+grep -q '_verify_oc5' scripts/lib/vip.sh \
+  || fail "_verify_oc5 не объявлена в vip.sh (OC5 tier-aware)"
+grep -q 'OC5-(VIP|STD|SUB|HRM)' scripts/lib/vip.sh \
+  || fail "vip.sh не распознаёт OC5 tier-префикс"
+grep -q 'vip_verify_token_online' scripts/lib/vip.sh \
+  || fail "vip.sh не выполняет обязательную онлайн-проверку токена"
 grep -q -- '--course-token' scripts/install-agents.sh \
   || fail "--course-token флаг не прописан в install-agents.sh (wave 12)"
 grep -q 'acquire_course_token' scripts/install-agents.sh \
@@ -377,20 +379,20 @@ grep -q 'course-token' scripts/build-bundle.sh \
 # Wave 12 бриф (course-token-brief-for-techie.md) удалён как выполненный
 # (course-token в проде с мая 2026). Сама логика course-token проверена
 # выше — ассерт на handoff-файл больше не нужен.
-pass "course-token OC4 (Base + Pro) во всех слоях"
+pass "course-token OC5 (Base + Pro) во всех слоях + online status"
 
-# ─── Test 6.17: OC4 token parsing ────────────────────────────────
-TEST_STD_TOKEN_OC4="OC4-STD-83E4E94BC01F3E0E-123456789-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-TEST_VIP_TOKEN_OC4="OC4-VIP-377D8277E363B9B3-123456789-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-[[ "$(vip_token_version "$TEST_STD_TOKEN_OC4")" == oc4 ]] \
-  || fail "OC4-STD token was not recognized"
-[[ "$(vip_token_version "$TEST_VIP_TOKEN_OC4")" == oc4 ]] \
-  || fail "OC4-VIP token was not recognized"
-[[ "$(course_token_get_tier "$TEST_STD_TOKEN_OC4")" == STD ]] \
-  || fail "course_token_get_tier must return STD for OC4"
-[[ "$(course_token_get_tier "$TEST_VIP_TOKEN_OC4")" == VIP ]] \
-  || fail "course_token_get_tier must return VIP for OC4"
-pass "OC4 parser extracts signed tier without retaining a v3 fallback"
+# ─── Test 6.17: OC5 token parsing ────────────────────────────────
+TEST_STD_TOKEN_OC5="OC5-STD-83E4E94BC01F3E0E-123456789-ABCDEF0123456789ABCDEF01-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+TEST_VIP_TOKEN_OC5="OC5-VIP-377D8277E363B9B3-123456789-ABCDEF0123456789ABCDEF01-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+[[ "$(vip_token_version "$TEST_STD_TOKEN_OC5")" == oc5 ]] \
+  || fail "OC5-STD token was not recognized"
+[[ "$(vip_token_version "$TEST_VIP_TOKEN_OC5")" == oc5 ]] \
+  || fail "OC5-VIP token was not recognized"
+[[ "$(course_token_get_tier "$TEST_STD_TOKEN_OC5")" == STD ]] \
+  || fail "course_token_get_tier must return STD for OC5"
+[[ "$(course_token_get_tier "$TEST_VIP_TOKEN_OC5")" == VIP ]] \
+  || fail "course_token_get_tier must return VIP for OC5"
+pass "OC5 parser extracts signed tier without retaining a v3/OC4 fallback"
 
 # ─── Test 6.18: wave 13 DMG installer для macOS ──────────────────
 [[ -f "scripts/build-dmg.sh" ]] \
@@ -480,12 +482,12 @@ grep -q 'УСТАНОВКА ОТКЛОНЕНА.*несоответствие т�
 pass "wave 15.1: info про токен в early-exits + усиленный отказ при невалидном токене"
 
 # ─── Test 6.22: wave 16 SUB-tier subscription ────────────────────
-# Lib должен распознавать OC4-SUB- префикс
-grep -q 'OC4-(VIP|STD|SUB|HRM)' scripts/lib/vip.sh \
-  || fail "OC4: vip.sh не распознаёт SUB tier"
-TEST_SUB_TOKEN_FORMAT="OC4-SUB-83E4E94BC01F3E0E-123456789-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-[[ "$(vip_token_version "$TEST_SUB_TOKEN_FORMAT")" == oc4 ]] \
-  || fail "OC4: vip_token_version не возвращает oc4 для SUB-токена"
+# Lib должен распознавать OC5-SUB- префикс
+grep -q 'OC5-(VIP|STD|SUB|HRM)' scripts/lib/vip.sh \
+  || fail "OC5: vip.sh не распознаёт SUB tier"
+TEST_SUB_TOKEN_FORMAT="OC5-SUB-83E4E94BC01F3E0E-123456789-ABCDEF0123456789ABCDEF01-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+[[ "$(vip_token_version "$TEST_SUB_TOKEN_FORMAT")" == oc5 ]] \
+  || fail "OC5: vip_token_version не возвращает oc5 для SUB-токена"
 # course_token_get_tier → SUB
 [[ "$(course_token_get_tier "$TEST_SUB_TOKEN_FORMAT")" == "SUB" ]] \
   || fail "wave 16: course_token_get_tier не возвращает SUB"
@@ -530,9 +532,9 @@ grep -q 'EN DASH\|U+2013' scripts/lib/course-token.sh \
 grep -q 'Очистил токен от лишних символов' scripts/lib/course-token.sh \
   || fail "wave 17: info-сообщение о санитизации отсутствует"
 # Runtime-проверка: токен с trailing-space должен пройти валидацию формата
-test_token_dirty="  OC4-STD-AAAAAAAAAAAAAAAA-12345  "
-test_token_clean="OC4-STD-AAAAAAAAAAAAAAAA-12345"
-test_token_dashes="OC4—STD—AAAAAAAAAAAAAAAA—12345"  # с длинными тире
+test_token_dirty="  OC5-STD-AAAAAAAAAAAAAAAA-12345  "
+test_token_clean="OC5-STD-AAAAAAAAAAAAAAAA-12345"
+test_token_dashes="OC5—STD—AAAAAAAAAAAAAAAA—12345"  # с длинными тире
 # Проверяем только что регекс tier-prefix отрабатывает после санитизации
 (
   source scripts/lib/vip.sh 2>/dev/null
@@ -637,7 +639,7 @@ pass "wave 24: co-branding подзаголовок TONY TRUE × СЕРДИТО�
 
 # ─── Test 6.30: wave 25 Hermes super-agent integration ──────────
 # Опция «4) Hermes» появляется в V_MAIN только если OpenClaw обнаружен.
-# Новый HRM-tier распознаётся в vip.sh (Ed25519, payload OC4|HRM|hash|tg).
+# Новый HRM-tier распознаётся в vip.sh (Ed25519, payload OC5|HRM|hash|tg|nonce).
 # Установка через official NousResearch installer после HRM-токен валидации
 # и confirm-шага от клиента.
 grep -q 'detect_openclaw()' scripts/install-agents.sh \
@@ -651,8 +653,8 @@ grep -q 'OPENCLAW_INSTALLED' scripts/install-agents.sh \
 grep -q 'BOLD}Hermes' scripts/install-agents.sh \
   || fail "wave 25: 4-й пункт меню (Hermes) отсутствует"
 # vip.sh распознаёт HRM-префикс
-grep -q 'OC4-(VIP|STD|SUB|HRM)' scripts/lib/vip.sh \
-  || fail "wave 25: vip.sh не распознаёт HRM-tier в формате OC4"
+grep -q 'OC5-(VIP|STD|SUB|HRM)' scripts/lib/vip.sh \
+  || fail "wave 25: vip.sh не распознаёт HRM-tier в формате OC5"
 grep -q 'HRM' scripts/lib/vip.sh \
   || fail "wave 25: vip.sh не упоминает HRM tier"
 pass "wave 25: Hermes super-agent (HRM-токен + condition menu + Nous installer)"
@@ -890,12 +892,12 @@ echo ""
 echo "=== All smoke tests passed ==="
 
 # ─── Hermes в Pro (решение Антона 2026-06-11) ───
-grep -q 'hrm_token" =~ \^OC4-(HRM|VIP)-' scripts/install-agents.sh \
-  || fail "hermes: префикс-гейт не принимает OC4-VIP-"
+grep -q 'hrm_token" =~ \^OC5-(HRM|VIP)-' scripts/install-agents.sh \
+  || fail "hermes: префикс-гейт не принимает OC5-VIP-"
 grep -q 'У тебя Pro (VIP) — Hermes включён' scripts/install-agents.sh \
   || fail "hermes: нет авто-зачёта VIP из кэша"
-grep -q 'Вставь токен OC4-HRM-... или OC4-VIP-' scripts/install-agents.sh \
-  || fail "hermes: промпт не предлагает OC4-VIP"
+grep -q 'Вставь токен OC5-HRM-... или OC5-VIP-' scripts/install-agents.sh \
+  || fail "hermes: промпт не предлагает OC5-VIP"
 pass "Hermes доступен по VIP (кэш-автозачёт + ручной ввод), HRM остался"
 
 # ─── Политика моделей + auth-bridge (решения Антона 2026-06-11) ───

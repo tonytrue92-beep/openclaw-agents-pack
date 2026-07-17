@@ -32,17 +32,22 @@ sign_b64url() {
 
 HASH='0123456789ABCDEF'
 OWNER='123456789'
-signature=$(sign_b64url "OC4|STD|${HASH}|${OWNER}") || fail 'could not sign OC4 fixture'
-valid="OC4-STD-${HASH}-${OWNER}-${signature}"
+NONCE="ABCDEF0123456789ABCDEF01"
+signature=$(sign_b64url "OC5|STD|${HASH}|${OWNER}|${NONCE}") || fail 'could not sign OC5 fixture'
+valid="OC5-STD-${HASH}-${OWNER}-${NONCE}-${signature}"
 
-[[ "$(vip_token_version "$valid")" == oc4 ]] || fail 'OC4 token format was not recognized'
-[[ "$(course_token_get_tier "$valid")" == STD ]] || fail 'OC4 tier was not extracted'
-[[ "$(vip_token_get_expected_tg "$valid")" == "$OWNER" ]] || fail 'OC4 owner was not extracted'
-[[ "$(vip_token_get_hash "$valid")" == "$HASH" ]] || fail 'OC4 token identifier was not extracted'
+# Cryptographic behavior is tested here; gateway behavior is covered by the
+# dedicated HTTP service tests and must not make this offline unit test networked.
+vip_verify_token_online() { return 0; }
 
-verify_vip_token "$valid" "$OWNER" || fail 'matching OC4 token was rejected'
+[[ "$(vip_token_version "$valid")" == oc5 ]] || fail 'OC5 token format was not recognized'
+[[ "$(course_token_get_tier "$valid")" == STD ]] || fail 'OC5 tier was not extracted'
+[[ "$(vip_token_get_expected_tg "$valid")" == "$OWNER" ]] || fail 'OC5 owner was not extracted'
+[[ "$(vip_token_get_hash "$valid")" == "$HASH" ]] || fail 'OC5 token identifier was not extracted'
+
+verify_vip_token "$valid" "$OWNER" || fail 'matching OC5 token was rejected'
 if verify_vip_token "$valid" 987654321; then
-  fail 'OC4 token was accepted for another Telegram owner'
+  fail 'OC5 token was accepted for another Telegram owner'
 else
   [[ $? -eq 3 ]] || fail 'owner mismatch did not return the anti-sharing status'
 fi

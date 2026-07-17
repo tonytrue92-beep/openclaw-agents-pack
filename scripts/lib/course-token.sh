@@ -7,13 +7,13 @@
 #
 # После wave 12: ЛЮБАЯ свежая установка / переустановка требует
 # course-token. Токены выдаёт @AITeamVIPBot:
-#   - VIP-клиентам: OC4-VIP-... (payload OC4|VIP|hash|tg_id)
-#   - Standard-клиентам: OC4-STD-... (payload OC4|STD|hash|tg_id)
+#   - VIP-клиентам: OC5-VIP-... (payload OC5|VIP|hash|tg_id|nonce)
+#   - Standard-клиентам: OC5-STD-... (payload OC5|STD|hash|tg_id|nonce)
 #
 # Backward-compat:
 #   - --refresh-templates: токен НЕ требуется (уже-установленные не страдают)
 #   - --diagnose-only / --collect-debug / --enable-group-mode: токен НЕ нужен
-#   - Поддерживаются только OC4 токены после общей ротации ключа; v1/v2/v3
+#   - Поддерживаются только OC5 токены с обязательной online-проверкой; v1/v2/v3/OC4
 #     отозваны и требуют перевыпуска в @AITeamVIPBot.
 #
 # Кэширование: после успешной валидации токен сохраняется в
@@ -126,8 +126,8 @@ acquire_course_token() {
     echo "" >&2
     echo "ERROR: course-token обязателен для свежей установки." >&2
     echo "В non-interactive режиме передайте флагом:" >&2
-    echo "  bash scripts/install-agents.sh --install --course-token OC4-STD-..." >&2
-    echo "Или строкой COURSE_TOKEN=OC4-STD-... в файле для --config." >&2
+    echo "  bash scripts/install-agents.sh --install --course-token OC5-STD-..." >&2
+    echo "Или строкой COURSE_TOKEN=OC5-STD-... в файле для --config." >&2
     return 1
   fi
 
@@ -150,8 +150,8 @@ _course_token_prompt_loop() {
         "  ${BOLD}@AITeamVIPBot${NC} → /start → email/phone оплаты" \
         "" \
         "Бот выдаст токен формата:" \
-        "  ${DIM}OC4-STD-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (Standard)${NC}" \
-        "  ${DIM}OC4-VIP-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (VIP)${NC}" \
+        "  ${DIM}OC5-STD-XXXXXXXXXXXXXXXX-<TG_ID>-<nonce>-<подпись>  (Standard)${NC}" \
+        "  ${DIM}OC5-VIP-XXXXXXXXXXXXXXXX-<TG_ID>-<nonce>-<подпись>  (VIP)${NC}" \
         "" \
         "Токен привязан к твоему Telegram — расшарить нельзя." \
         "" \
@@ -206,15 +206,15 @@ _course_token_validate_and_set() {
     echo -e "   ${DIM}ℹ️  Очистил токен от лишних символов (пробелы / тире-юникод / кавычки).${NC}" >&2
   fi
 
-  # Префикс должен быть OC4-VIP- / OC4-STD- / OC4-SUB-
+  # Префикс должен быть OC5-VIP- / OC5-STD- / OC5-SUB-
   local tier
   tier=$(course_token_get_tier "$token" 2>/dev/null)
   if [[ -z "$tier" ]]; then
-    warn "Токен устарел или имеет неверный формат. Получи новый OC4-токен в @AITeamVIPBot."
+    warn "Токен устарел или имеет неверный формат. Получи новый OC5-токен в @AITeamVIPBot."
     return 1
   fi
 
-  # Криптографическая проверка через verify_vip_token (только OC4).
+  # Криптографическая и обязательная онлайн-проверка через verify_vip_token.
   verify_vip_token "$token" "$machine_tg_id"
   local rc=$?
 
@@ -230,6 +230,11 @@ _course_token_validate_and_set() {
       warn "Токен выдан для TG ID ${expected_tg}, а у тебя ${machine_tg_id}."
       echo -e "   ${DIM}Это анти-шаринг защита: получи свой токен в @AITeamVIPBot${NC}"
       echo -e "   ${DIM}с ТОГО ЖЕ Telegram-аккаунта где будут жить агенты.${NC}"
+      return 1
+      ;;
+    6)
+      warn "Онлайн-проверка токена не пройдена: он отозван, истёк (7 дней) или сервис недоступен."
+      echo -e "   ${DIM}Получи свежий токен в @AITeamVIPBot и проверь подключение к интернету.${NC}"
       return 1
       ;;
     *)

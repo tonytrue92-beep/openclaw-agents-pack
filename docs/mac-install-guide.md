@@ -37,7 +37,7 @@
 
 | Что | Где взять |
 |---|---|
-| **Курс-токен** | Telegram → [@AITeamVIPBot](https://t.me/AITeamVIPBot) → `/start` → введи email/телефон оплаты курса. Получишь новый `OC4-STD-...` (Standard) или `OC4-VIP-...` (VIP). Старые токены перевыпускаются ботом. |
+| **Курс-токен** | Telegram → [@AITeamVIPBot](https://t.me/AITeamVIPBot) → `/start` → введи email/телефон оплаты курса. Получишь новый `OC5-STD-...` (Standard) или `OC5-VIP-...` (VIP). Токен действует 7 дней; при перевыпуске прежний сразу отзывается. |
 | **Telegram-боты** | [@BotFather](https://t.me/BotFather) → `/newbot` → создай 3 ботов (Standard) или 6 (VIP). Сохрани каждый токен. |
 | **Свой TG user ID** | [@userinfobot](https://t.me/userinfobot) → `/start` → бот пришлёт твой ID (число типа `123456789`). |
 | **(Опционально) OpenAI ключ** | Только если хочешь embedding-память. См. [`docs/openai-key-setup.md`](./openai-key-setup.md). Карта РФ напрямую не работает. |
