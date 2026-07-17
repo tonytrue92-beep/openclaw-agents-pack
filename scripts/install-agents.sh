@@ -90,7 +90,7 @@ Usage: bash install-agents.sh [OPTIONS]
 Options:
   --install              Пропустить меню, поставить Base-набор (3 агента)
   --course-token <token> Course-token из @AITeamVIPBot. Mandatory для свежей установки.
-                         Формат VIP-... → VIP-режим (8 агентов), STD-... → Standard (3).
+                         Формат OC4-VIP-... → VIP-режим (8 агентов), OC4-STD-... → Standard (3).
   --vip-token <token>    Backward-compat алиас для --course-token.
   --vps, --headless      VPS-режим (skip GUI, SSH-tunnel-инструкция для dashboard)
   --only <agent>         Поставить только одного: tech | marketer | producer | designer | coordinator | copywriter | leadcloser | content (последние 5 — Pro, нужен VIP-токен)
@@ -232,10 +232,10 @@ while [[ $# -gt 0 ]]; do
       VIP_TOKEN="$COURSE_TOKEN"  # старая переменная — для существующего кода
       # Tier определяется по prefix
       case "$COURSE_TOKEN" in
-        VIP-*) VIP_MODE=true ;;
-        STD-*) VIP_MODE=false ;;
+        OC4-VIP-*) VIP_MODE=true ;;
+        OC4-STD-*|OC4-SUB-*|OC4-HRM-*) VIP_MODE=false ;;
         *)
-          echo "ERROR: токен должен начинаться с VIP- или STD-"
+          echo "ERROR: нужен новый токен формата OC4-..."
           echo "Получи актуальный в @AITeamVIPBot → /start → email/phone"
           exit 1
           ;;
@@ -604,7 +604,7 @@ if [[ -n "$CONFIG_FILE" ]]; then
   # R2-аудит: VIP_MODE по ПРЕФИКСУ токена (раньше любой VIP_TOKEN= в файле
   # включал VIP_MODE — STD-токен в config получал отказ по тарифу).
   case "${COURSE_TOKEN:-}" in
-    VIP-*) VIP_MODE=true ;;
+    OC4-VIP-*) VIP_MODE=true ;;
     *)     VIP_MODE=false ;;
   esac
   SKIP_MENU=true
@@ -819,7 +819,7 @@ HERMES_CUBE_EOF
   # валидный VIP-токен — зачитываем его, токен заново не спрашиваем.
   local _hermes_cached=""
   _hermes_cached="$(_course_token_load_cache 2>/dev/null || true)"
-  if [[ "$_hermes_cached" == VIP-* ]]; then
+  if [[ "$_hermes_cached" == OC4-VIP-* ]]; then
     if verify_vip_token "$_hermes_cached" "$machine_tg_id"; then
       echo -e "   ${GREEN}✓ У тебя Pro (VIP) — Hermes включён в твой тариф.${NC}"
       hrm_token="$_hermes_cached"
@@ -829,7 +829,7 @@ HERMES_CUBE_EOF
   local attempts=0
   while [[ -z "$hrm_token" && $attempts -lt 3 ]]; do
     attempts=$((attempts + 1))
-    echo -e "   ${BOLD}${WHITE}Вставь HRM- или VIP-токен (попытка ${attempts}/3):${NC}"
+    echo -e "   ${BOLD}${WHITE}Вставь токен OC4-HRM-... или OC4-VIP-... (попытка ${attempts}/3):${NC}"
     read -r hrm_token
 
     # Wave 17 санитизация — те же правила что для course-token
@@ -846,8 +846,8 @@ HERMES_CUBE_EOF
       continue
     fi
 
-    if [[ ! "$hrm_token" =~ ^(HRM|VIP)- ]]; then
-      warn "Нужен токен «HRM-...» или Pro-токен «VIP-...» (Base/подписка не дают Hermes)."
+    if [[ ! "$hrm_token" =~ ^OC4-(HRM|VIP)- ]]; then
+      warn "Нужен токен «OC4-HRM-...» или Pro-токен «OC4-VIP-...» (Base/подписка не дают Hermes)."
       echo -e "   ${DIM}Pro-клиентам Hermes включён; отдельный HRM — в @AITeamVIPBot.${NC}"
       continue
     fi
@@ -989,10 +989,10 @@ fi
 _cached_tier=""
 _ct="$(_course_token_load_cache 2>/dev/null || true)"
 case "${_ct:-}" in
-  VIP-*) _cached_tier="VIP" ;;
-  STD-*) _cached_tier="STD" ;;
-  SUB-*) _cached_tier="SUB" ;;
-  HRM-*) _cached_tier="HRM" ;;
+  OC4-VIP-*) _cached_tier="VIP" ;;
+  OC4-STD-*) _cached_tier="STD" ;;
+  OC4-SUB-*) _cached_tier="SUB" ;;
+  OC4-HRM-*) _cached_tier="HRM" ;;
 esac
 unset _ct
 _menu_default=3
@@ -1173,7 +1173,7 @@ if ! acquire_course_token "$COURSE_TOKEN" "$MACHINE_TG_ID" "$_token_mode"; then
   echo -e "   ${CYAN}1.${NC} Открой ${BOLD}@AITeamVIPBot${NC} в Telegram"
   echo -e "   ${CYAN}2.${NC} Напиши ${BOLD}/start${NC}"
   echo -e "   ${CYAN}3.${NC} Введи ${BOLD}email${NC} или ${BOLD}телефон${NC} которыми оплачивал курс"
-  echo -e "   ${CYAN}4.${NC} Бот пришлёт токен вида ${BOLD}STD-...${NC} или ${BOLD}VIP-...${NC}"
+  echo -e "   ${CYAN}4.${NC} Бот пришлёт новый токен вида ${BOLD}OC4-STD-...${NC} или ${BOLD}OC4-VIP-...${NC}"
   echo -e "   ${CYAN}5.${NC} Скопируй ВЕСЬ токен (часто длинная строка) и запусти установщик снова"
   echo ""
   echo -e "   ${BOLD}${WHITE}Если бот говорит «email не найден»:${NC}"

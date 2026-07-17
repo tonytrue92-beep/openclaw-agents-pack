@@ -105,44 +105,25 @@ if ps -p "$HB_PID" &>/dev/null; then
 fi
 pass "heartbeat стартует и корректно останавливается"
 
-# ─── Test 5: VIP v2 end-to-end с реальным токеном от @AITeamVIPBot ───
-# Токен выдан 2026-04-21 после sync-фикса (бот обновлён до v2).
-# TG=123456789 — тестовое несуществующее значение, токен бесполезен
-# для реального злоумышленника (чужой TG, проверка провалится).
+# ─── Test 5: OC4 token rotation ──────────────────────────────────
+# Runtime crypto uses an ephemeral key in the dedicated test, so no active
+# production token is committed as a fixture.
 # shellcheck disable=SC1091
 source scripts/lib/vip.sh
 
-REAL_VIP_TOKEN="VIP-4EAF70B1F7A79796-123456789-Luu9d94qEEvJxrBZkQiRHJo2sdunPjmIh6SOAMh4aVyInPzMs3iDDV5tlJVGztUQk0P5wIIyESLtBUPbHzDEAw"
-REAL_VIP_TG="123456789"
+bash tests/token-rotation-test.sh || fail "OC4 token-rotation behavioral test failed"
+pass "OC4 token rotation rejects legacy formats and enforces signed owner"
 
-# 5a. Формат распознаётся как v2
-[[ "$(vip_token_version "$REAL_VIP_TOKEN")" == "v2" ]] || fail "v2 token не распознан как v2"
-pass "v2 формат распознаётся"
-
-# 5b. Корректный TG → rc=0
+# A syntactically valid old token must fail as a revoked format, regardless of
+# whether its retired signature was once valid.
+REVOKED_V3_TOKEN="VIP-4EAF70B1F7A79796-123456789-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+[[ "$(vip_token_version "$REVOKED_V3_TOKEN")" == "unknown" ]] || fail "legacy v3 format was not rejected"
 set +e
-verify_vip_token "$REAL_VIP_TOKEN" "$REAL_VIP_TG"
+verify_vip_token "$REVOKED_V3_TOKEN" "123456789"
 rc=$?
 set -e
-[[ "$rc" == "0" ]] || fail "valid token с правильным TG: ожидался rc=0, получен rc=$rc"
-pass "VIP v2 валидация с правильным TG ($REAL_VIP_TG): rc=0"
-
-# 5c. Чужой TG → rc=3 (TG mismatch, анти-шаринг)
-set +e
-verify_vip_token "$REAL_VIP_TOKEN" "999999999"
-rc=$?
-set -e
-[[ "$rc" == "3" ]] || fail "valid token с чужим TG: ожидался rc=3, получен rc=$rc"
-pass "VIP v2 анти-шаринг с чужим TG: rc=3 (блокирует)"
-
-# 5d. Испорченный токен → rc=5 (подпись не проходит)
-BROKEN_TOKEN="VIP-4EAF70B1F7A79796-123456789-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-set +e
-verify_vip_token "$BROKEN_TOKEN" "123456789"
-rc=$?
-set -e
-[[ "$rc" == "5" ]] || fail "broken signature: ожидался rc=5, получен rc=$rc"
-pass "VIP v2 отвергает токен с битой подписью: rc=5"
+[[ "$rc" == "2" ]] || fail "legacy v3 token must return revoked-format rc=2, got rc=$rc"
+pass "legacy v1/v2/v3 formats are rejected after the OC4 cutover"
 
 # ─── Test 6: wave 6 шаблоны на месте — SOUL / LEARNING / skills ───
 # Для 3 VIP-агентов должны существовать расширенные шаблоны.
@@ -383,10 +364,10 @@ grep -q 'acquire_course_token' scripts/lib/course-token.sh \
   || fail "acquire_course_token не объявлена (wave 12)"
 grep -q 'course_token_get_tier' scripts/lib/vip.sh \
   || fail "course_token_get_tier не объявлена в vip.sh (wave 12)"
-grep -q '_verify_v3' scripts/lib/vip.sh \
-  || fail "_verify_v3 не объявлена в vip.sh (wave 12 — STD/VIP tier-aware)"
-grep -q 'STD-\[A-F0-9\]' scripts/lib/vip.sh \
-  || fail "vip.sh не распознаёт STD-префикс токена (wave 12)"
+grep -q '_verify_oc4' scripts/lib/vip.sh \
+  || fail "_verify_oc4 не объявлена в vip.sh (OC4 tier-aware)"
+grep -q 'OC4-(VIP|STD|SUB|HRM)' scripts/lib/vip.sh \
+  || fail "vip.sh не распознаёт OC4 tier-префикс"
 grep -q -- '--course-token' scripts/install-agents.sh \
   || fail "--course-token флаг не прописан в install-agents.sh (wave 12)"
 grep -q 'acquire_course_token' scripts/install-agents.sh \
@@ -396,55 +377,20 @@ grep -q 'course-token' scripts/build-bundle.sh \
 # Wave 12 бриф (course-token-brief-for-techie.md) удалён как выполненный
 # (course-token в проде с мая 2026). Сама логика course-token проверена
 # выше — ассерт на handoff-файл больше не нужен.
-pass "wave 12: course-token v3 (Standard + VIP) во всех слоях"
+pass "course-token OC4 (Base + Pro) во всех слоях"
 
-# ─── Test 6.17: wave 12.1 v3 token runtime tests (after @AITeamVIPBot v3) ─
-# Технарь обновил бот до v3 (commit fbb8443) и прислал тестовые
-# токены, подписанные тем же приватным ключом что v2-VIP-тест выше.
-# Оба для TG=123456789 (тестовый, токены бесполезны злоумышленнику).
-TEST_STD_TOKEN_V3="STD-83E4E94BC01F3E0E-123456789-c9H1UYJVjqbu5MCuw0Dwq5rWhqxl4cZRtSCXud3IeBBoG4pnVy4N7iJud6c5oo1fgGKaxSE4JXH_OwIOwSPvDQ"
-TEST_VIP_TOKEN_V3="VIP-377D8277E363B9B3-123456789-B1VpzqPSalsWOzpm-lPX1E6JR8wYTDvNi6THaF2eAkXafCmbaTbPOKf7mk1NPt6gdINAszG7IlIARf0a2dRZDA"
-
-# 12.1a. v3-STD формат распознаётся правильно
-[[ "$(vip_token_version "$TEST_STD_TOKEN_V3")" == "v3-std" ]] \
-  || fail "v3-STD токен не распознан как v3-std"
-pass "wave 12.1: v3-STD форма распознаётся"
-
-# 12.1b. v3-VIP имеет ту же форму что v2 (различается по payload)
-[[ "$(vip_token_version "$TEST_VIP_TOKEN_V3")" == "v2" ]] \
-  || fail "v3-VIP должен иметь форму v2 (различается через payload)"
-pass "wave 12.1: v3-VIP имеет правильную v2-совместимую форму"
-
-# 12.1c. STD-токен с правильным TG → rc=0
-set +e
-verify_vip_token "$TEST_STD_TOKEN_V3" "123456789"
-rc=$?
-set -e
-[[ "$rc" == "0" ]] || fail "v3-STD с правильным TG: ожидался rc=0, получен rc=$rc"
-pass "wave 12.1: v3-STD валидация с правильным TG: rc=0"
-
-# 12.1d. VIP-токен v3 с правильным TG → rc=0
-set +e
-verify_vip_token "$TEST_VIP_TOKEN_V3" "123456789"
-rc=$?
-set -e
-[[ "$rc" == "0" ]] || fail "v3-VIP с правильным TG: ожидался rc=0, получен rc=$rc"
-pass "wave 12.1: v3-VIP валидация с правильным TG: rc=0"
-
-# 12.1e. STD-токен с чужим TG → rc=3 (anti-share)
-set +e
-verify_vip_token "$TEST_STD_TOKEN_V3" "999999999"
-rc=$?
-set -e
-[[ "$rc" == "3" ]] || fail "v3-STD anti-share: ожидался rc=3, получен rc=$rc"
-pass "wave 12.1: v3-STD anti-share с чужим TG: rc=3"
-
-# 12.1f. course_token_get_tier правильно извлекает tier
-[[ "$(course_token_get_tier "$TEST_STD_TOKEN_V3")" == "STD" ]] \
-  || fail "course_token_get_tier для STD-токена должна вернуть STD"
-[[ "$(course_token_get_tier "$TEST_VIP_TOKEN_V3")" == "VIP" ]] \
-  || fail "course_token_get_tier для VIP-токена должна вернуть VIP"
-pass "wave 12.1: course_token_get_tier корректно извлекает STD/VIP"
+# ─── Test 6.17: OC4 token parsing ────────────────────────────────
+TEST_STD_TOKEN_OC4="OC4-STD-83E4E94BC01F3E0E-123456789-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+TEST_VIP_TOKEN_OC4="OC4-VIP-377D8277E363B9B3-123456789-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+[[ "$(vip_token_version "$TEST_STD_TOKEN_OC4")" == oc4 ]] \
+  || fail "OC4-STD token was not recognized"
+[[ "$(vip_token_version "$TEST_VIP_TOKEN_OC4")" == oc4 ]] \
+  || fail "OC4-VIP token was not recognized"
+[[ "$(course_token_get_tier "$TEST_STD_TOKEN_OC4")" == STD ]] \
+  || fail "course_token_get_tier must return STD for OC4"
+[[ "$(course_token_get_tier "$TEST_VIP_TOKEN_OC4")" == VIP ]] \
+  || fail "course_token_get_tier must return VIP for OC4"
+pass "OC4 parser extracts signed tier without retaining a v3 fallback"
 
 # ─── Test 6.18: wave 13 DMG installer для macOS ──────────────────
 [[ -f "scripts/build-dmg.sh" ]] \
@@ -534,13 +480,12 @@ grep -q 'УСТАНОВКА ОТКЛОНЕНА.*несоответствие т�
 pass "wave 15.1: info про токен в early-exits + усиленный отказ при невалидном токене"
 
 # ─── Test 6.22: wave 16 SUB-tier subscription ────────────────────
-# Lib должен распознавать SUB- префикс
-grep -q 'SUB-\[A-F0-9\]' scripts/lib/vip.sh \
-  || fail "wave 16: vip.sh не распознаёт SUB- префикс"
-# vip_token_version возвращает v3-sub для SUB-токенов
-TEST_SUB_TOKEN_FORMAT="SUB-83E4E94BC01F3E0E-123456789-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-[[ "$(vip_token_version "$TEST_SUB_TOKEN_FORMAT")" == "v3-sub" ]] \
-  || fail "wave 16: vip_token_version не возвращает v3-sub для SUB-токена"
+# Lib должен распознавать OC4-SUB- префикс
+grep -q 'OC4-(VIP|STD|SUB|HRM)' scripts/lib/vip.sh \
+  || fail "OC4: vip.sh не распознаёт SUB tier"
+TEST_SUB_TOKEN_FORMAT="OC4-SUB-83E4E94BC01F3E0E-123456789-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+[[ "$(vip_token_version "$TEST_SUB_TOKEN_FORMAT")" == oc4 ]] \
+  || fail "OC4: vip_token_version не возвращает oc4 для SUB-токена"
 # course_token_get_tier → SUB
 [[ "$(course_token_get_tier "$TEST_SUB_TOKEN_FORMAT")" == "SUB" ]] \
   || fail "wave 16: course_token_get_tier не возвращает SUB"
@@ -585,9 +530,9 @@ grep -q 'EN DASH\|U+2013' scripts/lib/course-token.sh \
 grep -q 'Очистил токен от лишних символов' scripts/lib/course-token.sh \
   || fail "wave 17: info-сообщение о санитизации отсутствует"
 # Runtime-проверка: токен с trailing-space должен пройти валидацию формата
-test_token_dirty="  STD-AAAAAAAAAAAAAAAA-12345  "
-test_token_clean="STD-AAAAAAAAAAAAAAAA-12345"
-test_token_dashes="STD—AAAAAAAAAAAAAAAA—12345"  # с длинными тире
+test_token_dirty="  OC4-STD-AAAAAAAAAAAAAAAA-12345  "
+test_token_clean="OC4-STD-AAAAAAAAAAAAAAAA-12345"
+test_token_dashes="OC4—STD—AAAAAAAAAAAAAAAA—12345"  # с длинными тире
 # Проверяем только что регекс tier-prefix отрабатывает после санитизации
 (
   source scripts/lib/vip.sh 2>/dev/null
@@ -692,7 +637,7 @@ pass "wave 24: co-branding подзаголовок TONY TRUE × СЕРДИТО�
 
 # ─── Test 6.30: wave 25 Hermes super-agent integration ──────────
 # Опция «4) Hermes» появляется в V_MAIN только если OpenClaw обнаружен.
-# Новый HRM-tier распознаётся в vip.sh (тот же Ed25519, payload HRM|hash|tg).
+# Новый HRM-tier распознаётся в vip.sh (Ed25519, payload OC4|HRM|hash|tg).
 # Установка через official NousResearch installer после HRM-токен валидации
 # и confirm-шага от клиента.
 grep -q 'detect_openclaw()' scripts/install-agents.sh \
@@ -706,8 +651,8 @@ grep -q 'OPENCLAW_INSTALLED' scripts/install-agents.sh \
 grep -q 'BOLD}Hermes' scripts/install-agents.sh \
   || fail "wave 25: 4-й пункт меню (Hermes) отсутствует"
 # vip.sh распознаёт HRM-префикс
-grep -q "'v3-hrm'" scripts/lib/vip.sh \
-  || fail "wave 25: vip.sh не распознаёт HRM-tier (v3-hrm)"
+grep -q 'OC4-(VIP|STD|SUB|HRM)' scripts/lib/vip.sh \
+  || fail "wave 25: vip.sh не распознаёт HRM-tier в формате OC4"
 grep -q 'HRM' scripts/lib/vip.sh \
   || fail "wave 25: vip.sh не упоминает HRM tier"
 pass "wave 25: Hermes super-agent (HRM-токен + condition menu + Nous installer)"
@@ -945,12 +890,12 @@ echo ""
 echo "=== All smoke tests passed ==="
 
 # ─── Hermes в Pro (решение Антона 2026-06-11) ───
-grep -q 'hrm_token" =~ \^(HRM|VIP)-' scripts/install-agents.sh \
-  || fail "hermes: префикс-гейт не принимает VIP-"
+grep -q 'hrm_token" =~ \^OC4-(HRM|VIP)-' scripts/install-agents.sh \
+  || fail "hermes: префикс-гейт не принимает OC4-VIP-"
 grep -q 'У тебя Pro (VIP) — Hermes включён' scripts/install-agents.sh \
   || fail "hermes: нет авто-зачёта VIP из кэша"
-grep -q 'Вставь HRM- или VIP-токен' scripts/install-agents.sh \
-  || fail "hermes: промпт не предлагает VIP"
+grep -q 'Вставь токен OC4-HRM-... или OC4-VIP-' scripts/install-agents.sh \
+  || fail "hermes: промпт не предлагает OC4-VIP"
 pass "Hermes доступен по VIP (кэш-автозачёт + ручной ввод), HRM остался"
 
 # ─── Политика моделей + auth-bridge (решения Антона 2026-06-11) ───
@@ -999,4 +944,3 @@ for f in scripts/install-agents.sh scripts/lib/preflight.sh; do
     echo "FAIL: $f печатает мёртвую github-команду (404 на private)"; exit 1; fi
 done
 echo "OK: нет мёртвых github-fallback'ов в печати (всё → @AITeamVIPBot/локально)"
-

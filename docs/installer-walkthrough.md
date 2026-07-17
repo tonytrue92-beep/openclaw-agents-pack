@@ -179,8 +179,8 @@ bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releas
 ℹ️    @AITeamVIPBot → /start → email/phone оплаты
 ℹ️
 ℹ️  Бот выдаст токен формата:
-ℹ️    STD-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (Standard)
-ℹ️    VIP-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (VIP)
+ℹ️    OC4-STD-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (Standard)
+ℹ️    OC4-VIP-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (VIP)
 ℹ️
 ℹ️  Токен привязан к твоему Telegram — расшарить нельзя.
 ℹ️
@@ -212,7 +212,7 @@ bash <(curl -fsSL https://github.com/tonytrue92-beep/openclaw-agents-pack/releas
    1. Открой @AITeamVIPBot в Telegram
    2. Напиши /start
    3. Введи email или телефон которыми оплачивал курс
-   4. Бот пришлёт токен вида STD-... или VIP-...
+   4. Бот пришлёт новый токен вида OC4-STD-... или OC4-VIP-...
    5. Скопируй ВЕСЬ токен (часто длинная строка) и запусти установщик снова
 
    Если бот говорит «email не найден»:

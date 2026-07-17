@@ -7,13 +7,14 @@
 #
 # После wave 12: ЛЮБАЯ свежая установка / переустановка требует
 # course-token. Токены выдаёт @AITeamVIPBot:
-#   - VIP-клиентам: VIP-... (тот же что раньше, payload v3-VIP)
-#   - Standard-клиентам: STD-... (новый формат, v3-STD)
+#   - VIP-клиентам: OC4-VIP-... (payload OC4|VIP|hash|tg_id)
+#   - Standard-клиентам: OC4-STD-... (payload OC4|STD|hash|tg_id)
 #
 # Backward-compat:
 #   - --refresh-templates: токен НЕ требуется (уже-установленные не страдают)
 #   - --diagnose-only / --collect-debug / --enable-group-mode: токен НЕ нужен
-#   - Старые v2-VIP-токены продолжают работать (через fallback в _verify_v3)
+#   - Поддерживаются только OC4 токены после общей ротации ключа; v1/v2/v3
+#     отозваны и требуют перевыпуска в @AITeamVIPBot.
 #
 # Кэширование: после успешной валидации токен сохраняется в
 # ~/.openclaw/course-token (chmod 600). На следующих запусках читается
@@ -125,8 +126,8 @@ acquire_course_token() {
     echo "" >&2
     echo "ERROR: course-token обязателен для свежей установки." >&2
     echo "В non-interactive режиме передайте флагом:" >&2
-    echo "  bash scripts/install-agents.sh --install --course-token STD-..." >&2
-    echo "Или строкой COURSE_TOKEN=STD-... в файле для --config." >&2
+    echo "  bash scripts/install-agents.sh --install --course-token OC4-STD-..." >&2
+    echo "Или строкой COURSE_TOKEN=OC4-STD-... в файле для --config." >&2
     return 1
   fi
 
@@ -149,8 +150,8 @@ _course_token_prompt_loop() {
         "  ${BOLD}@AITeamVIPBot${NC} → /start → email/phone оплаты" \
         "" \
         "Бот выдаст токен формата:" \
-        "  ${DIM}STD-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (Standard)${NC}" \
-        "  ${DIM}VIP-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (VIP)${NC}" \
+        "  ${DIM}OC4-STD-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (Standard)${NC}" \
+        "  ${DIM}OC4-VIP-XXXXXXXXXXXXXXXX-<TG_ID>-<подпись>  (VIP)${NC}" \
         "" \
         "Токен привязан к твоему Telegram — расшарить нельзя." \
         "" \
@@ -205,21 +206,20 @@ _course_token_validate_and_set() {
     echo -e "   ${DIM}ℹ️  Очистил токен от лишних символов (пробелы / тире-юникод / кавычки).${NC}" >&2
   fi
 
-  # Префикс должен быть VIP- / STD- / SUB-
+  # Префикс должен быть OC4-VIP- / OC4-STD- / OC4-SUB-
   local tier
   tier=$(course_token_get_tier "$token" 2>/dev/null)
   if [[ -z "$tier" ]]; then
-    warn "Формат токена не распознан. Ожидается VIP-... / STD-... / SUB-..."
+    warn "Токен устарел или имеет неверный формат. Получи новый OC4-токен в @AITeamVIPBot."
     return 1
   fi
 
-  # Криптографическая проверка через verify_vip_token (поддерживает v3-VIP, v3-STD, v2)
+  # Криптографическая проверка через verify_vip_token (только OC4).
   verify_vip_token "$token" "$machine_tg_id"
   local rc=$?
 
   case $rc in
-    0|6)
-      # 0 — v3 OK, 6 — v1 legacy (для legacy VIP-токенов).
+    0)
       COURSE_TOKEN="$token"
       COURSE_TIER="$tier"
       return 0
