@@ -71,6 +71,50 @@ validate_telegram_token() {
   return 0
 }
 
+# ─── Карта уже настроенных Telegram-ботов ────────────────────────
+#
+# Возвращает строки вида "<username> <accountId>". Токены из конфига не
+# читаем и не печатаем: для проверки ownership достаточно публичного username
+# из `openclaw channels status --probe`.
+#
+# Обычный формат OpenClaw:
+#   - Telegram default: ..., bot:@main_bot
+# В некоторых версиях при ошибке ownership имя default-бота показывается в
+# скобках и без `bot:@`:
+#   - Telegram default (main_bot): ..., error: Duplicate Telegram bot token
+# Обрабатываем и этот формат, но fallback применяем только к default, чтобы
+# display name других аккаунтов не принять за username.
+telegram_bot_owner_map_from_status() {
+  local line account_id bot_username
+
+  while IFS= read -r line; do
+    account_id="$(printf '%s\n' "$line" \
+      | sed -nE 's/^- Telegram ([A-Za-z0-9_-]+)( \([^)]*\))?:.*/\1/p')"
+    [[ -z "$account_id" ]] && continue
+
+    bot_username="$(printf '%s\n' "$line" \
+      | sed -nE 's/.*bot:@([A-Za-z0-9_]+).*/\1/p')"
+
+    if [[ -z "$bot_username" && "$account_id" == "default" ]]; then
+      bot_username="$(printf '%s\n' "$line" \
+        | sed -nE 's/^- Telegram default \(([A-Za-z0-9_]+)\):.*/\1/p')"
+    fi
+
+    [[ -z "$bot_username" ]] && continue
+    bot_username="$(printf '%s' "$bot_username" | tr '[:upper:]' '[:lower:]')"
+    printf '%s %s\n' "$bot_username" "$account_id"
+  done
+}
+
+# Query exactly once before collecting new bot tokens. A failed status query is
+# intentionally an error: continuing would make it possible to create a second
+# owner for a token that is already configured as the base `default` account.
+telegram_configured_bot_owner_map() {
+  local status
+  status="$(openclaw channels status --probe 2>/dev/null)" || return 1
+  telegram_bot_owner_map_from_status <<<"$status"
+}
+
 # ─── Проверка, существует ли агент с заданным id ────────────────
 agent_exists() {
   local agent_id="$1"

@@ -60,6 +60,49 @@ else
   fail "normalize_telegram_bot_token вернул неожиданный результат: '$cleaned_tg_token'"
 fi
 
+# Регрессия 2026-07: основной бот, созданный первым установщиком, живёт в
+# accountId=default. Его нельзя повторно назначить coordinator (или другому
+# агенту). Проверяем оба формата status, не используя реальный OpenClaw/TG.
+owner_map="$(telegram_bot_owner_map_from_status <<'EOF'
+- Telegram default: enabled, configured, running, mode:polling, bot:@Main_Bot, token:config
+- Telegram coordinator: enabled, configured, running, mode:polling, bot:@Coordinator_Bot, token:config
+EOF
+)"
+default_owner="$(printf '%s\n' "$owner_map" | awk '$1=="main_bot"{print $2; exit}')"
+coordinator_owner="$(printf '%s\n' "$owner_map" | awk '$1=="coordinator_bot"{print $2; exit}')"
+if [[ "$default_owner" != "default" || "$coordinator_owner" != "coordinator" ]]; then
+  fail "telegram_bot_owner_map_from_status не распознала обычный status-format"
+fi
+
+duplicate_status_owner="$(telegram_bot_owner_map_from_status <<'EOF'
+- Telegram default (Coordinator_Bot): enabled, not configured, stopped, mode:polling, token:config, error: Duplicate Telegram bot token
+EOF
+)"
+if [[ "$duplicate_status_owner" != "coordinator_bot default" ]]; then
+  fail "telegram_bot_owner_map_from_status не распознала default в duplicate-token status-format"
+fi
+
+# Проверяем и обёртку, которой пользуется сам установщик: успешный статус
+# возвращает ownership map, а недоступная проверка не маскируется пустой картой.
+openclaw() {
+  if [[ "$1 $2 ${3:-}" == "channels status --probe" ]]; then
+    printf '%s\n' '- Telegram default: enabled, configured, running, mode:polling, bot:@Main_Bot, token:config'
+    return 0
+  fi
+  return 99
+}
+if [[ "$(telegram_configured_bot_owner_map)" != "main_bot default" ]]; then
+  unset -f openclaw
+  fail "telegram_configured_bot_owner_map не передала status в ownership-проверку"
+fi
+openclaw() { return 17; }
+if telegram_configured_bot_owner_map >/dev/null 2>&1; then
+  unset -f openclaw
+  fail "telegram_configured_bot_owner_map скрыла ошибку status-проверки"
+fi
+unset -f openclaw
+pass "Telegram ownership preflight ловит default и duplicate-token status без чтения токенов"
+
 grep -q 'read -r token </dev/tty' scripts/install-agents.sh \
   || fail "install-agents.sh не читает bot token напрямую из /dev/tty (ложный empty token в factory→agents потоке)"
 if grep -qE 'read -r -s +token|read -rs +token' scripts/install-agents.sh; then

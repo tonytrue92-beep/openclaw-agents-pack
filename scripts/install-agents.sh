@@ -1882,12 +1882,20 @@ echo ""
 echo -e "   ${DIM}Профилактика конфига: openclaw doctor --fix (авто-Yes)...${NC}"
 openclaw doctor --fix --yes &>/dev/null || true
 
-# R3-аудит (live): probe отдаёт «- Telegram <agent>: … bot:@<username>» —
-# собираем юзернеймы ботов УЖЕ установленных агентов, чтобы поймать повторное
-# использование занятого бота (раньше ловили только дубли в рамках сессии).
-# Best-effort: если gateway не отвечает — карта пустая, проверка пропускается.
-_existing_bot_map="$(openclaw channels status --probe 2>/dev/null \
-    | sed -nE 's/^- Telegram ([A-Za-z0-9_-]+):.*bot:@([A-Za-z0-9_]+).*/\2 \1/p')"
+# Проверяем ВСЕ уже настроенные Telegram-аккаунты, включая базовый `default`.
+# Раньше карта собиралась best-effort и только по одному формату status, поэтому
+# токен основного бота мог повторно попасть к coordinator. В результате OpenClaw
+# создавал два accountId с одним token и останавливал один из них с
+# `Duplicate Telegram bot token`. Не читаем секрет из конфига: ownership
+# подтверждаем по username из status --probe.
+if ! _existing_bot_map="$(telegram_configured_bot_owner_map)"; then
+  warn "Не удалось безопасно проверить уже настроенных Telegram-ботов."
+  echo -e "   ${DIM}Проверьте OpenClaw и сеть, затем повторите: openclaw channels status --probe${NC}"
+  echo -e "   ${DIM}Установку не продолжаю: нельзя назначать новый бот, пока не исключён дубликат.${NC}"
+  record_telemetry "R2_existing_telegram_check" "failed"
+  _last_exit_reason="telegram_owner_check_failed"
+  exit 1
+fi
 
 for agent in "${AGENTS_TO_INSTALL[@]}"; do
   emoji=""; label=""
@@ -2015,10 +2023,17 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
     # введённых в этой сессии). Повторный ввод того же бота для ТОГО ЖЕ
     # агента (переустановка) — разрешён.
     if [[ -n "${_existing_bot_map:-}" ]]; then
-      _ex_owner=$(printf '%s\n' "$_existing_bot_map" | awk -v u="$username" '$1==u{print $2; exit}')
+      _username_normalized="$(printf '%s' "$username" | tr '[:upper:]' '[:lower:]')"
+      _ex_owner=$(printf '%s\n' "$_existing_bot_map" | awk -v u="$_username_normalized" '$1==u{print $2; exit}')
       if [[ -n "$_ex_owner" && "$_ex_owner" != "$agent" ]]; then
-        warn "Бот @${username} уже привязан к установленному агенту '${_ex_owner}'."
-        echo -e "   ${DIM}Каждому агенту — свой бот. Создайте нового: @BotFather → /newbot.${NC}"
+        if [[ "$_ex_owner" == "default" ]]; then
+          warn "Бот @${username} уже занят базовым OpenClaw-аккаунтом 'default'."
+          echo -e "   ${DIM}Его нельзя одновременно назначить агенту '${agent}': Telegram допускает одного владельца токена.${NC}"
+          echo -e "   ${DIM}Создайте отдельного бота: @BotFather → /newbot. Базового бота не меняю.${NC}"
+        else
+          warn "Бот @${username} уже привязан к установленному агенту '${_ex_owner}'."
+          echo -e "   ${DIM}Каждому агенту — свой бот. Создайте нового: @BotFather → /newbot.${NC}"
+        fi
         [[ -n "$CONFIG_FILE" ]] && exit 1
         echo ""
         echo -e "   ${BOLD}${WHITE}Попробовать другой токен? [Y/n]:${NC}"
@@ -2029,7 +2044,7 @@ for agent in "${AGENTS_TO_INSTALL[@]}"; do
         fi
         continue
       fi
-      unset _ex_owner
+      unset _username_normalized _ex_owner
     fi
 
     # Всё ок — сохраняем и выходим из цикла к следующему агенту
